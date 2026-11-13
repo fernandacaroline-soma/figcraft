@@ -74,7 +74,7 @@ Regras do diagrama:
 - **Decisão (aceita).** Figma Variables são a fonte oficial. O Eureka pode usar snapshot/cache para performance, **somente leitura, com data e hash, gerado do Figma**. Nunca segunda fonte da verdade.
 - **Detalhes propostos:**
   - **Formato.** O JSON de local variables do Figma (`meta.variableCollections`, `meta.variables`, `valuesByMode`, `resolvedType`, `scopes`, `key`, aliases `VARIABLE_ALIAS`), que o `variable.import` lê sem conversor. Mais um bloco `eureka_snapshot` com `source`, `fileKey`, `collection`, `collectionKey`, `modes`, `subset`, `exportedAt`, `contentHash`. O exemplo existente segue isso: `/Users/fernanda.caroline/Claude/eureka-cache/tokens-web-animale-farm-9d7af6d863af.json` (23 variables, Animale e Farm, `exportedAt 2026-11-13T15:51:34Z`).
-  - **Onde fica. Recomendação: fora do repo do Eureka**, numa pasta de cache local (`~/Claude/eureka-cache/` hoje) e na raiz de leitura do app (`--automation-read-root`). Motivos: o repo não deve manter cópia de material do DS (HANDOFF, "Como reproduzir"); um arquivo versionado no git tende a virar fonte. Alternativa: versionar só um **manifesto** (fileKey, collectionKey, modos, hash, data), sem valores, para testes reproduzirem "qual snapshot usei". Testes automatizados usam fixture **sintética**, não tokens reais. → decisão pendente D2.
+  - **Onde fica. Recomendação: fora do repo do Eureka**, numa pasta de cache local (`~/Claude/eureka-cache/` hoje) e na raiz de leitura do app (`--automation-read-root`). Motivos: o repo não deve manter cópia de material do DS (HANDOFF, "Como reproduzir"); um arquivo versionado no git tende a virar fonte. Alternativa: versionar só um **manifesto** (fileKey, collectionKey, modos, hash, data), sem valores, para testes reproduzirem "qual snapshot usei". Testes automatizados usam fixture **sintética**, não tokens reais. → **D2 aceita pela dona em 13/11: cache fora do repo; no repo só manifesto sem valores; testes com fixture sintética.**
   - **Invalidação.** Nome do arquivo e manifesto com hash (recomendo SHA-256 completo no manifesto; o exemplo usa 12 caracteres, suficiente para nome, fraco para conferência). Regra: ao iniciar uma sessão, o orquestrador compara o hash do snapshot com uma leitura leve do Figma (contagem + data da última publicação, quando legível); diferente = gerar novo snapshot. Sem acesso ao Figma = usar o snapshot com **aviso visível** ("tokens de DD/MM, não confirmados"). Validade padrão sugerida: 7 dias; vencido = aviso, nunca bloqueio silencioso. Versão publicada da biblioteca: **não sabemos ler hoje** (E02, pergunta aberta).
   - **Business Rule e Components na mesma coleção.** Tokens WEB tem `Business Rule/*` (22 string, 17 boolean) e `Components/*` (41 string, 77 boolean, 5 float) junto dos visuais (E02). O adaptador separa por **primeiro segmento do nome** em três grupos: `visual` (Colors, Spacing, Font, Border…), `business_rule` e `component_config`. O lint e o gerador só usam `visual` para estilo. `business_rule` entra como texto padrão de marca (memória: textos padrão por token Business Rule). `component_config` nunca vira copy. Importação para o Eureka: só `visual` por padrão; os outros sob pedido.
   - **Sem `codeSyntax`.** 0 de 326 variables têm `codeSyntax` (E02). O nome CSS é **derivado** (minúsculas, `/` e espaço → `-`) e marcado `derivado: true`. Não pedir ao DS para criar `codeSyntax` como parte deste projeto (não alterar DS); registrar como sugestão para a liderança.
@@ -111,11 +111,14 @@ Regras do diagrama:
   - **Cartão de proposta (B)** é a única superfície de revisão, usada por A e C.
 - **Alternativas.** (a) Aplicar e confiar no ⌘Z (estado atual do spike): não mostra antes. (b) Cópia do documento em outra aba: pesado e confunde.
 - **Consequências.** 2 arquivos do upstream no passo 0 (`edit.rs`, `undo.rs`); 3 + 1 novo no passo 1; 1 (`exec.rs`) para eventos.
-- **Status.** **Proposta, aguardando resultado do spike** (Gate 0).
+- **Status.** **Passo 0 validado no spike** (13/11). Passo 1 (`proposal.*` com estado) e evento `document.changed` seguem como **Proposta** para o G1.
 - **Critério de sucesso do spike** (E01): em 20 batches reais, `create → reject` deixa o `Document` igual (`PartialEq`) e o `undo_depth` igual; `create → accept` soma exatamente 1; nó editado pelo designer entre criar e aceitar = `stale`.
-- **Resultado do spike:** *(a preencher)*
-  - Data / quem rodou / modelo:
-  - Batches testados:
+- **Resultado do spike (13/11/2026, Editor Engineer · Sonnet; revisão Integration Lead · Opus; commit `e8f06439`):**
+  - Implementado: `command.batch {dryRun}` (rollback total, diff por propriedade, `baseHash` FNV-64 dos nós/variables tocados), `command.batch {ifUnchanged}` (aplica em 1 passo de desfazer ou falha `stale` com os conflitos), `document.checkpoint` / `document.changesSince` (até 8 snapshots), `proposal.preview` / `proposal.previewEnd` (canvas só leitura via `start_preview`). Código novo em `cmd/eureka.rs`; upstream: só linhas de registro em `cmd.rs`, `edit.rs`, `lib.rs`, `session/new.rs`, `session/exec.rs`, `tests.rs`, `mcp/tools.rs`.
+  - Testes: 7 novos (dry-run sem rastro, aceite = +1 desfazer, `stale` em nó tocado e aceite em nó não tocado, delta de texto/cor/vínculo, cursor inválido, preview só leitura) + sweep de parâmetros; 66 testes do engine e 18 do MCP passaram; fmt, clippy (engine, mcp) e `xtask layers` ok. **Não rodados:** `xtask ci`, wasm, suíte completa.
+  - Demo no app real com snapshot do Figma (Tokens WEB, Animale/Farm): gerar → editar → delta → preview → aceitar (textos do designer preservados) → desfazer → `stale` → troca de marca. Evidência em `docs/eureka/demo-s1/`. Dry-run: 1,9 ms em 7 nós.
+  - **Critério de sucesso parcialmente atendido:** os invariantes foram provados em testes, mas não em 20 batches reais; medir desempenho em documento grande fica para o G1.
+  - Limitações: o engine não aplica escopo de variable (ver D4); diff com ruído de layout (`transform`, `width`, `height`, `children`); preview reaproveita a faixa de "versão"; dry-runs lembrados só em memória (16); ids criados no aceite podem diferir do preview se o designer criar nós no meio.
   - Rollback sem rastro: sim / não — evidência:
   - Aceitar = 1 desfazer: sim / não — evidência:
   - `stale` detectado: sim / não — evidência:
@@ -135,7 +138,7 @@ Regras do diagrama:
   - **CI.** Recomendo CI **próprio do Eureka** em workflow separado (`cargo xtask ci` + testes do Eureka), sem editar os workflows do upstream. Os workflows do upstream ficam como estão (podem falhar no fork). Alternativa: pedir acesso ao `craft-common-actions`.
   - **Regra 15.** PR para o upstream: sem atribuição de agente. No fork: livre (decisão da dona no E01). Regras do Eureka nunca no bloco com hash do `AGENTS.md`.
   - **Rebranding ArtCraft:** obrigatório antes de distribuir (nome, logo, "Sobre", metadados do executável, links). Não editar os `.md` de marca do upstream; substituir assets e registrar em `ATTRIBUTION.md`. Desligar `craft-update` (hipótese: consulta releases do upstream).
-- **Ainda precisa de decisão:** D5 (CI próprio × pedir acesso), D6 (nome/marca do produto), D7 (Eureka contribui de volta ao upstream ou só consome?).
+- **D5 aceita (13/11): workflow próprio do Eureka, sem mexer nos do upstream.** **Ainda precisa de decisão:** D6 (nome/marca do produto), D7 (Eureka contribui de volta ao upstream ou só consome?).
 - **Status.** Aceita (dona do produto, 13/11) no princípio. **Pendente da dona** nos itens acima.
 - **Evidência.** E01 "Licença e dependências", "Extensibilidade e convivência", "3 riscos críticos" (risco 2); `AGENTS.md` regras 11 e 15.
 
@@ -170,7 +173,7 @@ Regras do diagrama:
   4. Tratar origem "Claude (agent)" como informativa; o Gatekeeper nunca depende dela.
   5. Desligar `online.*`/`live.*` no MVP.
 - **Alternativas.** (a) Aceitar o risco no MVP só em máquina pessoal (mais rápido). (b) Proxy autenticado fora do app (zero upstream, mais uma peça). (c) Token no `control_server.rs` (simples, um patch no upstream; bom candidato a contribuir de volta).
-- **Status.** **Pendente da dona.** Recomendação: 1, 2, 4 e 5 já no MVP; token (c) antes de outro designer usar.
+- **Status.** **Aceita (dona do produto, 13/11)** conforme a recomendação: 1, 2, 4 e 5 já no MVP; token (c) antes de outro designer usar.
 - **Evidência.** E01 "Segurança", "3 riscos críticos" (risco 1); E04 pergunta 4.
 
 ### ADR-009 — Origem por camada (IA × humano) e proteção de edição manual
@@ -361,11 +364,11 @@ Regras para todas as fases: worktree por frente; nada de merge sem a dona; `carg
 
 | # | Decisão | Recomendação | Alternativas |
 |---|---|---|---|
-| D1 | Segurança do canal local no MVP (ADR-008) | Raízes confinadas + porta aleatória + sem `online/live` já; token antes do 2º usuário | Aceitar risco só em máquina pessoal; proxy autenticado |
-| D2 | Onde fica o cache de tokens (ADR-002) | Fora do repo; no repo só manifesto sem valores; testes com fixture sintética | Versionar snapshot no repo; repo privado só de snapshots |
+| D1 ✅ Aceita 13/11 | Segurança do canal local no MVP (ADR-008) | Raízes confinadas + porta aleatória + sem `online/live` já; token antes do 2º usuário | Aceitar risco só em máquina pessoal; proxy autenticado |
+| D2 ✅ Aceita 13/11 | Onde fica o cache de tokens (ADR-002) | Fora do repo; no repo só manifesto sem valores; testes com fixture sintética | Versionar snapshot no repo; repo privado só de snapshots |
 | D3 | Aliases no snapshot (ADR-002) | Guardar alias e valor resolvido | Só resolvido (como o exemplo atual) |
 | D4 | Escopo `GAP` do Spacing usado em padding (ADR-002) | Aviso, não erro, até a liderança de DS decidir | Erro; ignorar escopos |
-| D5 | CI (ADR-005) | Workflow próprio do Eureka, sem mexer nos do upstream | Pedir acesso ao `craft-common-actions` |
+| D5 ✅ Aceita 13/11 | CI (ADR-005) | Workflow próprio do Eureka, sem mexer nos do upstream | Pedir acesso ao `craft-common-actions` |
 | D6 | Nome e marca do produto (rebranding obrigatório) | Definir antes de G3 | — |
 | D7 | Contribuir de volta ao upstream (ex.: token do canal, dry-run) | Sim, para mudanças genéricas; reduz conflito de rebase | Só consumir |
 | D8 | Ponto de entrada do DS Experts (ADR-006) | Skills individuais por capacidade no MVP; `ds-workflow` para demandas longas | `ds-orchestrator` como entrada única |
