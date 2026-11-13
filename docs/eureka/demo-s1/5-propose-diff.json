@@ -1,0 +1,189 @@
+{
+ "baseHash": "60d6dbd38d12aa77",
+ "changed": [
+  {
+   "id": 3,
+   "name": "Product Card",
+   "props": {
+    "children": [
+     [
+      4,
+      5,
+      6,
+      7
+     ],
+     [
+      4,
+      9,
+      5,
+      6,
+      7
+     ]
+    ],
+    "height": [
+     394.0,
+     431.0
+    ]
+   }
+  },
+  {
+   "id": 5,
+   "name": "Nome",
+   "props": {
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      268.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      305.0
+     ]
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "name": "Preço",
+   "props": {
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      303.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      340.0
+     ]
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "name": "Button",
+   "props": {
+    "bound": [
+     {
+      "cornerRadius": "VariableID:6"
+     },
+     {
+      "cornerRadius": "VariableID:6",
+      "fill": "VariableID:10"
+     }
+    ],
+    "fills": [
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 1.0,
+        "b": 0.16470588743686676,
+        "g": 0.29411765933036804,
+        "r": 0.47843137383461
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ],
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 1.0,
+        "b": 0.050999999046325684,
+        "g": 0.050999999046325684,
+        "r": 0.050999999046325684
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ]
+    ],
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      338.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      375.0
+     ]
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "name": "Label",
+   "props": {
+    "bound": [
+     {
+      "fontSize": "VariableID:22"
+     },
+     {
+      "fill": "VariableID:18",
+      "fontSize": "VariableID:22"
+     }
+    ]
+   }
+  }
+ ],
+ "created": [
+  {
+   "id": 9,
+   "name": "Selo Frete grátis",
+   "parent": 3,
+   "type": "frame"
+  },
+  {
+   "id": 10,
+   "name": "Selo texto",
+   "parent": 9,
+   "type": "text"
+  }
+ ],
+ "dryRun": true,
+ "elapsedMs": 1.873416,
+ "removed": [],
+ "results": [
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "id": 9
+  },
+  {
+   "id": 10
+  }
+ ],
+ "total": 7,
+ "truncated": false
+}

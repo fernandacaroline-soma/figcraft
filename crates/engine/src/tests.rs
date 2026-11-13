@@ -465,6 +465,12 @@ fn every_command_survives_junk_params() {
         json!({"id": 2, "fields": ["Name", "noSuchField"]}),
         json!({"id": 2, "fields": null, "outline": []}),
         json!({"id": 2, "outline": "yes"}),
+        // Proposals: dry runs, guards, checkpoints and cursors as junk.
+        json!({"dryRun": "yes", "ifUnchanged": [1], "commands": 5, "label": {"x": 1}}),
+        json!({"dryRun": true, "ifUnchanged": "x", "commands": [{"command": "file.new"}], "onError": "continue"}),
+        json!({"dryRun": true, "commands": [{"command": "command.batch", "params": {"commands": [{"command": 7}]}}]}),
+        json!({"cursor": -1, "advance": "maybe", "limit": 1e308}),
+        json!({"cursor": 1e308, "advance": [], "limit": -5}),
         // Layer search roots, filters and limits as junk.
         json!({"root": {"id": 2}, "name": [1], "type": "nope", "text": true, "component": [], "limit": -1}),
         json!({"root": 999999, "limit": 1e308}),

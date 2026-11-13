@@ -1,0 +1,135 @@
+{
+ "changed": [
+  {
+   "id": 5,
+   "name": "Nome",
+   "props": {
+    "characters": [
+     "Camisa de linho manga longa",
+     "Camisa de linho off-white"
+    ],
+    "overrides": [
+     null,
+     [
+      "characters"
+     ]
+    ],
+    "width": [
+     213.0,
+     183.0
+    ]
+   }
+  },
+  {
+   "id": 6,
+   "name": "Preço",
+   "props": {
+    "characters": [
+     "R$ 389,90",
+     "R$ 349,90"
+    ],
+    "overrides": [
+     null,
+     [
+      "characters"
+     ]
+    ]
+   }
+  },
+  {
+   "id": 7,
+   "name": "Button",
+   "props": {
+    "bound": [
+     {
+      "cornerRadius": "VariableID:6",
+      "fill": "VariableID:11"
+     },
+     {
+      "cornerRadius": "VariableID:6"
+     }
+    ],
+    "fills": [
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 0.0,
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ],
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 1.0,
+        "b": 0.16470588743686676,
+        "g": 0.29411765933036804,
+        "r": 0.47843137383461
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ]
+    ]
+   }
+  },
+  {
+   "id": 8,
+   "name": "Label",
+   "props": {
+    "bound": [
+     {
+      "fill": "VariableID:17",
+      "fontSize": "VariableID:22"
+     },
+     {
+      "fontSize": "VariableID:22"
+     }
+    ],
+    "fills": [
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 1.0,
+        "b": 0.050999999046325684,
+        "g": 0.050999999046325684,
+        "r": 0.050999999046325684
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ],
+     [
+      {
+       "blend": "normal",
+       "color": {
+        "a": 1.0,
+        "b": 1.0,
+        "g": 1.0,
+        "r": 1.0
+       },
+       "opacity": 1.0,
+       "type": "solid",
+       "visible": true
+      }
+     ]
+    ]
+   }
+  }
+ ],
+ "created": [],
+ "cursor": 2,
+ "removed": [],
+ "total": 4,
+ "truncated": false
+}

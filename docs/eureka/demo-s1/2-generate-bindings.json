@@ -1,0 +1,44 @@
+[
+ {
+  "field": "gap",
+  "variable": "Spacing/Mobile/sp-productcard-gap",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "gap",
+  "variable": "Spacing/sp-md",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "paddingHorizontal",
+  "variable": "Spacing/sp-sm",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "cornerRadius",
+  "variable": "Border/Radius/Components/br-card",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "cornerRadius",
+  "variable": "Border/Radius/Components/br-button",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "fontSize",
+  "variable": "Font/Size/fs-xs",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "fontSize",
+  "variable": "Font/Size/fs-xxs",
+  "bound": true,
+  "error": null
+ }
+]

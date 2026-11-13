@@ -5,6 +5,7 @@ pub mod comment;
 pub mod component;
 pub mod create;
 pub mod edit;
+pub mod eureka;
 pub mod facilitate;
 pub mod file;
 pub mod image;
@@ -76,6 +77,7 @@ fn registry() -> &'static Registry {
         let mut list = Vec::new();
         list.extend(create::specs());
         list.extend(edit::specs());
+        list.extend(eureka::specs());
         list.extend(lists::specs());
         list.extend(crate::selection_colors::specs());
         list.extend(arrange::specs());

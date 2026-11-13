@@ -507,31 +507,40 @@ pub fn specs() -> Vec<CommandSpec> {
             }
             ok()
         }),
-        spec!("command.batch", "Run several commands", "{label?, onError?, commands: [{command, params, as?}]} (one undo step)", false, |s, p| {
-            // `continue` rolls back only the failed steps and returns one outcome per step.
-            let continue_on_error = match get(p, "onError") {
-                None => false,
-                Some(Value::String(mode)) if mode == "abort" => false,
-                Some(Value::String(mode)) if mode == "continue" => true,
-                Some(_) => return Err(bad("command.batch", "`onError` must be \"abort\" or \"continue\"")),
-            };
-            let label = string(p, "label").unwrap_or_else(|| "Batch".into());
-            let cmds: Vec<BatchStep> = match get(p, "commands") {
-                Some(Value::Array(a)) => {
-                    let mut out = Vec::new();
-                    for (i, c) in a.iter().enumerate() {
-                        let cmd =
-                            c.get("command").and_then(Value::as_str).ok_or_else(|| bad("command.batch", format!("step {i} has no `command`")))?;
-                        crate::batch::refuse_unknown_step_keys(i, c)?;
-                        let params = c.get("params").cloned().unwrap_or(json!({}));
-                        out.push(BatchStep { name: crate::batch::step_name(i, c)?, ..BatchStep::new(cmd, params) });
+        spec!(
+            "command.batch",
+            "Run several commands",
+            "{label?, onError?, dryRun? (run it, return the diff {created, removed, changed: {id, name, props: {key: [before, after]}}, baseHash} and roll everything back: no undo step), ifUnchanged? (a dry run's baseHash: apply only if the layers it touches are unchanged, else a `stale` error), commands: [{command, params, as?}]} (one undo step)",
+            false,
+            |s, p| {
+                // `continue` rolls back only the failed steps and returns one outcome per step.
+                let continue_on_error = match get(p, "onError") {
+                    None => false,
+                    Some(Value::String(mode)) if mode == "abort" => false,
+                    Some(Value::String(mode)) if mode == "continue" => true,
+                    Some(_) => return Err(bad("command.batch", "`onError` must be \"abort\" or \"continue\"")),
+                };
+                let label = string(p, "label").unwrap_or_else(|| "Batch".into());
+                let cmds: Vec<BatchStep> = match get(p, "commands") {
+                    Some(Value::Array(a)) => {
+                        let mut out = Vec::new();
+                        for (i, c) in a.iter().enumerate() {
+                            let cmd =
+                                c.get("command").and_then(Value::as_str).ok_or_else(|| bad("command.batch", format!("step {i} has no `command`")))?;
+                            crate::batch::refuse_unknown_step_keys(i, c)?;
+                            let params = c.get("params").cloned().unwrap_or(json!({}));
+                            out.push(BatchStep { name: crate::batch::step_name(i, c)?, ..BatchStep::new(cmd, params) });
+                        }
+                        out
                     }
-                    out
+                    _ => return Err(bad("command.batch", "`commands` must be an array")),
+                };
+                if get(p, "dryRun").is_some() || get(p, "ifUnchanged").is_some() {
+                    return super::eureka::run_batch(s, p, &label, &cmds, continue_on_error);
                 }
-                _ => return Err(bad("command.batch", "`commands` must be an array")),
-            };
-            Ok(Value::Array(if continue_on_error { s.batch_continue(&label, &cmds)? } else { s.batch(&label, &cmds)? }))
-        }),
+                Ok(Value::Array(if continue_on_error { s.batch_continue(&label, &cmds)? } else { s.batch(&label, &cmds)? }))
+            }
+        ),
         spec!("edit.repeat", "Repeat last command", "{}", true, |s, _| {
             let Some((id, p)) = s.last_command.clone().filter(|(id, _)| id != "edit.repeat") else {
                 return Err(EngineError::Disabled("edit.repeat".into(), "nothing to repeat".into()));

@@ -1,0 +1,16 @@
++ criado   Selo Frete grátis (frame) em 3  [id 9]
++ criado   Selo texto (text) em 9  [id 10]
+~ alterado Product Card  [id 3]
+      children: [4, 5, 6, 7]  ->  [4, 9, 5, 6, 7]
+      height: 394.0  ->  431.0
+~ alterado Nome  [id 5]
+      transform: [1.0, 0.0, 0.0, 1.0, 12.0, 268.0]  ->  [1.0, 0.0, 0.0, 1.0, 12.0, 305.0]
+~ alterado Preço  [id 6]
+      transform: [1.0, 0.0, 0.0, 1.0, 12.0, 303.0]  ->  [1.0, 0.0, 0.0, 1.0, 12.0, 340.0]
+~ alterado Button  [id 7]
+      bound: {"cornerRadius": "VariableID:6"}  ->  {"cornerRadius": "VariableID:6", "fill": "VariableID:10"}
+      fills: [{"blend": "normal", "color": {"a": 1.0, "b": 0.16470588743686676, "g": 0.2941176593303680  ->  [{"blend": "normal", "color": {"a": 1.0, "b": 0.050999999046325684, "g": 0.050999999046325
+      transform: [1.0, 0.0, 0.0, 1.0, 12.0, 338.0]  ->  [1.0, 0.0, 0.0, 1.0, 12.0, 375.0]
+~ alterado Label  [id 8]
+      bound: {"fontSize": "VariableID:22"}  ->  {"fill": "VariableID:18", "fontSize": "VariableID:22"}
+total 7  baseHash 60d6dbd38d12aa77  dry-run 1.9 ms

@@ -169,11 +169,13 @@ fn tools() -> Vec<Value> {
         tool(
             "batch",
             "Run commands as one step",
-            "Run several commands in order as ONE undo step (engine `command.batch`). By default (onError: \"abort\"), if any command fails, everything is rolled back and the error names the failing step; success returns an array of the results in order. With onError: \"continue\", a failed step is rolled back on its own, the later steps still run, the call is not an error, and the array instead holds one {step, command, ok, result} or {step, command, ok, error} object per step; a reference to a failed step fails that step too. A later step can use what an earlier step returned: name a step with \"as\": \"card\", then anywhere in a later step's params {\"$ref\": \"card\"} stands for the `id` in its result ({\"$step\": n} does the same by zero-based position). Add \"field\" for another part of the result: a key or a slash path, e.g. {\"$ref\": \"copy\", \"field\": \"ids/0\"} for the first id edit.duplicate returned (with \"map\": true it also returns `map`, each original id → its copy, so \"field\": \"map/3\" is the copy of layer 3). Any object with a `$ref` or `$step` key is a reference. Example: [{\"command\":\"node.create\",\"as\":\"card\",\"params\":{\"type\":\"frame\"}}, {\"command\":\"node.create\",\"params\":{\"type\":\"text\",\"text\":\"Hi\",\"parent\":{\"$ref\":\"card\"}}}] builds a frame and a text inside it in one call.",
+            "Run several commands in order as ONE undo step (engine `command.batch`). By default (onError: \"abort\"), if any command fails, everything is rolled back and the error names the failing step; success returns an array of the results in order. With onError: \"continue\", a failed step is rolled back on its own, the later steps still run, the call is not an error, and the array instead holds one {step, command, ok, result} or {step, command, ok, error} object per step; a reference to a failed step fails that step too. A later step can use what an earlier step returned: name a step with \"as\": \"card\", then anywhere in a later step's params {\"$ref\": \"card\"} stands for the `id` in its result ({\"$step\": n} does the same by zero-based position). Add \"field\" for another part of the result: a key or a slash path, e.g. {\"$ref\": \"copy\", \"field\": \"ids/0\"} for the first id edit.duplicate returned (with \"map\": true it also returns `map`, each original id → its copy, so \"field\": \"map/3\" is the copy of layer 3). Any object with a `$ref` or `$step` key is a reference. Example: [{\"command\":\"node.create\",\"as\":\"card\",\"params\":{\"type\":\"frame\"}}, {\"command\":\"node.create\",\"params\":{\"type\":\"text\",\"text\":\"Hi\",\"parent\":{\"$ref\":\"card\"}}}] builds a frame and a text inside it in one call. Proposals: with dryRun: true nothing is kept (no undo step, same ids afterwards) and the result is the diff {created, removed, changed: [{id, name, props: {key: [before, after]}}], variables?, baseHash}; show it, then apply the same batch with ifUnchanged: <baseHash> (one undo step; a `stale` error, with the conflicts, if a layer it touches changed in between). run_command `document.checkpoint` / `document.changesSince {cursor}` tell what the designer changed since your last turn; `proposal.preview` shows a dry run on the canvas (`proposal.previewEnd` leaves it).",
             obj(
                 json!({
                     "commands": {"type": "array", "minItems": 1, "description": "Steps to run", "items": obj(json!({"command": string("Command id"), "params": {"type": "object"}, "as": string("Name for this step, unique in the batch; later steps use its result with {\"$ref\": name}")}), &["command"])},
                     "label": string("Undo history label (default \"Batch\")"),
+                    "dryRun": {"type": "boolean", "description": "Run the batch, return the diff and roll everything back (no undo step, no trace)"},
+                    "ifUnchanged": string("A dry run's baseHash: apply only if the layers it touches are unchanged since, else a `stale` error"),
                     "onError": {"type": "string", "enum": ["abort", "continue"], "description": "abort (default) rolls back the whole batch on the first failure; continue rolls back only the failed step, runs the rest and returns one {step, command, ok, result|error} object per step"},
                 }),
                 &["commands"],
@@ -661,6 +663,11 @@ fn batch(b: &mut dyn Backend, a: &Map<String, Value>) -> Result<ToolResult, Stri
     let mut params = json!({"label": label, "commands": steps});
     if let Some(mode) = a.get("onError") {
         params["onError"] = mode.clone();
+    }
+    for key in ["dryRun", "ifUnchanged"] {
+        if let Some(v) = a.get(key) {
+            params[key] = v.clone();
+        }
     }
     exec(b, "command.batch", params).map(|v| ToolResult::json(&v))
 }

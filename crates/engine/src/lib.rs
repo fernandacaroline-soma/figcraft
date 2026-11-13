@@ -162,6 +162,8 @@ pub struct Session {
     pub agent: Option<String>,
     /// Where an attached AI agent last worked ([`Session::agent_presence_at`]): display only.
     pub agent_presence: Option<agent::AgentPresence>,
+    /// Checkpoints and remembered dry runs (`document.checkpoint`, `command.batch {dryRun}`).
+    pub(crate) eureka: cmd::eureka::State,
 }
 
 impl Default for Session {
@@ -312,6 +314,8 @@ mod duplicate_map_tests;
 mod duplicate_spacing_tests;
 #[cfg(test)]
 mod effects_tests;
+#[cfg(test)]
+mod eureka_tests;
 #[cfg(test)]
 mod events_tests;
 #[cfg(test)]
