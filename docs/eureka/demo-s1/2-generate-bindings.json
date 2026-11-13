@@ -18,6 +18,24 @@
   "error": null
  },
  {
+  "field": "paddingVertical",
+  "variable": "Spacing/sp-sm",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "paddingHorizontal",
+  "variable": "Spacing/sp-md",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "paddingVertical",
+  "variable": "Spacing/sp-md",
+  "bound": true,
+  "error": null
+ },
+ {
   "field": "cornerRadius",
   "variable": "Border/Radius/Components/br-card",
   "bound": true,
@@ -26,6 +44,12 @@
  {
   "field": "cornerRadius",
   "variable": "Border/Radius/Components/br-button",
+  "bound": true,
+  "error": null
+ },
+ {
+  "field": "fontSize",
+  "variable": "Font/Size/fs-xs",
   "bound": true,
   "error": null
  },

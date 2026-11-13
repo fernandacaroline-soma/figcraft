@@ -1,5 +1,5 @@
 {
- "error": "stale: the layers this proposal touches changed since the dry run (baseHash 60d6dbd38d12aa77); nothing was applied. Run the dry run again. conflicts: [{\"id\":\"7\",\"name\":\"Button\",\"props\":{\"fills\":[[{\"blend\":\"normal\",\"color\":{\"a\":1.0,\"b\":0.16470588743686676,\"g\":0.29411765933036804,\"r\":0.47843137383461},\"opacity\":1.0,\"type\":\"solid\",\"visible\":true}],[{\"blend\":\"normal\",\"color\":{\"a\":1.0,\"b\":0.3333333432674408,\"g\":0.6666666865348816,\"r\":0.0},\"opacity\":1.0,\"type\":\"solid\",\"visible\":true}]]}}]",
- "id": 45,
+ "error": "stale: the layers this proposal touches changed since the dry run (baseHash ebccc3f871e01038); nothing was applied. Run the dry run again. conflicts: Button #7 [fills]",
+ "id": 50,
  "ok": false
 }

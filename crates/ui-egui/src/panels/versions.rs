@@ -525,21 +525,42 @@ pub fn preview_banner(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         return;
     };
     let t = Tokens::get(ctx);
+    // A proposal's preview (`proposal.preview`): nothing was applied; Discard or Apply it.
+    let proposal = id == figcraft_engine::cmd::eureka::PREVIEW_ID;
     let action = widgets::canvas_banner(ctx, Id::unique("version_preview_banner"), canvas, |ui| {
         let mut action = None;
         icons::paint(ui.painter(), Rect::from_center_size(ui.cursor().min + vec2(7.0, 12.0), vec2(14.0, 14.0)), Icon::Clock, t.icon_secondary);
         ui.add_space(20.0);
-        ui.label(egui::RichText::new(trf("Viewing “{name}”", &[("name", &name)])).font(semibold(11.0)).color(t.text));
-        ui.label(egui::RichText::new(crate::comments::ago_long(time)).font(regular(11.0)).color(t.text_secondary));
+        if proposal {
+            ui.label(egui::RichText::new(tr("Claude’s proposal preview · nothing was applied")).font(semibold(11.0)).color(t.text));
+            ui.label(egui::RichText::new(name.clone()).font(regular(11.0)).color(t.text_secondary));
+        } else {
+            ui.label(egui::RichText::new(trf("Viewing “{name}”", &[("name", &name)])).font(semibold(11.0)).color(t.text));
+            ui.label(egui::RichText::new(crate::comments::ago_long(time)).font(regular(11.0)).color(t.text_secondary));
+        }
         ui.add_space(4.0);
-        if widgets::button(ui, tr("Back to current"), false, true).clicked() {
+        if widgets::button(ui, if proposal { tr("Discard") } else { tr("Back to current") }, false, true).clicked() {
             action = Some(false);
         }
-        if widgets::button(ui, tr("Restore this version"), true, true).clicked() {
+        if widgets::button(ui, if proposal { tr("Apply proposal") } else { tr("Restore this version") }, true, true).clicked() {
             action = Some(true);
         }
         action
     });
+    if proposal {
+        match action {
+            Some(true) => {
+                if app.run("proposal.apply", json!({})).is_some() {
+                    app.toast(tr("Proposal applied"));
+                }
+            }
+            Some(false) => {
+                app.run("proposal.previewEnd", json!({}));
+            }
+            None => {}
+        }
+        return;
+    }
     match action {
         Some(true) => {
             if app.run("version.restore", json!({"id": id})).is_some() {

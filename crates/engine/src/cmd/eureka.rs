@@ -29,7 +29,7 @@ const MAX_VALUE_BYTES: usize = 4000;
 /// Layers whose before state a remembered dry run keeps.
 const MAX_REMEMBERED_NODES: usize = 5000;
 /// Id of the document preview a proposal shows.
-const PREVIEW_ID: &str = "eureka-proposal";
+pub const PREVIEW_ID: &str = "eureka-proposal";
 
 /// Commands (and prefixes) with effects outside the document, which a rollback can't undo.
 const FORBIDDEN_PREFIXES: &[&str] =
@@ -41,6 +41,8 @@ pub(crate) struct State {
     next_cursor: u64,
     checkpoints: VecDeque<Checkpoint>,
     proposals: VecDeque<Proposal>,
+    /// The last `proposal.preview`: its batch and baseHash, for `proposal.apply`.
+    shown: Option<(Value, String)>,
 }
 
 struct Checkpoint {
@@ -63,6 +65,8 @@ struct Diff {
     changed: Vec<Value>,
     variables: Value,
     total: usize,
+    /// Created or changed layers using a raw value where the design system has variables.
+    warnings: Vec<Value>,
     /// The touched layers as they were before (`None`: not there yet).
     nodes_before: BTreeMap<NodeId, Option<Value>>,
     vars_before: BTreeMap<String, Option<Value>>,
@@ -125,19 +129,40 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "proposal.preview",
             "Preview a proposal",
-            "{label?, onError?, commands: [{command, params, as?}]}  dry-run the batch (as `command.batch` with `dryRun`) and show the result on the canvas in place of the document, read-only; `proposal.previewEnd` goes back. Applying with `command.batch {ifUnchanged}` ends it → the dry-run diff",
+            "{label?, onError?, commands: [{command, params, as?}]}  dry-run the batch (as `command.batch` with `dryRun`) and show the result on the canvas in place of the document, read-only; `proposal.previewEnd` goes back, `proposal.apply` applies it (guarded by its baseHash) → the dry-run diff",
             false,
             |s, p| {
                 let (label, steps, cont) = parse_batch(p)?;
-                end_proposal_preview(s)?;
-                let (out, after) = dry_run(s, &label, &steps, cont)?;
+                let (mut out, after) = dry_run(s, &label, &steps, cont)?;
+                let hash = out.get("baseHash").and_then(Value::as_str).unwrap_or_default().to_string();
                 s.ds_mut()?.start_preview(PREVIEW_ID, &label, 0, after);
+                s.eureka.shown = Some((p.clone(), hash));
+                if let Some(o) = out.as_object_mut() {
+                    o.insert("preview".into(), json!(true));
+                }
                 Ok(out)
             }
         ),
-        spec!("proposal.previewEnd", "End proposal preview", "{}  go back from a `proposal.preview` → {ended}", false, |s, _| {
-            Ok(json!({"ended": end_proposal_preview(s)?}))
-        }),
+        spec!(
+            "proposal.previewEnd",
+            "End proposal preview",
+            "{}  go back from a `proposal.preview` (nothing was applied) → {ended}",
+            false,
+            |s, _| { Ok(json!({"ended": end_proposal_preview(s)?})) }
+        ),
+        spec!(
+            "proposal.apply",
+            "Apply the proposal",
+            "{}  leave the `proposal.preview` and apply its batch as one undo step, only if the layers it touches are unchanged since the dry run (else a `stale` error; the preview is over either way)",
+            false,
+            |s, _| {
+                let Some((params, hash)) = s.eureka.shown.take() else {
+                    return Err(bad("proposal.apply", "no proposal to apply: show one with `proposal.preview` first"));
+                };
+                let (label, steps, cont) = parse_batch(&params)?;
+                apply_guarded(s, &label, &steps, cont, &hash)
+            }
+        ),
     ]
 }
 
@@ -239,12 +264,14 @@ pub(crate) fn run_batch(s: &mut Session, p: &Value, label: &str, steps: &[BatchS
     if dry && guard.is_some() {
         return Err(bad("command.batch", "`dryRun` and `ifUnchanged` can't be used together: dry-run first, then apply with `ifUnchanged`"));
     }
+    if (dry || guard.is_some()) && s.ds()?.preview.is_some() {
+        // Ending the preview here would let a failure roll the document back to the preview.
+        return Err(bad("command.batch", "a preview is showing: leave it first (`proposal.previewEnd`, or `proposal.apply` for a proposal)"));
+    }
     if dry {
-        end_proposal_preview(s)?;
         return dry_run(s, label, steps, cont).map(|(v, _)| v);
     }
     let Some(guard) = guard else { return Ok(Value::Array(run_steps(s, label, steps, cont)?)) };
-    end_proposal_preview(s)?;
     apply_guarded(s, label, steps, cont, &guard)
 }
 
@@ -271,6 +298,7 @@ fn dry_run(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool) -> Res
     let mut out = diff.to_json(MAX_ENTRIES);
     if let Some(o) = out.as_object_mut() {
         o.insert("dryRun".into(), json!(true));
+        o.insert("dsWarnings".into(), Value::Array(diff.warnings.clone()));
         o.insert("baseHash".into(), json!(hash));
         o.insert("results".into(), Value::Array(results));
         o.insert("elapsedMs".into(), json!(started.elapsed().as_secs_f64() * 1000.0));
@@ -323,8 +351,27 @@ fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, 
 }
 
 fn stale(hash: &str, conflicts: Value) -> EngineError {
+    let text = match conflicts.as_array() {
+        Some(list) => list
+            .iter()
+            .map(|c| {
+                let what = match (c.get("props").and_then(Value::as_object), c.get("removed"), c.get("created")) {
+                    (Some(p), _, _) => p.keys().cloned().collect::<Vec<_>>().join(", "),
+                    (_, Some(_), _) => "removed".to_string(),
+                    _ => "created".to_string(),
+                };
+                format!(
+                    "{} #{} [{what}]",
+                    c.get("name").and_then(Value::as_str).unwrap_or("?"),
+                    c.get("id").map_or(String::new(), |i| i.to_string().trim_matches('"').to_string())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; "),
+        None => conflicts.to_string(),
+    };
     EngineError::Other(format!(
-        "stale: the layers this proposal touches changed since the dry run (baseHash {hash}); nothing was applied. Run the dry run again. conflicts: {conflicts}"
+        "stale: the layers this proposal touches changed since the dry run (baseHash {hash}); nothing was applied. Run the dry run again. conflicts: {text}"
     ))
 }
 
@@ -403,21 +450,32 @@ fn diff_docs(before: &Document, after: &Document) -> Result<Diff> {
         changed: Vec::new(),
         variables: Value::Null,
         total: 0,
+        warnings: Vec::new(),
         nodes_before: BTreeMap::new(),
         vars_before: BTreeMap::new(),
     };
+    let names: BTreeMap<String, String> =
+        variable_map(after).into_iter().chain(variable_map(before)).filter_map(|(id, v)| Some((id, v.get("name")?.as_str()?.to_string()))).collect();
     for id in ids {
         let (b, a) = (before.node(id).map(node_json), after.node(id).map(node_json));
         let name = |v: &Value| v.get("name").cloned().unwrap_or(Value::Null);
         match (&b, &a) {
-            (None, Some(a)) => d.created.push(json!({"id": id.0, "name": name(a), "type": a.get("type").cloned().unwrap_or(Value::Null), "parent": a.get("parent").cloned().unwrap_or(Value::Null)})),
+            (None, Some(a)) => {
+                let (summary, _) = describe(&Value::Null, a, &names, Some(&["characters", "fills", "strokes", "bound"]));
+                d.warnings.extend(ds_warnings(id, a, None));
+                d.created.push(json!({"id": id.0, "name": name(a), "type": a.get("type").cloned().unwrap_or(Value::Null), "parent": a.get("parent").cloned().unwrap_or(Value::Null), "summary": summary}));
+            }
             (Some(b), None) => d.removed.push(json!({"id": id.0, "name": name(b)})),
             (Some(b), Some(a)) => {
                 let props = props_diff(b, a);
-                if props.as_object().is_none_or(Map::is_empty) {
-                    continue;
+                let Some(changed_keys) = props.as_object().filter(|m| !m.is_empty()) else { continue };
+                let (summary, layout) = describe(b, a, &names, None);
+                d.warnings.extend(ds_warnings(id, a, Some(changed_keys)));
+                let mut e = json!({"id": id.0, "name": name(a), "props": props, "summary": summary});
+                if let (Some(o), false) = (e.as_object_mut(), layout.is_empty()) {
+                    o.insert("layout".into(), Value::Object(layout));
                 }
-                d.changed.push(json!({"id": id.0, "name": name(a), "props": props}));
+                d.changed.push(e);
             }
             (None, None) => continue,
         }
@@ -494,4 +552,196 @@ impl Diff {
         }
         format!("{h:016x}")
     }
+}
+
+/// Keys that follow from layout (position, size, children), kept apart from what a person edited.
+const LAYOUT_KEYS: &[&str] = &["transform", "width", "height", "children", "overrides"];
+
+/// The design-system hint for `fills`, `strokes` and the like: `(prop, value)` pairs of raw values
+/// on layer `a` that no variable binds. Only the aspects in `changed` are looked at (all for a
+/// created layer, `None`). A hint, never an error.
+fn ds_warnings(id: NodeId, a: &Value, changed: Option<&Map<String, Value>>) -> Vec<Value> {
+    let touched = |key: &str| changed.is_none_or(|m| m.contains_key(key));
+    let bound = |prefix: &str| a.get("bound").and_then(Value::as_object).is_some_and(|b| b.keys().any(|k| k.starts_with(prefix)));
+    let name = a.get("name").cloned().unwrap_or(Value::Null);
+    let mut out = Vec::new();
+    let mut warn = |prop: &str, value: Value| out.push(json!({"id": id.0, "name": name, "prop": prop, "value": value}));
+    for (key, prop, prefix) in [("fills", "fill", "fill"), ("strokes", "stroke", "stroke")] {
+        if touched(key)
+            && !bound(prefix)
+            && let Some(paint) = a.get(key).and_then(Value::as_array).and_then(|l| l.iter().find(|p| paint_visible_solid(p)))
+        {
+            warn(prop, json!(paint_hex(paint).unwrap_or_default()));
+        }
+    }
+    if a.get("type").and_then(Value::as_str) == Some("text") && touched("style") && !bound("fontSize") {
+        let size = a.get("style").and_then(|s| s.get("fontSize").or_else(|| s.get("font_size"))).and_then(Value::as_f64);
+        if let Some(size) = size {
+            warn("fontSize", json!(size));
+        }
+    }
+    if let (true, Some(l)) = (touched("layout"), a.get("layout").filter(|l| l.is_object())) {
+        let gap = l.get("gap").and_then(Value::as_f64).unwrap_or(0.0);
+        if gap > 0.0 && !bound("gap") {
+            warn("gap", json!(gap));
+        }
+        let pad: Vec<f64> = l.get("padding").and_then(Value::as_array).map(|p| p.iter().filter_map(Value::as_f64).collect()).unwrap_or_default();
+        if pad.iter().any(|p| *p > 0.0) && !bound("padding") {
+            warn("padding", json!(pad));
+        }
+    }
+    if touched("corners") && !bound("cornerRadius") {
+        let radii: Vec<f64> = a
+            .get("corners")
+            .and_then(|c| c.get("radii"))
+            .and_then(Value::as_array)
+            .map(|p| p.iter().filter_map(Value::as_f64).collect())
+            .unwrap_or_default();
+        if radii.iter().any(|r| *r > 0.0) {
+            warn("cornerRadius", json!(radii));
+        }
+    }
+    out
+}
+
+fn paint_visible_solid(p: &Value) -> bool {
+    p.get("type").and_then(Value::as_str) == Some("solid") && p.get("visible").and_then(Value::as_bool).unwrap_or(true)
+}
+
+/// `#RRGGBB` of a paint's colour.
+fn paint_hex(p: &Value) -> Option<String> {
+    let c = p.get("color")?;
+    let ch = |k: &str| c.get(k).and_then(Value::as_f64).map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8);
+    Some(format!("#{:02X}{:02X}{:02X}", ch("r")?, ch("g")?, ch("b")?))
+}
+
+/// A paint list as a person says it: `#7A4B2A`, `#0D0D0D (50% de opacidade)`, `nenhum`.
+fn paints_text(v: &Value) -> String {
+    let Some(list) = v.as_array() else { return val_text(v) };
+    if list.is_empty() {
+        return "nenhum".into();
+    }
+    list.iter()
+        .map(|p| match (paint_visible_solid(p), paint_hex(p)) {
+            (true, Some(hex)) => {
+                let alpha = p.get("color").and_then(|c| c.get("a")).and_then(Value::as_f64).unwrap_or(1.0)
+                    * p.get("opacity").and_then(Value::as_f64).unwrap_or(1.0);
+                if alpha < 0.995 { format!("{hex} ({}% de opacidade)", (alpha * 100.0).round()) } else { hex }
+            }
+            _ => p.get("type").and_then(Value::as_str).unwrap_or("paint").to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn num_text(x: f64) -> String {
+    let r = (x * 100.0).round() / 100.0;
+    if r.fract() == 0.0 { format!("{r:.0}") } else { format!("{r}") }
+}
+
+fn val_text(v: &Value) -> String {
+    match v {
+        Value::Null => "—".into(),
+        Value::Bool(b) => if *b { "sim" } else { "não" }.into(),
+        Value::Number(n) => n.as_f64().map_or_else(|| n.to_string(), num_text),
+        Value::String(s) => format!("\"{s}\""),
+        other => {
+            let t = other.to_string();
+            if t.chars().count() > 60 { format!("{}…", t.chars().take(60).collect::<String>()) } else { t }
+        }
+    }
+}
+
+fn label(key: &str) -> String {
+    match key {
+        "name" => "Nome",
+        "characters" => "Texto",
+        "fills" => "Preenchimento",
+        "strokes" => "Contorno",
+        "opacity" => "Opacidade",
+        "visible" => "Visível",
+        "locked" => "Bloqueado",
+        "effects" => "Efeitos",
+        "corners" => "Cantos",
+        "radii" => "raios",
+        "layout" => "Auto layout",
+        "style" => "Texto",
+        "fontSize" | "font_size" => "tamanho da fonte",
+        "gap" => "espaçamento (gap)",
+        "padding" => "padding",
+        "mode" => "direção",
+        "stroke" => "Contorno",
+        other => other,
+    }
+    .to_string()
+}
+
+fn bound_label(key: &str) -> String {
+    match key {
+        "fill" => "preenchimento".into(),
+        "stroke" => "contorno".into(),
+        "fontSize" => "tamanho da fonte".into(),
+        "cornerRadius" => "raio".into(),
+        "gap" => "espaçamento (gap)".into(),
+        "paddingHorizontal" => "padding horizontal".into(),
+        "paddingVertical" => "padding vertical".into(),
+        "characters" => "texto".into(),
+        other => other.replace("fills/", "preenchimento ").replace("strokes/", "contorno ").replace("/color", ""),
+    }
+}
+
+/// What changed on one layer, for a designer: lines of text (colours as hex, bindings by variable
+/// name, text in quotes) and, apart, the values that only follow from layout. `only` limits the
+/// keys looked at (a created layer).
+fn describe(b: &Value, a: &Value, names: &BTreeMap<String, String>, only: Option<&[&str]>) -> (Vec<String>, Map<String, Value>) {
+    let (empty_a, empty_b) = (Map::new(), Map::new());
+    let (mb, ma) = (b.as_object().unwrap_or(&empty_b), a.as_object().unwrap_or(&empty_a));
+    let keys: BTreeSet<&String> = ma.keys().chain(mb.keys()).collect();
+    let (mut lines, mut layout) = (Vec::new(), Map::new());
+    let var = |v: Option<&Value>| match v.and_then(Value::as_str) {
+        Some(id) => names.get(id).cloned().unwrap_or_else(|| id.to_string()),
+        None => "sem vínculo".into(),
+    };
+    for k in keys {
+        if only.is_some_and(|o| !o.contains(&k.as_str())) {
+            continue;
+        }
+        let (x, y) = (mb.get(k), ma.get(k));
+        if x == y {
+            continue;
+        }
+        let (xv, yv) = (x.cloned().unwrap_or(Value::Null), y.cloned().unwrap_or(Value::Null));
+        if LAYOUT_KEYS.contains(&k.as_str()) {
+            layout.insert(k.clone(), json!([clip(&xv), clip(&yv)]));
+        } else if k == "bound" {
+            let (empty_x, empty_y) = (Map::new(), Map::new());
+            let (bx, by) = (xv.as_object().unwrap_or(&empty_x), yv.as_object().unwrap_or(&empty_y));
+            let bkeys: BTreeSet<&String> = bx.keys().chain(by.keys()).collect();
+            for bk in bkeys {
+                if bx.get(bk) != by.get(bk) {
+                    lines.push(format!("Vínculo de {}: {} → {}", bound_label(bk), var(bx.get(bk)), var(by.get(bk))));
+                }
+            }
+        } else if k == "fills" || k == "strokes" {
+            lines.push(format!("{}: {} → {}", label(k), paints_text(&xv), paints_text(&yv)));
+        } else if xv.is_object() || yv.is_object() {
+            let (empty_x, empty_y) = (Map::new(), Map::new());
+            let (ox, oy) = (xv.as_object().unwrap_or(&empty_x), yv.as_object().unwrap_or(&empty_y));
+            let skeys: BTreeSet<&String> = ox.keys().chain(oy.keys()).collect();
+            for sk in skeys {
+                if ox.get(sk) != oy.get(sk) {
+                    lines.push(format!(
+                        "{} · {}: {} → {}",
+                        label(k),
+                        label(sk),
+                        val_text(ox.get(sk).unwrap_or(&Value::Null)),
+                        val_text(oy.get(sk).unwrap_or(&Value::Null))
+                    ));
+                }
+            }
+        } else {
+            lines.push(format!("{}: {} → {}", label(k), val_text(&xv), val_text(&yv)));
+        }
+    }
+    (lines, layout)
 }

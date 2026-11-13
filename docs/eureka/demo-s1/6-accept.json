@@ -1,7 +1,10 @@
 {
  "applied": true,
- "baseHash": "60d6dbd38d12aa77",
+ "baseHash": "ebccc3f871e01038",
  "results": [
+  {
+   "ok": true
+  },
   {
    "ok": true
   },
@@ -12,7 +15,19 @@
    "id": 9
   },
   {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
    "id": 10
+  },
+  {
+   "ok": true
   }
  ]
 }

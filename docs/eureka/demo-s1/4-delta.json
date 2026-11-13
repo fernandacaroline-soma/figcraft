@@ -1,7 +1,36 @@
 {
  "changed": [
   {
+   "id": 3,
+   "layout": {
+    "height": [
+     394.0,
+     396.0
+    ]
+   },
+   "name": "Product Card",
+   "props": {
+    "height": [
+     394.0,
+     396.0
+    ]
+   },
+   "summary": []
+  },
+  {
    "id": 5,
+   "layout": {
+    "overrides": [
+     null,
+     [
+      "characters"
+     ]
+    ],
+    "width": [
+     213.0,
+     183.0
+    ]
+   },
    "name": "Nome",
    "props": {
     "characters": [
@@ -18,26 +47,121 @@
      213.0,
      183.0
     ]
-   }
+   },
+   "summary": [
+    "Texto: \"Camisa de linho manga longa\" → \"Camisa de linho off-white\""
+   ]
   },
   {
    "id": 6,
-   "name": "Preço",
-   "props": {
-    "characters": [
-     "R$ 389,90",
-     "R$ 349,90"
+   "layout": {
+    "height": [
+     19.0,
+     21.0
     ],
     "overrides": [
      null,
      [
       "characters"
      ]
+    ],
+    "width": [
+     74.0,
+     83.0
     ]
-   }
+   },
+   "name": "Preço",
+   "props": {
+    "bound": [
+     {
+      "fill": "VariableID:15",
+      "fontSize": "VariableID:23"
+     },
+     {
+      "fill": "VariableID:15"
+     }
+    ],
+    "characters": [
+     "R$ 389,90",
+     "R$ 349,90"
+    ],
+    "height": [
+     19.0,
+     21.0
+    ],
+    "overrides": [
+     null,
+     [
+      "characters"
+     ]
+    ],
+    "style": [
+     {
+      "case": "original",
+      "decoration": "none",
+      "fills": null,
+      "font_family": "Inter",
+      "font_size": 16.0,
+      "font_style": "Regular",
+      "letter_spacing": {
+       "unit": "percent",
+       "value": 0.0
+      },
+      "line_height": {
+       "unit": "auto"
+      },
+      "link": null
+     },
+     {
+      "case": "original",
+      "decoration": "none",
+      "fills": null,
+      "font_family": "Inter",
+      "font_size": 18.0,
+      "font_style": "Regular",
+      "letter_spacing": {
+       "unit": "percent",
+       "value": 0.0
+      },
+      "line_height": {
+       "unit": "auto"
+      },
+      "link": null
+     }
+    ],
+    "width": [
+     74.0,
+     83.0
+    ]
+   },
+   "summary": [
+    "Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo",
+    "Texto: \"R$ 389,90\" → \"R$ 349,90\"",
+    "Texto · tamanho da fonte: 16 → 18"
+   ]
   },
   {
    "id": 7,
+   "layout": {
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      338.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      340.0
+     ]
+    ]
+   },
    "name": "Button",
    "props": {
     "bound": [
@@ -78,8 +202,30 @@
        "visible": true
       }
      ]
+    ],
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      338.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      340.0
+     ]
     ]
-   }
+   },
+   "summary": [
+    "Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo",
+    "Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A"
+   ]
   },
   {
    "id": 8,
@@ -124,12 +270,16 @@
       }
      ]
     ]
-   }
+   },
+   "summary": [
+    "Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo",
+    "Preenchimento: #0D0D0D → #FFFFFF"
+   ]
   }
  ],
  "created": [],
  "cursor": 2,
  "removed": [],
- "total": 4,
+ "total": 5,
  "truncated": false
 }

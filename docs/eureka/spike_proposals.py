@@ -82,19 +82,26 @@ def ids_by_name():
 
 
 def readable(diff):
-    """The dry-run diff as text a person reads."""
+    """The dry-run diff as text a designer reads: the `summary` lines, layout values apart, DS warnings."""
     lines = []
     for c in diff.get("created", []):
-        lines.append(f"+ criado   {c['name']} ({c['type']}) em {c['parent']}  [id {c['id']}]")
+        lines.append(f"+ criado   {c['name']} ({c['type']})  [id {c['id']}]")
+        lines += [f"      {s}" for s in c.get("summary", [])]
     for c in diff.get("removed", []):
         lines.append(f"- removido {c['name']}  [id {c['id']}]")
     for c in diff.get("changed", []):
         lines.append(f"~ alterado {c['name']}  [id {c['id']}]")
-        for k, (a, b) in c["props"].items():
-            lines.append(f"      {k}: {json.dumps(a, ensure_ascii=False)[:90]}  ->  {json.dumps(b, ensure_ascii=False)[:90]}")
+        lines += [f"      {s}" for s in c.get("summary", [])]
+        if c.get("layout"):
+            lines.append(f"      (layout, secundário: {', '.join(c['layout'])})")
     v = diff.get("variables")
     if v:
         lines.append(f"variables: {json.dumps(v, ensure_ascii=False)[:300]}")
+    if "dsWarnings" in diff:
+        w = diff["dsWarnings"]
+        lines.append("avisos de DS (valor solto, sem variable): " + ("nenhum" if not w else ""))
+        for x in w:
+            lines.append(f"  ! {x['name']} [id {x['id']}]: {x['prop']} = {json.dumps(x['value'], ensure_ascii=False)}")
     lines.append(f"total {diff.get('total')}  baseHash {diff.get('baseHash')}  dry-run {diff.get('elapsedMs', 0):.1f} ms")
     return "\n".join(lines)
 
@@ -106,15 +113,25 @@ except OSError:
     pass
 
 
-def refine_commands(ids):
+def refine_commands(ids, loose=False):
+    """The proposal. `loose=True` is a careless draft (raw numbers) used to show the DS warnings."""
+    selo_bind = [] if loose else [
+        bind([{"$ref": "tag"}], "paddingHorizontal", "Spacing/sp-xs"),
+        bind([{"$ref": "tag"}], "paddingVertical", "Spacing/sp-xxs"),
+        bind([{"$ref": "tag"}], "cornerRadius", "Border/Radius/Components/br-chips"),
+    ]
+    txt_bind = [] if loose else [bind([{"$ref": "seloTexto"}], "fontSize", "Font/Size/fs-xxxs")]
     return [
         bind([ids["Button"]], "fill", "Colors/Surface/Brand/Background"),
         bind([ids["Label"]], "fill", "Colors/Content/Brand/On Brand"),
+        bind([ids["Preço"]], "fontSize", "Font/Size/fs-xs"),  # the designer's loose 18 goes back to a token
         {"command": "frame.create", "as": "tag", "params": {"parent": ids["Product Card"], "index": 1, "x": 0, "y": 0, "width": 100, "height": 24,
             "name": "Selo Frete grátis", "props": {"fill": V("Colors/Feedback/Success/Surface"), "layout": "horizontal",
-                                                  "padding": [4, 8, 4, 8], "sizingH": "hug", "sizingV": "hug"}}},
-        {"command": "text.create", "params": {"parent": {"$ref": "tag"}, "text": "FRETE GRÁTIS", "x": 0, "y": 0, "name": "Selo texto",
-            "props": {"fontSize": 11, "fill": V("Colors/Feedback/Success/Content")}}},
+                "padding": [4, 8, 4, 8] if loose else 0, "cornerRadius": 4 if loose else 0, "sizingH": "hug", "sizingV": "hug"}}},
+        *selo_bind,
+        {"command": "text.create", "as": "seloTexto", "params": {"parent": {"$ref": "tag"}, "text": "FRETE GRÁTIS", "x": 0, "y": 0, "name": "Selo texto",
+            "props": {"fontSize": 11 if loose else 12, "fill": V("Colors/Feedback/Success/Content")}}},
+        *txt_bind,
     ]
 
 
@@ -153,9 +170,13 @@ for step in STEPS:
             ([ids["Product Card"]], "gap", "Spacing/Mobile/sp-productcard-gap"),
             ([ids["PDP Mobile"]], "gap", "Spacing/sp-md"),
             ([ids["Product Card"]], "paddingHorizontal", "Spacing/sp-sm"),
+            ([ids["Product Card"]], "paddingVertical", "Spacing/sp-sm"),
+            ([ids["PDP Mobile"]], "paddingHorizontal", "Spacing/sp-md"),
+            ([ids["PDP Mobile"]], "paddingVertical", "Spacing/sp-md"),
             ([ids["Product Card"]], "cornerRadius", "Border/Radius/Components/br-card"),
             ([ids["Button"]], "cornerRadius", "Border/Radius/Components/br-button"),
             ([ids["Nome"]], "fontSize", "Font/Size/fs-xs"),
+            ([ids["Preço"]], "fontSize", "Font/Size/fs-xs"),
             ([ids["Label"]], "fontSize", "Font/Size/fs-xxs"),
         ]
         for tids, field, name in extra:
@@ -172,7 +193,7 @@ for step in STEPS:
 
     elif step == "manual":
         ids = state["ids"]
-        ex("node.set", {"ids": [ids["Preço"]], "props": {"characters": "R$ 349,90"}}, agent=None)
+        ex("node.set", {"ids": [ids["Preço"]], "props": {"characters": "R$ 349,90", "fontSize": 18}}, agent=None)
         ex("node.set", {"ids": [ids["Nome"]], "props": {"characters": "Camisa de linho off-white"}}, agent=None)
         ex("node.set", {"ids": [ids["Button"]], "props": {"fill": "#7A4B2A"}}, agent=None)
         ex("node.set", {"ids": [ids["Label"]], "props": {"fill": "#FFFFFF"}}, agent=None)
@@ -189,6 +210,11 @@ for step in STEPS:
         print(readable(r))
 
     elif step == "propose":
+        # A careless draft first: raw numbers on the new badge. Warnings only, nothing blocks.
+        d = ex("command.batch", {"label": "Claude: rascunho com valores soltos", "dryRun": True, "commands": refine_commands(state["ids"], loose=True)})
+        save("5a-draft-warnings.json", d["dsWarnings"])
+        open(f"{S}/5a-draft-warnings.txt", "w").write(readable(d) + "\n")
+        print("draft warnings:", json.dumps(d["dsWarnings"], ensure_ascii=False))
         cmds = refine_commands(state["ids"])
         r = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "dryRun": True, "commands": cmds})
         state["hash"] = r["baseHash"]

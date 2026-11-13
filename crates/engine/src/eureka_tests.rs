@@ -172,20 +172,99 @@ fn bad_or_expired_cursors_are_errors() {
 }
 
 #[test]
-fn proposal_preview_shows_the_result_read_only_and_apply_ends_it() {
+fn proposal_preview_is_read_only_and_apply_is_guarded() {
     let mut f = setup();
     let bp = batch(&f, json!({}));
-    let dry = run(&mut f.s, "proposal.preview", bp);
-    let hash = dry["baseHash"].as_str().unwrap().to_string();
-    assert!(f.s.ds().unwrap().preview.is_some());
+    let shown = run(&mut f.s, "proposal.preview", bp);
+    assert_eq!(shown["preview"], json!(true));
+    assert!(f.s.ds().unwrap().preview.as_ref().is_some_and(|p| p.id == crate::cmd::eureka::PREVIEW_ID));
     assert_eq!(f.s.doc().unwrap().node(f.card).unwrap().name, "Card v2");
     assert!(f.s.execute("node.set", &json!({"id": f.other.0, "props": {"name": "x"}})).is_err());
+    // A guarded batch can't run on top of the preview (a failure would roll back into it).
+    let bp = batch(&f, json!({"ifUnchanged": shown["baseHash"]}));
+    let err = f.s.execute("command.batch", &bp).unwrap_err().to_string();
+    assert!(err.contains("preview is showing"), "{err}");
+    assert_eq!(f.s.doc().unwrap().node(f.card).unwrap().name, "Card v2", "still previewing");
+    // Discard: back to the document, nothing applied.
     assert_eq!(run(&mut f.s, "proposal.previewEnd", json!({}))["ended"], json!(true));
     assert_eq!(f.s.doc().unwrap().node(f.card).unwrap().name, "Card");
+    // Apply: leaves the preview and is one undo step.
+    let depth = f.s.undo_depth().0;
     let bp = batch(&f, json!({}));
     run(&mut f.s, "proposal.preview", bp);
-    let bp = batch(&f, json!({"ifUnchanged": hash}));
-    run(&mut f.s, "command.batch", bp);
+    run(&mut f.s, "proposal.apply", json!({}));
     assert!(f.s.ds().unwrap().preview.is_none());
     assert_eq!(f.s.doc().unwrap().node(f.card).unwrap().name, "Card v2");
+    assert_eq!(f.s.undo_depth().0, depth + 1);
+    assert!(f.s.execute("proposal.apply", &json!({})).is_err(), "nothing left to apply");
+}
+
+#[test]
+fn applying_a_stale_proposal_leaves_the_preview_and_the_document_as_it_was() {
+    let mut f = setup();
+    let bp = batch(&f, json!({}));
+    run(&mut f.s, "proposal.preview", bp);
+    run(&mut f.s, "proposal.previewEnd", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#00FF00"}}));
+    let doc = f.s.doc().unwrap().clone();
+    let bp = batch(&f, json!({}));
+    run(&mut f.s, "proposal.preview", bp);
+    run(&mut f.s, "proposal.previewEnd", json!({}));
+    // The designer edits a touched layer after the preview was taken.
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#0000FF"}}));
+    let doc2 = f.s.doc().unwrap().clone();
+    assert_ne!(doc, doc2);
+    let err = f.s.execute("proposal.apply", &json!({})).unwrap_err().to_string();
+    assert!(err.contains("stale") && err.contains("Card"), "{err}");
+    assert!(f.s.ds().unwrap().preview.is_none());
+    assert_eq!(*f.s.doc().unwrap(), doc2, "not the preview's document");
+}
+
+#[test]
+fn diff_entries_have_a_designer_summary_and_keep_layout_values_apart() {
+    let mut f = setup();
+    let bp = batch(&f, json!({"dryRun": true}));
+    let out = run(&mut f.s, "command.batch", bp);
+    let card = out["changed"].as_array().unwrap().iter().find(|c| c["id"] == json!(f.card.0)).cloned().unwrap();
+    let lines: Vec<String> = card["summary"].as_array().unwrap().iter().map(|l| l.as_str().unwrap_or_default().to_string()).collect();
+    let all = lines.join("\n");
+    assert!(all.contains("Nome: \"Card\" → \"Card v2\""), "{all}");
+    assert!(all.contains("#FF0000") || all.contains("#112233"), "colours as hex: {all}");
+    assert!(all.contains("Vínculo de preenchimento: sem vínculo → Colors/Surface"), "variable name, not its id: {all}");
+    assert!(!all.contains("VariableID"), "{all}");
+    assert!(!all.contains("children"), "{all}");
+    assert!(card["props"]["name"].is_array(), "raw props stay");
+    // A child added to the card moves layout-derived values: apart from the summary.
+    let add = json!([{"command": "node.create", "params": {"type": "rectangle", "parent": f.card.0, "name": "Kid", "width": 5, "height": 5}}]);
+    let out = run(&mut f.s, "command.batch", json!({"dryRun": true, "commands": add}));
+    let card = out["changed"].as_array().unwrap().iter().find(|c| c["id"] == json!(f.card.0)).cloned().unwrap();
+    assert!(card["layout"]["children"].is_array(), "layout values are apart: {card}");
+    assert!(card["summary"].as_array().unwrap().is_empty(), "{card}");
+    // Text is quoted.
+    run(&mut f.s, "document.checkpoint", json!({}));
+    let cursor = run(&mut f.s, "document.checkpoint", json!({}))["cursor"].clone();
+    run(&mut f.s, "node.set", json!({"id": f.title.0, "props": {"characters": "Novo"}}));
+    let d = run(&mut f.s, "document.changesSince", json!({"cursor": cursor}));
+    let t = d["changed"].as_array().unwrap().iter().find(|c| c["id"] == json!(f.title.0)).cloned().unwrap();
+    assert!(t["summary"].to_string().contains("Texto: \\\"Title\\\" → \\\"Novo\\\""), "{t}");
+}
+
+#[test]
+fn ds_warnings_flag_raw_values_without_blocking() {
+    let mut f = setup();
+    let cmds = json!([
+        {"command": "node.create", "as": "tag", "params": {"type": "frame", "name": "Tag", "width": 50, "height": 20,
+            "props": {"fill": "#FF8800", "layout": "horizontal", "padding": 8, "gap": 4, "cornerRadius": 6}}},
+        {"command": "text.create", "params": {"parent": {"$ref": "tag"}, "text": "Hi", "x": 0, "y": 0, "name": "Hi", "props": {"fontSize": 11}}},
+        {"command": "node.create", "as": "ok", "params": {"type": "rectangle", "name": "Bound", "width": 5, "height": 5, "props": {"fill": {"$var": f.var}}}}
+    ]);
+    let out = run(&mut f.s, "command.batch", json!({"dryRun": true, "commands": cmds}));
+    let w = out["dsWarnings"].as_array().unwrap();
+    let has = |name: &str, prop: &str| w.iter().any(|x| x["name"] == name && x["prop"] == prop);
+    assert!(has("Tag", "fill") && has("Tag", "cornerRadius") && has("Tag", "gap") && has("Tag", "padding"), "{w:?}");
+    assert!(has("Hi", "fontSize"), "{w:?}");
+    assert!(!w.iter().any(|x| x["name"] == "Bound" && x["prop"] == "fill"), "bound fills are not flagged: {w:?}");
+    // A warning is not an error: the same batch applies.
+    let applied = f.s.execute("command.batch", &json!({"commands": cmds}));
+    assert!(applied.is_ok());
 }

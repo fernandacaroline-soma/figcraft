@@ -1,8 +1,29 @@
 {
- "baseHash": "60d6dbd38d12aa77",
+ "baseHash": "ebccc3f871e01038",
  "changed": [
   {
    "id": 3,
+   "layout": {
+    "children": [
+     [
+      4,
+      5,
+      6,
+      7
+     ],
+     [
+      4,
+      9,
+      5,
+      6,
+      7
+     ]
+    ],
+    "height": [
+     396.0,
+     432.0
+    ]
+   },
    "name": "Product Card",
    "props": {
     "children": [
@@ -21,13 +42,34 @@
      ]
     ],
     "height": [
-     394.0,
-     431.0
+     396.0,
+     432.0
     ]
-   }
+   },
+   "summary": []
   },
   {
    "id": 5,
+   "layout": {
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      268.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      306.0
+     ]
+    ]
+   },
    "name": "Nome",
    "props": {
     "transform": [
@@ -45,15 +87,19 @@
       0.0,
       1.0,
       12.0,
-      305.0
+      306.0
      ]
     ]
-   }
+   },
+   "summary": []
   },
   {
    "id": 6,
-   "name": "Preço",
-   "props": {
+   "layout": {
+    "height": [
+     21.0,
+     19.0
+    ],
     "transform": [
      [
       1.0,
@@ -69,13 +115,113 @@
       0.0,
       1.0,
       12.0,
-      340.0
+      341.0
      ]
+    ],
+    "width": [
+     83.0,
+     74.0
     ]
-   }
+   },
+   "name": "Preço",
+   "props": {
+    "bound": [
+     {
+      "fill": "VariableID:15"
+     },
+     {
+      "fill": "VariableID:15",
+      "fontSize": "VariableID:23"
+     }
+    ],
+    "height": [
+     21.0,
+     19.0
+    ],
+    "style": [
+     {
+      "case": "original",
+      "decoration": "none",
+      "fills": null,
+      "font_family": "Inter",
+      "font_size": 18.0,
+      "font_style": "Regular",
+      "letter_spacing": {
+       "unit": "percent",
+       "value": 0.0
+      },
+      "line_height": {
+       "unit": "auto"
+      },
+      "link": null
+     },
+     {
+      "case": "original",
+      "decoration": "none",
+      "fills": null,
+      "font_family": "Inter",
+      "font_size": 16.0,
+      "font_style": "Regular",
+      "letter_spacing": {
+       "unit": "percent",
+       "value": 0.0
+      },
+      "line_height": {
+       "unit": "auto"
+      },
+      "link": null
+     }
+    ],
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      303.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      341.0
+     ]
+    ],
+    "width": [
+     83.0,
+     74.0
+    ]
+   },
+   "summary": [
+    "Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xs",
+    "Texto · tamanho da fonte: 18 → 16"
+   ]
   },
   {
    "id": 7,
+   "layout": {
+    "transform": [
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      340.0
+     ],
+     [
+      1.0,
+      0.0,
+      0.0,
+      1.0,
+      12.0,
+      376.0
+     ]
+    ]
+   },
    "name": "Button",
    "props": {
     "bound": [
@@ -124,7 +270,7 @@
       0.0,
       1.0,
       12.0,
-      338.0
+      340.0
      ],
      [
       1.0,
@@ -132,10 +278,14 @@
       0.0,
       1.0,
       12.0,
-      375.0
+      376.0
      ]
     ]
-   }
+   },
+   "summary": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background",
+    "Preenchimento: #7A4B2A → #0D0D0D"
+   ]
   },
   {
    "id": 8,
@@ -150,7 +300,10 @@
       "fontSize": "VariableID:22"
      }
     ]
-   }
+   },
+   "summary": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Content/Brand/On Brand"
+   ]
   }
  ],
  "created": [
@@ -158,19 +311,36 @@
    "id": 9,
    "name": "Selo Frete grátis",
    "parent": 3,
+   "summary": [
+    "Vínculo de raio: sem vínculo → Border/Radius/Components/br-chips",
+    "Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Surface",
+    "Vínculo de padding horizontal: sem vínculo → Spacing/sp-xs",
+    "Vínculo de padding vertical: sem vínculo → Spacing/sp-xxs",
+    "Preenchimento: — → #6F966D (12% de opacidade)"
+   ],
    "type": "frame"
   },
   {
    "id": 10,
    "name": "Selo texto",
    "parent": 9,
+   "summary": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Content",
+    "Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xxxs",
+    "Texto: — → \"FRETE GRÁTIS\"",
+    "Preenchimento: — → #1D5B1B"
+   ],
    "type": "text"
   }
  ],
  "dryRun": true,
- "elapsedMs": 1.873416,
+ "dsWarnings": [],
+ "elapsedMs": 2.926911,
  "removed": [],
  "results": [
+  {
+   "ok": true
+  },
   {
    "ok": true
   },
@@ -181,7 +351,19 @@
    "id": 9
   },
   {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
    "id": 10
+  },
+  {
+   "ok": true
   }
  ],
  "total": 7,

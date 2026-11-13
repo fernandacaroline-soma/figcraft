@@ -1,14 +1,18 @@
+~ alterado Product Card  [id 3]
+      (layout, secundário: height)
 ~ alterado Nome  [id 5]
-      characters: "Camisa de linho manga longa"  ->  "Camisa de linho off-white"
-      overrides: null  ->  ["characters"]
-      width: 213.0  ->  183.0
+      Texto: "Camisa de linho manga longa" → "Camisa de linho off-white"
+      (layout, secundário: overrides, width)
 ~ alterado Preço  [id 6]
-      characters: "R$ 389,90"  ->  "R$ 349,90"
-      overrides: null  ->  ["characters"]
+      Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo
+      Texto: "R$ 389,90" → "R$ 349,90"
+      Texto · tamanho da fonte: 16 → 18
+      (layout, secundário: height, overrides, width)
 ~ alterado Button  [id 7]
-      bound: {"cornerRadius": "VariableID:6", "fill": "VariableID:11"}  ->  {"cornerRadius": "VariableID:6"}
-      fills: [{"blend": "normal", "color": {"a": 0.0, "b": 1.0, "g": 1.0, "r": 1.0}, "opacity": 1.0, "t  ->  [{"blend": "normal", "color": {"a": 1.0, "b": 0.16470588743686676, "g": 0.2941176593303680
+      Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo
+      Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A
+      (layout, secundário: transform)
 ~ alterado Label  [id 8]
-      bound: {"fill": "VariableID:17", "fontSize": "VariableID:22"}  ->  {"fontSize": "VariableID:22"}
-      fills: [{"blend": "normal", "color": {"a": 1.0, "b": 0.050999999046325684, "g": 0.050999999046325  ->  [{"blend": "normal", "color": {"a": 1.0, "b": 1.0, "g": 1.0, "r": 1.0}, "opacity": 1.0, "t
-total 4  baseHash None  dry-run 0.0 ms
+      Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo
+      Preenchimento: #0D0D0D → #FFFFFF
+total 5  baseHash None  dry-run 0.0 ms

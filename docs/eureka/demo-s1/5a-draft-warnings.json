@@ -1,0 +1,30 @@
+[
+ {
+  "id": 9,
+  "name": "Selo Frete grátis",
+  "prop": "padding",
+  "value": [
+   4.0,
+   8.0,
+   4.0,
+   8.0
+  ]
+ },
+ {
+  "id": 9,
+  "name": "Selo Frete grátis",
+  "prop": "cornerRadius",
+  "value": [
+   4.0,
+   4.0,
+   4.0,
+   4.0
+  ]
+ },
+ {
+  "id": 10,
+  "name": "Selo texto",
+  "prop": "fontSize",
+  "value": 11.0
+ }
+]
