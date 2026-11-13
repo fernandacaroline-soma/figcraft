@@ -185,6 +185,7 @@ Regras do diagrama:
   - **Proteção.** Ao gerar nova proposta, propriedade marcada `humano` não é sobrescrita; se a IA precisar mudar, o cartão pede confirmação explícita ("isso desfaz sua edição de texto").
   - **Limites.** Origem é **informativa, não prova** (nome do agente é auto-declarado; qualquer cliente local escreve `pluginData`). Edição feita fora do Eureka (ex.: `.fig` reimportado) perde a marca. Colaboração ao vivo fora do MVP. Não usar origem para auditoria ou bloqueio de governança.
 - **Alternativas.** (a) Campo `author` no `Node`: muda formato e muitos arquivos do upstream. (b) Diário de origem fora do documento: sai de sincronia com undo.
+- **Evidência do spike (13/11):** na demo, a proposta de refino trocou o tamanho do Preço de 18 (escolhido à mão pelo designer) para `Font/Size/fs-xs` (16), só porque o valor manual não tinha vínculo. Sem origem por propriedade, o Claude não distingue "valor solto a corrigir" de "decisão manual a preservar". Regra proposta para o G1: item que toca propriedade editada à mão desde o último turno (via `document.changesSince`) entra no cartão como **conflito**, com a edição manual vencendo por padrão (decisão provisória 1 do protótipo).
 - **Status.** **Proposta** (depende do evento do ADR-004).
 - **Evidência.** E01 "Lacunas" (origem; esforço M), "Segurança" (nome auto-declarado); E03 §1 item 3; HANDOFF "Benchmark".
 
