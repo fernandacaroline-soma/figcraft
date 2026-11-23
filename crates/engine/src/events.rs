@@ -1,7 +1,8 @@
 //! In-memory events for agents watching a live document.
 //!
 //! Comments are the feedback queue: `comment.add`, `reply`, `resolve` and the other mutating
-//! `comment.*` commands append an event. The control channel's `events.poll` long-polls this log,
+//! `comment.*` commands append an event, and every top-level command that changes the document
+//! appends `document.changed` (changed layer ids, the command, human or agent). The control channel's `events.poll` long-polls this log,
 //! and the MCP server exposes it as `wait_for_changes`. Nothing here touches the file system, the
 //! document format or the undo history.
 

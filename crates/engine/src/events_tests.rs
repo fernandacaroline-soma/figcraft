@@ -197,7 +197,9 @@ fn ordinary_edits_do_not_emit_comment_events() {
     s.execute("node.set", &json!({"ids": [id], "props": {"name": "Renamed"}})).unwrap();
     let r = s.events.poll(0, &comments(), 10, Duration::ZERO);
     assert!(r.events.is_empty());
-    assert_eq!(s.events.latest(), 0);
+    // They are document events now (Eureka: `document.changed`), never comment ones.
+    let all = s.events.poll(0, &[], 10, Duration::ZERO);
+    assert!(!all.events.is_empty() && all.events.iter().all(|e| e.kind == "document.changed"), "{:?}", all.events);
 }
 
 #[test]

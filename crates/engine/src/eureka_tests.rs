@@ -398,3 +398,55 @@ fn a_text_size_set_by_hand_survives_a_token_binding() {
     assert!(t.to_string().contains("18"), "size kept: {t}");
     assert!(!t["bound"].to_string().contains(&fs), "binding left out: {t}");
 }
+
+fn doc_events(s: &Session, after: u64) -> Vec<crate::events::Event> {
+    s.events.poll(after, &["document".to_string()], 100, std::time::Duration::ZERO).events
+}
+
+#[test]
+fn a_hand_edit_emits_document_changed_with_the_layers() {
+    let mut f = setup();
+    let at = f.s.events.latest();
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Edited"}}));
+    let ev = doc_events(&f.s, at);
+    assert_eq!(ev.len(), 1, "{ev:?}");
+    assert_eq!(ev[0].kind, "document.changed");
+    assert_eq!(ev[0].data["source"], json!("human"));
+    assert_eq!(ev[0].data["command"], json!("node.set"));
+    assert!(ev[0].data["changed"].as_array().unwrap().contains(&json!(f.card.0)), "{:?}", ev[0].data);
+    // Reading changes nothing and says nothing.
+    let at = f.s.events.latest();
+    run(&mut f.s, "document.checkpoint", json!({}));
+    assert!(doc_events(&f.s, at).is_empty());
+}
+
+#[test]
+fn an_agent_edit_is_marked_as_the_agent_and_a_batch_is_one_change() {
+    let mut f = setup();
+    let at = f.s.events.latest();
+    let p = batch(&f, json!({}));
+    f.s.execute_as(Some("Claude"), "command.batch", &p).unwrap();
+    let ev = doc_events(&f.s, at);
+    assert_eq!(ev.len(), 1, "one event for the whole batch: {ev:?}");
+    assert_eq!(ev[0].data["source"], json!("agent"));
+    assert_eq!(ev[0].data["agent"], json!("Claude (agent)"));
+    assert!(ev[0].data["changed"].as_array().unwrap().contains(&json!(f.card.0)), "{:?}", ev[0].data);
+}
+
+#[test]
+fn a_dry_run_and_a_refused_apply_emit_nothing() {
+    let mut f = setup();
+    let at = f.s.events.latest();
+    let dp = batch(&f, json!({"dryRun": true}));
+    let dry = run(&mut f.s, "command.batch", dp);
+    let pp = batch(&f, json!({}));
+    run(&mut f.s, "proposal.preview", pp);
+    run(&mut f.s, "proposal.previewEnd", json!({}));
+    assert!(doc_events(&f.s, at).is_empty(), "{:?}", doc_events(&f.s, at));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#00FF00"}}));
+    let at = f.s.events.latest();
+    let mut ap = batch(&f, json!({}));
+    ap["ifUnchanged"] = dry["baseHash"].clone();
+    assert!(f.s.execute("command.batch", &ap).is_err());
+    assert!(doc_events(&f.s, at).is_empty());
+}

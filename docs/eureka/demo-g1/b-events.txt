@@ -1,0 +1,4 @@
+#1 document.changed  por Claude (agent) (agent)  comando command.batch  camadas: #1, Card, Nome, Preço
+#2 document.changed  por designer (human)  comando node.set  camadas: Preço
+#3 document.changed  por designer (human)  comando node.set  camadas: Nome
+3 eventos (esperado 3: o card do Claude e as 2 edições à mão; dry-run e prévia não contam)

@@ -1,0 +1,64 @@
+{
+ "cursor": 3,
+ "dropped": 0,
+ "events": [
+  {
+   "data": {
+    "agent": "Claude (agent)",
+    "changed": [
+     1,
+     2,
+     3,
+     4
+    ],
+    "command": "command.batch",
+    "revision": 5,
+    "source": "agent",
+    "truncated": false,
+    "variables": false
+   },
+   "document": "Eureka · eventos",
+   "kind": "document.changed",
+   "path": null,
+   "seq": 1,
+   "time": 1795456653.872117
+  },
+  {
+   "data": {
+    "agent": null,
+    "changed": [
+     4
+    ],
+    "command": "node.set",
+    "revision": 6,
+    "source": "human",
+    "truncated": false,
+    "variables": false
+   },
+   "document": "Eureka · eventos",
+   "kind": "document.changed",
+   "path": null,
+   "seq": 2,
+   "time": 1795456653.894516
+  },
+  {
+   "data": {
+    "agent": null,
+    "changed": [
+     3
+    ],
+    "command": "node.set",
+    "revision": 7,
+    "source": "human",
+    "truncated": false,
+    "variables": false
+   },
+   "document": "Eureka · eventos",
+   "kind": "document.changed",
+   "path": null,
+   "seq": 3,
+   "time": 1795456653.912169
+  }
+ ],
+ "reset": false
+}

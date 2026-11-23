@@ -23,6 +23,14 @@ pub(crate) fn finite_check_candidates(doc: &Document, before: &Document) -> Vec<
     doc.changed_ids(before, usize::MAX).unwrap_or_default()
 }
 
+/// A document's own content: under a version or proposal preview, the document behind it.
+fn real_doc(d: &crate::doc_state::DocState) -> Arc<Document> {
+    d.preview.as_ref().map_or_else(|| d.doc.clone(), |p| p.doc.clone())
+}
+
+/// Layer ids a `document.changed` event lists; more are only flagged as `truncated`.
+pub const MAX_CHANGED_IDS: usize = 500;
+
 impl Session {
     /// Append a live event with the active document's identity (nothing without one). Inside a
     /// [`Session::grouped`] call the event is buffered and committed only when the group succeeds.
@@ -36,6 +44,38 @@ impl Session {
         } else {
             self.events.push(kind, &document, path.as_deref(), data);
         }
+    }
+
+    /// Record `document.changed` when command `id` changed the document it ran on (`before`): what
+    /// changed (layer ids, at most [`MAX_CHANGED_IDS`]), the command, and who ran it — an agent
+    /// (`source: "agent"`, with its name) or the person at the app (`source: "human"`). Nothing
+    /// during a drag (the gesture's frames are one edit, reported by the command that ends it).
+    fn record_document_change(&mut self, id: &str, before: &Option<(u64, Arc<Document>)>) {
+        let Some((uid, bdoc)) = before else { return };
+        let Some(ds) = self.docs.iter().find(|d| d.uid == *uid) else { return };
+        let now = real_doc(ds);
+        if Arc::ptr_eq(&now, bdoc) || ds.interaction.is_some() {
+            return;
+        }
+        let ids = now.changed_ids(bdoc, MAX_CHANGED_IDS + 1);
+        let (changed, truncated) = match &ids {
+            Some(v) => (v.iter().take(MAX_CHANGED_IDS).map(|n| n.0).collect::<Vec<_>>(), v.len() > MAX_CHANGED_IDS),
+            None => (Vec::new(), true),
+        };
+        let variables = now.variables != bdoc.variables;
+        if changed.is_empty() && !truncated && !variables {
+            return;
+        }
+        let data = serde_json::json!({
+            "command": id,
+            "revision": ds.revision + 1,
+            "source": if self.agent.is_some() { "agent" } else { "human" },
+            "agent": self.agent,
+            "changed": changed,
+            "truncated": truncated,
+            "variables": variables,
+        });
+        self.record_event("document.changed", data);
     }
 
     /// Restore the batch context an inner command had at entry when it panicked.
@@ -95,6 +135,8 @@ impl Session {
             ds.end_preview();
         }
         let before = self.ds().ok().map(|d| (d.doc.clone(), d.selection.clone(), d.page, d.uid));
+        // The document itself, under any preview: showing or leaving a preview is no edit.
+        let real_before = self.ds().ok().map(|d| (d.uid, real_doc(d)));
         // Cut and copy write the clipboard before a later check can refuse the command.
         let clipboard_before = self.clipboard.clone();
         // An inner command of a batch can panic while the outer group is still open; remember the
@@ -115,6 +157,11 @@ impl Session {
             });
         match &result {
             Ok(_) => {
+                // Only a top-level command reports a change: a batch is one change, and a dry run
+                // (a group that always fails) never gets here with its edit.
+                if group_depth_before == 0 {
+                    self.record_document_change(id, &real_before);
+                }
                 self.after_command(spec, before);
                 self.apply_view_prefs();
                 if spec.history && id != "edit.repeat" {
