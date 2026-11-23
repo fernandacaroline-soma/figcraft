@@ -301,7 +301,10 @@ fn the_designer_hand_edit_wins_over_a_proposal_by_default() {
     assert_eq!(out["applied"], json!(true));
     let card = node_value(&f.s, f.card);
     assert_eq!(card["name"], json!("Mine"));
-    assert!(card["bound"].get("fill").is_none() && card["bound"].as_object().is_none_or(|b| b.keys().all(|k| !k.starts_with("fill"))), "binding not forced: {card}");
+    assert!(
+        card["bound"].get("fill").is_none() && card["bound"].as_object().is_none_or(|b| b.keys().all(|k| !k.starts_with("fill"))),
+        "binding not forced: {card}"
+    );
     // What the designer did not touch still changes: the badge is made.
     assert!(out["results"].to_string().contains("Badge") || f.s.doc().unwrap().nodes().any(|n| n.name == "Badge"));
 }

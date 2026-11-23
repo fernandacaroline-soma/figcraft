@@ -500,11 +500,8 @@ fn resolve_manual(s: &mut Session, m: &Manual, before: &Document) -> Result<Vec<
     let Some(base) = &m.baseline else { return Ok(Vec::new()) };
     let after = s.ds()?.doc.clone();
     let ids = after.changed_ids(before, MAX_CHANGED).ok_or_else(|| EngineError::Other("too many layers changed to list".into()))?;
-    let names: BTreeMap<String, String> = variable_map(&after)
-        .into_iter()
-        .chain(variable_map(before))
-        .filter_map(|(id, v)| Some((id, v.get("name")?.as_str()?.to_string())))
-        .collect();
+    let names: BTreeMap<String, String> =
+        variable_map(&after).into_iter().chain(variable_map(before)).filter_map(|(id, v)| Some((id, v.get("name")?.as_str()?.to_string()))).collect();
     let (mut out, mut restored) = (Vec::new(), false);
     for id in ids {
         let Some(b) = before.node(id).map(node_json) else { continue };
@@ -558,8 +555,8 @@ fn resolve_manual(s: &mut Session, m: &Manual, before: &Document) -> Result<Vec<
                 };
             }
         }
-        let node: figcraft_doc::Node =
-            serde_json::from_value(Value::Object(merged)).map_err(|e| EngineError::Other(format!("could not keep the hand edit on layer {}: {e}", id.0)))?;
+        let node: figcraft_doc::Node = serde_json::from_value(Value::Object(merged))
+            .map_err(|e| EngineError::Other(format!("could not keep the hand edit on layer {}: {e}", id.0)))?;
         let ds = s.ds_mut()?;
         let slot = ds.doc_mut().node_mut(id).ok_or_else(|| EngineError::Other(format!("layer {} is gone", id.0)))?;
         *slot = node;
