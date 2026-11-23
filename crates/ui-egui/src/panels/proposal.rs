@@ -175,6 +175,20 @@ fn repreview(app: &mut FigApp, params: Value) {
     }
 }
 
+/// Who wins on layer `id`: preview again with the new `override` (a removed layer kept by hand has
+/// nothing to preview and stays blocked).
+fn choose(app: &mut FigApp, id: u64, choice: Choice) {
+    let Some(c) = app.ui.proposal.as_mut() else { return };
+    let needs_choice = conflicts(&c.result).iter().any(|k| k.id == id && k.kept == "needs-choice");
+    if choice == Choice::Mine && needs_choice {
+        c.keep_removed.insert(id);
+        return;
+    }
+    c.keep_removed.remove(&id);
+    let params = params_with_choice(&c.params, &c.result, id, choice);
+    repreview(app, params);
+}
+
 /// Draw the card at the right of the canvas while the proposal preview (or its stale apply) is
 /// shown.
 pub fn card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
@@ -212,18 +226,7 @@ pub fn card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         })
         .inner;
     match action {
-        Some(Action::Choose(id, choice)) => {
-            let Some(c) = app.ui.proposal.as_mut() else { return };
-            let needs_choice = conflicts(&c.result).iter().any(|k| k.id == id && k.kept == "needs-choice");
-            if choice == Choice::Mine && needs_choice {
-                // Nothing to preview: the removal stays blocked until the proposal changes.
-                c.keep_removed.insert(id);
-                return;
-            }
-            c.keep_removed.remove(&id);
-            let params = params_with_choice(&c.params, &c.result, id, choice);
-            repreview(app, params);
-        }
+        Some(Action::Choose(id, choice)) => choose(app, id, choice),
         Some(Action::Regenerate) => {
             let Some(params) = app.ui.proposal.as_ref().map(|c| c.params.clone()) else { return };
             repreview(app, params);
@@ -397,5 +400,74 @@ mod tests {
         let msg = "stale: the layers this proposal touches changed since the dry run (baseHash 1); nothing was applied. Run the dry run again. conflicts: Preço #6 [fills]; Button #7 [removed]";
         assert_eq!(stale_layers(msg).as_deref(), Some("Preço, Button"));
         assert_eq!(stale_layers("something else"), None);
+    }
+
+    /// A headless app with a rectangle the designer renamed by hand after Claude's turn, and the
+    /// control channel's `engine.execute` as Claude.
+    fn edited_by_hand() -> (crate::present_tests::Ui, figcraft_doc::NodeId) {
+        let mut u = crate::present_tests::Ui::new(figcraft_engine::Session::new());
+        let r = u.app.session.execute("node.create", &json!({"type": "rectangle", "name": "Other", "width": 10, "height": 10})).unwrap();
+        let node = figcraft_engine::params::id_of(&r["id"]).unwrap();
+        let id = node.0;
+        u.app.session.execute("proposal.turn", &json!({})).unwrap();
+        u.app.session.execute("node.set", &json!({"id": id, "props": {"name": "Kept by hand"}})).unwrap();
+        (u, node)
+    }
+
+    fn claude(u: &mut crate::present_tests::Ui, command: &str, params: Value) -> Value {
+        let p = json!({"command": command, "params": params, "agent": "Claude"});
+        crate::control::handle(&mut u.app, &egui::Context::default(), "engine.execute", &p).unwrap()
+    }
+
+    #[test]
+    fn a_removed_hand_edit_blocks_apply_until_claude_wins_there() {
+        let (mut u, node) = edited_by_hand();
+        let id = node.0;
+        claude(&mut u, "proposal.preview", json!({"label": "Tidy", "commands": [{"command": "edit.delete", "params": {"ids": [id]}}]}));
+        assert!(previewing(&u.app), "the control channel's preview shows");
+        assert!(blocked(&u.app), "a needs-choice layer holds Apply back");
+        u.frame(vec![]);
+
+        // Keeping it by hand can't be previewed: still blocked, nothing applied (no undo step, the
+        // preview still shows).
+        let steps = u.app.session.ds().unwrap().history.undo.len();
+        choose(&mut u.app, id, Choice::Mine);
+        assert!(blocked(&u.app));
+        apply(&mut u.app);
+        assert!(previewing(&u.app), "a blocked Apply keeps the preview");
+        assert_eq!(u.app.session.ds().unwrap().history.undo.len(), steps);
+
+        // Claude's choice previews again with `override` and frees Apply.
+        choose(&mut u.app, id, Choice::Claude);
+        let card = u.app.ui.proposal.as_ref().unwrap();
+        assert_eq!(card.params["override"], json!([id]));
+        assert!(!blocked(&u.app));
+        apply(&mut u.app);
+        assert!(u.app.ui.proposal.is_none(), "the card goes with the applied proposal");
+        assert!(u.app.session.doc().unwrap().node(node).is_none());
+    }
+
+    #[test]
+    fn keep_mine_is_the_default_and_discard_drops_the_card() {
+        let (mut u, node) = edited_by_hand();
+        let id = node.0;
+        let rename = json!({"label": "Rename", "commands": [{"command": "node.set", "params": {"id": id, "props": {"name": "Claude's name"}}}]});
+        claude(&mut u, "proposal.preview", rename);
+        let list = conflicts(&u.app.ui.proposal.as_ref().unwrap().result);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].kept, "manual");
+        assert!(!blocked(&u.app));
+        u.frame(vec![]);
+
+        choose(&mut u.app, id, Choice::Claude);
+        assert_eq!(conflicts(&u.app.ui.proposal.as_ref().unwrap().result)[0].kept, "proposal");
+        choose(&mut u.app, id, Choice::Mine);
+        assert_eq!(conflicts(&u.app.ui.proposal.as_ref().unwrap().result)[0].kept, "manual");
+
+        discard(&mut u.app);
+        assert!(u.app.ui.proposal.is_none());
+        assert!(!previewing(&u.app));
+        let node = u.app.session.doc().unwrap().node(node).map(|n| n.name.clone());
+        assert_eq!(node.as_deref(), Some("Kept by hand"));
     }
 }
