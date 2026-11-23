@@ -5,20 +5,20 @@
   "fileKey": "FsU6PD5PxodVk0IVMWQrLP",
   "collection": "Tokens WEB",
   "collectionKey": "b804c20111ff22f5582170f84e19604de70e0bf0",
-  "exportedAt": "2026-11-13T15:51:34Z"
+  "exportedAt": "2026-11-23T18:21:23Z"
  },
- "aliasesKept": false,
+ "aliasesKept": true,
  "collections": [
   {
    "name": "Tokens WEB",
    "modes": [
-    "Animale",
-    "Farm"
+    "Farm",
+    "Animale"
    ]
   }
  ],
  "count": 23,
- "valuesHash": "ca9720f5af16",
+ "valuesHash": "e49cc88eb5dc",
  "variables": [
   {
    "name": "Border/Radius/Components/br-button",

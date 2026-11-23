@@ -194,6 +194,9 @@ for step in STEPS:
             notes.append({"field": field, "variable": name, "bound": ok, "error": None if ok else str(rr.get("error"))[:300]})
         save("2-generate-bindings.json", notes)
         state["ids"] = ids
+        # The brand is chosen on the screen, never left to the collection's default mode (in the
+        # DS file the default is Farm).
+        ex("variable.setMode", {"ids": [ids["PDP Mobile"]], "collection": "Tokens WEB", "mode": "Animale"})
         state["cursor"] = ex("document.checkpoint", {})["cursor"]
         ex("proposal.turn", {})  # what the designer edits from here on is protected (ADR-009)
         ex("view.zoomFit", {})

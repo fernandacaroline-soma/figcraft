@@ -29,8 +29,25 @@ def load(path):
     return d
 
 
+def norm(v):
+    """Comparable values: colours as 8-bit channels, other numbers at 3 decimals, recursively."""
+    if isinstance(v, float):
+        return round(v, 3) + 0.0
+    if isinstance(v, int) and not isinstance(v, bool):
+        return float(v)
+    if isinstance(v, dict) and {"r", "g", "b"} <= set(v):
+        # Colours as 8-bit channels: exports round the 0–1 floats differently.
+        return {k: round(float(v.get(k, 1)) * 255) for k in ("r", "g", "b", "a")}
+    if isinstance(v, dict):
+        return {k: norm(x) for k, x in v.items()}
+    if isinstance(v, list):
+        return [norm(x) for x in v]
+    return v
+
+
 def values_hash(d):
-    """A hash of every variable's values by mode (aliases by target name), order independent."""
+    """A hash of every variable's values by mode (aliases by target name, numbers at 3 decimals),
+    order independent."""
     meta = d["meta"]
     names = {vid: v.get("name") for vid, v in meta["variables"].items()}
     rows = []
@@ -40,7 +57,7 @@ def values_hash(d):
             if isinstance(val, dict) and val.get("type") == "VARIABLE_ALIAS":
                 vals[mode] = {"alias": names.get(val.get("id"), val.get("id"))}
             else:
-                vals[mode] = val
+                vals[mode] = norm(val)
         rows.append([v.get("name"), vals])
     rows.sort(key=lambda r: str(r[0]))
     return hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
