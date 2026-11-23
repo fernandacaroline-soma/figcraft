@@ -450,3 +450,25 @@ fn a_dry_run_and_a_refused_apply_emit_nothing() {
     assert!(f.s.execute("command.batch", &ap).is_err());
     assert!(doc_events(&f.s, at).is_empty());
 }
+
+#[test]
+fn a_hand_edit_tells_the_edited_layer_apart_from_the_ones_that_moved() {
+    let mut s = Session::new();
+    let card = id_of(
+        &run(
+            &mut s,
+            "frame.create",
+            json!({"x": 0, "y": 0, "width": 200, "height": 100, "name": "Card", "props": {"layout": "vertical", "sizingV": "hug"}}),
+        )["id"],
+    )
+    .unwrap();
+    let a = id_of(&run(&mut s, "text.create", json!({"parent": card.0, "text": "A", "x": 0, "y": 0}))["id"]).unwrap();
+    let b = id_of(&run(&mut s, "text.create", json!({"parent": card.0, "text": "B", "x": 0, "y": 0}))["id"]).unwrap();
+    let at = s.events.latest();
+    run(&mut s, "node.set", json!({"id": a.0, "props": {"fontSize": 40}}));
+    let ev = doc_events(&s, at);
+    assert_eq!(ev.len(), 1);
+    assert_eq!(ev[0].data["edited"], json!([a.0]), "{:?}", ev[0].data);
+    let changed = ev[0].data["changed"].as_array().unwrap();
+    assert!(changed.contains(&json!(b.0)) || changed.contains(&json!(card.0)), "layout followed: {:?}", ev[0].data);
+}

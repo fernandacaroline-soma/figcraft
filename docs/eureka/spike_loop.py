@@ -102,11 +102,15 @@ while True:
         break  # the designer paused
     if not r["events"] and not seen and not LIVE:
         raise SystemExit("no edit seen")
-changed = sorted({i for e in seen for i in e["data"].get("changed", [])})
+changed = sorted({i for e in seen for i in e["data"].get("edited", e["data"].get("changed", []))})
 say("Claude percebeu sozinho (events.poll, tópico document):")
 for e in seen:
     d = e["data"]
-    say(f"  · {d['command']} por designer → {', '.join(names.get(i, f'#{i}') for i in d['changed'])}")
+    moved = [i for i in d["changed"] if i not in d.get("edited", d["changed"])]
+    line = f"  · {d['command']} por designer → editou {', '.join(names.get(i, f'#{i}') for i in d.get('edited', d['changed']))}"
+    if moved:
+        line += f" (só se moveram pelo layout: {', '.join(names.get(i, f'#{i}') for i in moved)})"
+    say(line)
 
 # --- 4. Claude proposes ----------------------------------------------------------------------
 cmds, why = [], []

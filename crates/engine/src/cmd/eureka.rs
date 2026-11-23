@@ -774,7 +774,7 @@ impl Diff {
 }
 
 /// Keys that follow from layout (position, size, children), kept apart from what a person edited.
-const LAYOUT_KEYS: &[&str] = &["transform", "width", "height", "children", "overrides"];
+pub(crate) const LAYOUT_KEYS: &[&str] = &["transform", "width", "height", "children", "overrides"];
 
 /// The design-system hint for `fills`, `strokes` and the like: `(prop, value)` pairs of raw values
 /// on layer `a` that no variable binds. Only the aspects in `changed` are looked at (all for a

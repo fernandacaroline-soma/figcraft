@@ -1,7 +1,7 @@
 Claude percebeu sozinho (events.poll, tópico document):
-  · node.set por designer → Product Card, Preço, Button
-  · node.set por designer → Button
-  · node.set por designer → Label
+  · node.set por designer → editou Preço (só se moveram pelo layout: Product Card, Button)
+  · node.set por designer → editou Button
+  · node.set por designer → editou Label
 
 Proposta do Claude:
   · Preço: tamanho solto 18 → Font/Size/fs-xs (16)

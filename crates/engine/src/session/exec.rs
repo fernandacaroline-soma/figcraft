@@ -23,6 +23,22 @@ pub(crate) fn finite_check_candidates(doc: &Document, before: &Document) -> Vec<
     doc.changed_ids(before, usize::MAX).unwrap_or_default()
 }
 
+/// Whether a layer changed in more than what follows from layout (position, size, children):
+/// made, removed, or an edited property.
+fn edited_itself(before: Option<&Node>, after: Option<&Node>) -> bool {
+    let (Some(b), Some(a)) = (before, after) else { return true };
+    let strip = |n: &Node| {
+        let mut v = serde_json::to_value(n).unwrap_or(Value::Null);
+        if let Some(o) = v.as_object_mut() {
+            for k in crate::cmd::eureka::LAYOUT_KEYS {
+                o.remove(*k);
+            }
+        }
+        v
+    };
+    strip(b) != strip(a)
+}
+
 /// A document's own content: under a version or proposal preview, the document behind it.
 fn real_doc(d: &crate::doc_state::DocState) -> Arc<Document> {
     d.preview.as_ref().map_or_else(|| d.doc.clone(), |p| p.doc.clone())
@@ -66,11 +82,14 @@ impl Session {
         if changed.is_empty() && !truncated && !variables {
             return;
         }
+        // What the command edited, apart from what only moved or resized to follow layout.
+        let edited: Vec<u64> = changed.iter().copied().filter(|i| edited_itself(bdoc.node(NodeId(*i)), now.node(NodeId(*i)))).collect();
         let data = serde_json::json!({
             "command": id,
             "revision": ds.revision + 1,
             "source": if self.agent.is_some() { "agent" } else { "human" },
             "agent": self.agent,
+            "edited": edited,
             "changed": changed,
             "truncated": truncated,
             "variables": variables,
