@@ -439,7 +439,8 @@ fn a_dry_run_and_a_refused_apply_emit_nothing() {
     let at = f.s.events.latest();
     let dp = batch(&f, json!({"dryRun": true}));
     let dry = run(&mut f.s, "command.batch", dp);
-    run(&mut f.s, "proposal.preview", batch(&f, json!({})));
+    let pp = batch(&f, json!({}));
+    run(&mut f.s, "proposal.preview", pp);
     run(&mut f.s, "proposal.previewEnd", json!({}));
     assert!(doc_events(&f.s, at).is_empty(), "{:?}", doc_events(&f.s, at));
     run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#00FF00"}}));
