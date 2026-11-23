@@ -521,12 +521,16 @@ fn branch_row(ui: &mut Ui, b: &BranchRow) -> Option<Action> {
 
 /// While a version is shown: a banner over the canvas naming it, with Restore and Back.
 pub fn preview_banner(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
+    // Claude's proposal card (also after a stale apply, when the preview is over).
+    crate::proposal::card(app, ctx, canvas);
     let Some((id, name, time)) = app.session.ds().ok().and_then(|ds| ds.preview.as_ref().map(|p| (p.id.clone(), p.name.clone(), p.time))) else {
         return;
     };
     let t = Tokens::get(ctx);
     // A proposal's preview (`proposal.preview`): nothing was applied; Discard or Apply it.
     let proposal = id == figcraft_engine::cmd::eureka::PREVIEW_ID;
+    // A conflict that still needs a choice holds Apply back.
+    let can_apply = !proposal || !crate::proposal::blocked(app);
     let action = widgets::canvas_banner(ctx, Id::unique("version_preview_banner"), canvas, |ui| {
         let mut action = None;
         icons::paint(ui.painter(), Rect::from_center_size(ui.cursor().min + vec2(7.0, 12.0), vec2(14.0, 14.0)), Icon::Clock, t.icon_secondary);
@@ -542,21 +546,15 @@ pub fn preview_banner(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         if widgets::button(ui, if proposal { tr("Discard") } else { tr("Back to current") }, false, true).clicked() {
             action = Some(false);
         }
-        if widgets::button(ui, if proposal { tr("Apply proposal") } else { tr("Restore this version") }, true, true).clicked() {
+        if widgets::button(ui, if proposal { tr("Apply proposal") } else { tr("Restore this version") }, true, can_apply).clicked() {
             action = Some(true);
         }
         action
     });
     if proposal {
         match action {
-            Some(true) => {
-                if app.run("proposal.apply", json!({})).is_some() {
-                    app.toast(tr("Proposal applied"));
-                }
-            }
-            Some(false) => {
-                app.run("proposal.previewEnd", json!({}));
-            }
+            Some(true) => crate::proposal::apply(app),
+            Some(false) => crate::proposal::discard(app),
             None => {}
         }
         return;

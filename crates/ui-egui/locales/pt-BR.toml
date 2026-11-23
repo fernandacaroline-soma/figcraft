@@ -1875,6 +1875,23 @@ status = "draft — needs native review"
 "{month} {day}, {year}" = "{day} de {month} de {year}"
 "{n} text layers" = { one = "{n} camada de texto", other = "{n} camadas de texto" }
 "{percent}%" = "{percent}%"
+"Claude’s proposal" = "Proposta do Claude"
+"The layer {names} changed since the preview. Nothing was applied." = "A camada {names} mudou desde a prévia. Nada foi aplicado."
+"Generate again" = "Gerar de novo"
+"Only layout changes" = "Só muda o layout"
+"{n} more layers" = { one = "mais {n} camada", other = "mais {n} camadas" }
+"Conflicts with your edits" = "Conflitos com a sua edição"
+"Your edit stays unless you choose Claude’s." = "A sua edição fica, a menos que você escolha a do Claude."
+"Claude’s proposal removes this layer, which you edited by hand." = "A proposta do Claude remove esta camada, que você editou à mão."
+"you: {change}" = "você: {change}"
+"Claude: {change}" = "Claude: {change}"
+"Keep mine" = "Fica a minha"
+"Keep Claude’s" = "Fica a do Claude"
+"Choose before applying." = "Escolha antes de aplicar."
+"To keep your layer, discard the proposal or ask Claude for another one." = "Para manter a sua camada, descarte a proposta ou peça outra ao Claude."
+"Design system notes" = "Avisos de design system"
+"{name}: {prop} {value} has no variable" = "{name}: {prop} {value} sem variable"
+"Apply waits for a choice on every conflict." = "O Aplicar espera uma escolha em cada conflito."
 
 [commands]
 "align.bottom" = "Alinhar embaixo"

@@ -345,6 +345,7 @@ pub use panels::frame_presets;
 pub use panels::layers;
 pub use panels::layout_panel;
 pub use panels::list_drag;
+pub use panels::proposal;
 pub use panels::proto_editor;
 pub use panels::proto_panel;
 pub use panels::right;
@@ -592,6 +593,8 @@ pub struct UiState {
     pub mirrored: bool,
     pub comments: comments::CommentUi,
     pub versions: versions::VersionUi,
+    /// Claude's proposal card, while its preview (or a stale apply) is shown.
+    pub proposal: Option<proposal::Card>,
     /// The branch review dialog, while open.
     pub branch_review: Option<branch_ui::ReviewView>,
     /// Dev Mode: annotations on the canvas and the ready-for-dev list.
@@ -748,6 +751,7 @@ impl Default for UiState {
             mirrored: false,
             comments: comments::CommentUi::default(),
             versions: versions::VersionUi::default(),
+            proposal: None,
             branch_review: None,
             dev: dev_mode::DevUi::default(),
 
