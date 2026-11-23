@@ -23,6 +23,9 @@ pub(crate) fn finite_check_candidates(doc: &Document, before: &Document) -> Vec<
     doc.changed_ids(before, usize::MAX).unwrap_or_default()
 }
 
+/// Layer ids a `document.changed` event lists; more are only flagged as `truncated`.
+pub const MAX_CHANGED_IDS: usize = 500;
+
 impl Session {
     /// Append a live event with the active document's identity (nothing without one). Inside a
     /// [`Session::grouped`] call the event is buffered and committed only when the group succeeds.
@@ -36,6 +39,37 @@ impl Session {
         } else {
             self.events.push(kind, &document, path.as_deref(), data);
         }
+    }
+
+    /// Record `document.changed` when command `id` changed the document it ran on (`before`): what
+    /// changed (layer ids, at most [`MAX_CHANGED_IDS`]), the command, and who ran it — an agent
+    /// (`source: "agent"`, with its name) or the person at the app (`source: "human"`). Nothing
+    /// during a drag (the gesture's frames are one edit, reported by the command that ends it).
+    fn record_document_change(&mut self, id: &str, before: &Option<(Arc<Document>, Vec<NodeId>, NodeId, u64)>) {
+        let Some((bdoc, _, _, uid)) = before else { return };
+        let Some(ds) = self.docs.iter().find(|d| d.uid == *uid) else { return };
+        if Arc::ptr_eq(&ds.doc, bdoc) || ds.interaction.is_some() {
+            return;
+        }
+        let ids = ds.doc.changed_ids(bdoc, MAX_CHANGED_IDS + 1);
+        let (changed, truncated) = match &ids {
+            Some(v) => (v.iter().take(MAX_CHANGED_IDS).map(|n| n.0).collect::<Vec<_>>(), v.len() > MAX_CHANGED_IDS),
+            None => (Vec::new(), true),
+        };
+        let variables = ds.doc.variables != bdoc.variables;
+        if changed.is_empty() && !truncated && !variables {
+            return;
+        }
+        let data = serde_json::json!({
+            "command": id,
+            "revision": ds.revision + 1,
+            "source": if self.agent.is_some() { "agent" } else { "human" },
+            "agent": self.agent,
+            "changed": changed,
+            "truncated": truncated,
+            "variables": variables,
+        });
+        self.record_event("document.changed", data);
     }
 
     /// Restore the batch context an inner command had at entry when it panicked.
@@ -115,6 +149,11 @@ impl Session {
             });
         match &result {
             Ok(_) => {
+                // Only a top-level command reports a change: a batch is one change, and a dry run
+                // (a group that always fails) never gets here with its edit.
+                if group_depth_before == 0 {
+                    self.record_document_change(id, &before);
+                }
                 self.after_command(spec, before);
                 self.apply_view_prefs();
                 if spec.history && id != "edit.repeat" {
