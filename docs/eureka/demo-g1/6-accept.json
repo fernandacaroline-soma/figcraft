@@ -1,0 +1,82 @@
+{
+ "applied": true,
+ "baseHash": "ebccc3f871e01038",
+ "manualConflicts": [
+  {
+   "id": 6,
+   "kept": "manual",
+   "manual": [
+    "Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo",
+    "Texto · tamanho da fonte: 16 → 18"
+   ],
+   "name": "Preço",
+   "proposal": [
+    "Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xs",
+    "Texto · tamanho da fonte: 18 → 16"
+   ],
+   "props": [
+    "style"
+   ]
+  },
+  {
+   "id": 7,
+   "kept": "proposal",
+   "manual": [
+    "Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo",
+    "Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A"
+   ],
+   "name": "Button",
+   "proposal": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background",
+    "Preenchimento: #7A4B2A → #0D0D0D"
+   ],
+   "props": [
+    "fills"
+   ]
+  },
+  {
+   "id": 8,
+   "kept": "proposal",
+   "manual": [
+    "Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo",
+    "Preenchimento: #0D0D0D → #FFFFFF"
+   ],
+   "name": "Label",
+   "proposal": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Content/Brand/On Brand"
+   ],
+   "props": [
+    "fills"
+   ]
+  }
+ ],
+ "results": [
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "id": 9
+  },
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "ok": true
+  },
+  {
+   "id": 10
+  },
+  {
+   "ok": true
+  }
+ ]
+}

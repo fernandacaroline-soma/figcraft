@@ -1,0 +1,21 @@
+{
+ "Nome": {
+  "boundVariables": {
+   "fill": "VariableID:16",
+   "fontSize": "VariableID:23"
+  },
+  "characters": "Camisa de linho off-white",
+  "fontSize": 16.0,
+  "id": 5,
+  "name": "Nome"
+ },
+ "Preço": {
+  "boundVariables": {
+   "fill": "VariableID:15"
+  },
+  "characters": "R$ 349,90",
+  "fontSize": 18.0,
+  "id": 6,
+  "name": "Preço"
+ }
+}

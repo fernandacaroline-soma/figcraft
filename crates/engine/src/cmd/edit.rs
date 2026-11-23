@@ -510,7 +510,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "command.batch",
             "Run several commands",
-            "{label?, onError?, dryRun? (run it, return the diff {created, removed, changed: {id, name, props: {key: [before, after]}}, baseHash} and roll everything back: no undo step), ifUnchanged? (a dry run's baseHash: apply only if the layers it touches are unchanged, else a `stale` error), commands: [{command, params, as?}]} (one undo step)",
+            "{label?, onError?, dryRun? (run it, return the diff {created, removed, changed: {id, name, props: {key: [before, after]}}, baseHash} and roll everything back: no undo step), ifUnchanged? (a dry run's baseHash: apply only if the layers it touches are unchanged, else a `stale` error), since?, keep?, override? (with dryRun or ifUnchanged: what the designer edited by hand since Claude's last turn, or since checkpoint `since`, stays theirs unless `keep` is proposal or the layer id is in `override`; see `manualConflicts`), commands: [{command, params, as?}]} (one undo step)",
             false,
             |s, p| {
                 // `continue` rolls back only the failed steps and returns one outcome per step.

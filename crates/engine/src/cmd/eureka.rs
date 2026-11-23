@@ -144,7 +144,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "proposal.preview",
             "Preview a proposal",
-            "{label?, onError?, commands: [{command, params, as?}]}  dry-run the batch (as `command.batch` with `dryRun`) and show the result on the canvas in place of the document, read-only; `proposal.previewEnd` goes back, `proposal.apply` applies it (guarded by its baseHash) → the dry-run diff",
+            "{label?, onError?, since?, keep?, override?, commands: [{command, params, as?}]}  dry-run the batch (as `command.batch` with `dryRun`) and show the result on the canvas in place of the document, read-only; `proposal.previewEnd` goes back, `proposal.apply` applies it (guarded by its baseHash) → the dry-run diff",
             false,
             |s, p| {
                 let (label, steps, cont) = parse_batch(p)?;

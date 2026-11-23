@@ -1,0 +1,36 @@
++ criado   Selo Frete grátis (frame)  [id 9]
+      Vínculo de raio: sem vínculo → Border/Radius/Components/br-chips
+      Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Surface
+      Vínculo de padding horizontal: sem vínculo → Spacing/sp-xs
+      Vínculo de padding vertical: sem vínculo → Spacing/sp-xxs
+      Preenchimento: — → #6F966D (12% de opacidade)
++ criado   Selo texto (text)  [id 10]
+      Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Content
+      Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xxxs
+      Texto: — → "FRETE GRÁTIS"
+      Preenchimento: — → #1D5B1B
+~ alterado Product Card  [id 3]
+      (layout, secundário: children, height)
+~ alterado Nome  [id 5]
+      (layout, secundário: transform)
+~ alterado Preço  [id 6]
+      (layout, secundário: transform)
+~ alterado Button  [id 7]
+      (layout, secundário: transform)
+conflitos com edição manual (a sua edição vence, salvo escolha):
+  ⚑ Preço [id 6] — style → fica a sua
+      você:   Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo
+      você:   Texto · tamanho da fonte: 16 → 18
+      Claude: Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xs
+      Claude: Texto · tamanho da fonte: 18 → 16
+  ⚑ Button [id 7] — fills → fica a sua
+      você:   Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo
+      você:   Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background
+      Claude: Preenchimento: #7A4B2A → #0D0D0D
+  ⚑ Label [id 8] — fills → fica a sua
+      você:   Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo
+      você:   Preenchimento: #0D0D0D → #FFFFFF
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Content/Brand/On Brand
+avisos de DS (valor solto, sem variable): nenhum
+total 6  baseHash 0d54ad45589b9125  dry-run 8.6 ms
