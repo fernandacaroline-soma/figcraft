@@ -1,0 +1,224 @@
+{
+ "note": "Manifesto do snapshot de tokens. Sem valores: a fonte é o Figma (Variables) e o cache fica fora do repo.",
+ "source": {
+  "source": "Figma DS N Marcas",
+  "fileKey": "FsU6PD5PxodVk0IVMWQrLP",
+  "collection": "Tokens WEB",
+  "collectionKey": "b804c20111ff22f5582170f84e19604de70e0bf0",
+  "exportedAt": "2026-11-13T15:51:34Z"
+ },
+ "aliasesKept": false,
+ "collections": [
+  {
+   "name": "Tokens WEB",
+   "modes": [
+    "Animale",
+    "Farm"
+   ]
+  }
+ ],
+ "count": 23,
+ "valuesHash": "ca9720f5af16",
+ "variables": [
+  {
+   "name": "Border/Radius/Components/br-button",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Border/Radius/Components/br-card",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Border/Radius/Components/br-chips",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Colors/Content/01",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Brand/Highlight",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Brand/On Brand",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Pure",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Feedback/Success/Content",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Feedback/Success/Surface",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Background",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Background",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Component/Card",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Secondary",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Stroke",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Terciary",
+   "collection": "Tokens WEB",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xs",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xxs",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xxxs",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Spacing/Mobile/sp-productcard-gap",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP",
+    "WIDTH_HEIGHT"
+   ]
+  },
+  {
+   "name": "Spacing/sp-md",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-sm",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-xs",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-xxs",
+   "collection": "Tokens WEB",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  }
+ ]
+}

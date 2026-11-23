@@ -43,6 +43,21 @@ pub(crate) struct State {
     proposals: VecDeque<Proposal>,
     /// The last `proposal.preview`: its batch and baseHash, for `proposal.apply`.
     shown: Option<(Value, String)>,
+    /// The document as Claude's last turn left it (a guarded apply or `proposal.turn`): what
+    /// changed after it is the designer's own edit.
+    turn: Option<(u64, Arc<Document>)>,
+}
+
+/// How a proposal treats what the designer edited by hand since Claude's last turn.
+struct Manual {
+    /// The document at Claude's last turn (`None`: nothing is protected).
+    baseline: Option<Arc<Document>>,
+    /// Where the baseline came from: "since" (a checkpoint), "turn", or none.
+    source: Option<&'static str>,
+    /// `keep: "proposal"`: the proposal wins everywhere.
+    keep_proposal: bool,
+    /// Layers where the proposal wins (`override`).
+    overrides: BTreeSet<u64>,
 }
 
 struct Checkpoint {
@@ -133,7 +148,8 @@ pub fn specs() -> Vec<CommandSpec> {
             false,
             |s, p| {
                 let (label, steps, cont) = parse_batch(p)?;
-                let (mut out, after) = dry_run(s, &label, &steps, cont)?;
+                let policy = manual_policy(s, p)?;
+                let (mut out, after) = dry_run(s, &label, &steps, cont, &policy)?;
                 let hash = out.get("baseHash").and_then(Value::as_str).unwrap_or_default().to_string();
                 s.ds_mut()?.start_preview(PREVIEW_ID, &label, 0, after);
                 s.eureka.shown = Some((p.clone(), hash));
@@ -160,7 +176,22 @@ pub fn specs() -> Vec<CommandSpec> {
                     return Err(bad("proposal.apply", "no proposal to apply: show one with `proposal.preview` first"));
                 };
                 let (label, steps, cont) = parse_batch(&params)?;
-                apply_guarded(s, &label, &steps, cont, &hash)
+                let policy = manual_policy(s, &params)?;
+                apply_guarded(s, &label, &steps, cont, &hash, &policy)
+            }
+        ),
+        spec!(
+            "proposal.turn",
+            "Mark Claude's turn",
+            "{}  remember the document as it is now as Claude's last turn: what the designer edits after it is protected from later proposals (a guarded apply does this by itself) → {turn: true}",
+            false,
+            |s, _| {
+                let (uid, doc) = {
+                    let ds = s.ds()?;
+                    (ds.uid, ds.doc.clone())
+                };
+                s.eureka.turn = Some((uid, doc));
+                Ok(json!({"turn": true}))
             }
         ),
     ]
@@ -268,29 +299,34 @@ pub(crate) fn run_batch(s: &mut Session, p: &Value, label: &str, steps: &[BatchS
         // Ending the preview here would let a failure roll the document back to the preview.
         return Err(bad("command.batch", "a preview is showing: leave it first (`proposal.previewEnd`, or `proposal.apply` for a proposal)"));
     }
-    if dry {
-        return dry_run(s, label, steps, cont).map(|(v, _)| v);
-    }
-    let Some(guard) = guard else { return Ok(Value::Array(run_steps(s, label, steps, cont)?)) };
-    apply_guarded(s, label, steps, cont, &guard)
+    let Some(guard) = guard.filter(|_| !dry) else {
+        if dry {
+            let policy = manual_policy(s, p)?;
+            return dry_run(s, label, steps, cont, &policy).map(|(v, _)| v);
+        }
+        return Ok(Value::Array(run_steps(s, label, steps, cont)?));
+    };
+    let policy = manual_policy(s, p)?;
+    apply_guarded(s, label, steps, cont, &guard, &policy)
 }
 
 /// Run the batch and roll it all back; the diff and the resulting document come out.
-fn dry_run(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool) -> Result<(Value, Arc<Document>)> {
+fn dry_run(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, policy: &Manual) -> Result<(Value, Arc<Document>)> {
     check_dry_steps(steps, 0)?;
     let started = Instant::now();
     let (uid, before) = {
         let ds = s.ds()?;
         (ds.uid, ds.doc.clone())
     };
-    let mut seen: Option<(Vec<Value>, Arc<Document>)> = None;
+    let mut seen: Option<(Vec<Value>, Vec<Value>, Arc<Document>)> = None;
     let run = s.grouped("Dry run", |s| {
         let results = run_steps(s, label, steps, cont)?;
-        seen = Some((results, s.ds()?.doc.clone()));
+        let manual = resolve_manual(s, policy, &before)?;
+        seen = Some((results, manual, s.ds()?.doc.clone()));
         // Always fail: the group then restores the document and everything around it.
         Err::<(), _>(EngineError::Other("dry run".into()))
     });
-    let Some((results, after)) = seen else {
+    let Some((results, manual, after)) = seen else {
         return Err(run.err().unwrap_or_else(|| EngineError::Other("the dry run did not finish".into())));
     };
     let diff = diff_docs(&before, &after)?;
@@ -301,6 +337,9 @@ fn dry_run(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool) -> Res
         o.insert("dsWarnings".into(), Value::Array(diff.warnings.clone()));
         o.insert("baseHash".into(), json!(hash));
         o.insert("results".into(), Value::Array(results));
+        o.insert("manualBaseline".into(), json!(policy.source));
+        o.insert("blocked".into(), json!(manual.iter().any(|c| c.get("kept") == Some(&json!("needs-choice")))));
+        o.insert("manualConflicts".into(), Value::Array(manual));
         o.insert("elapsedMs".into(), json!(started.elapsed().as_secs_f64() * 1000.0));
     }
     if diff.nodes_before.len() <= MAX_REMEMBERED_NODES {
@@ -311,7 +350,7 @@ fn dry_run(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool) -> Res
 
 /// Apply the batch for real as one undo step, unless the layers it touches changed since the dry
 /// run that returned `guard`.
-fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, guard: &str) -> Result<Value> {
+fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, guard: &str, policy: &Manual) -> Result<Value> {
     let (uid, before) = {
         let ds = s.ds()?;
         (ds.uid, ds.doc.clone())
@@ -324,9 +363,20 @@ fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, 
         }
     }
     let mut stale_err: Option<Value> = None;
-    let mut applied: Option<(Vec<Value>, String)> = None;
+    let mut applied: Option<(Vec<Value>, Vec<Value>, String)> = None;
     let run = s.grouped(label, |s| {
         let results = run_steps(s, label, steps, cont)?;
+        let manual = resolve_manual(s, policy, &before)?;
+        if let Some(c) = manual.iter().find(|c| c.get("kept") == Some(&json!("needs-choice"))) {
+            return Err(bad(
+                "proposal.apply",
+                format!(
+                    "the proposal removes {} , which the designer edited by hand; nothing was applied. Preview again with `override: [{}]` to let the proposal win",
+                    c.get("name").map_or_else(String::new, Value::to_string),
+                    c.get("id").map_or_else(String::new, Value::to_string)
+                ),
+            ));
+        }
         let after = s.ds()?.doc.clone();
         let diff = diff_docs(&before, &after)?;
         let hash = diff.hash();
@@ -338,7 +388,7 @@ fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, 
             });
             return Err(EngineError::Other("stale".into()));
         }
-        applied = Some((results, hash));
+        applied = Some((results, manual, hash));
         Ok(())
     });
     if let Some(c) = stale_err {
@@ -346,8 +396,180 @@ fn apply_guarded(s: &mut Session, label: &str, steps: &[BatchStep], cont: bool, 
     }
     run?;
     s.eureka.proposals.retain(|p| p.hash != guard);
-    let (results, hash) = applied.unwrap_or_default();
-    Ok(json!({"applied": true, "baseHash": hash, "results": results}))
+    s.eureka.turn = Some((uid, s.ds()?.doc.clone()));
+    let (results, manual, hash) = applied.unwrap_or_default();
+    Ok(json!({"applied": true, "baseHash": hash, "results": results, "manualConflicts": manual}))
+}
+
+/// `{since?, keep?, override?}` of a proposal: which baseline counts as Claude's last turn (the
+/// `since` checkpoint, else the session's last turn) and who wins where both changed something.
+fn manual_policy(s: &Session, p: &Value) -> Result<Manual> {
+    let cmd = "proposal";
+    let uid = s.ds()?.uid;
+    let (baseline, source) = match get(p, "since") {
+        Some(v) => {
+            let cursor = v.as_u64().ok_or_else(|| bad(cmd, "`since` must be a cursor from `document.checkpoint`"))?;
+            let c = s
+                .eureka
+                .checkpoints
+                .iter()
+                .find(|c| c.cursor == cursor)
+                .ok_or_else(|| bad(cmd, "unknown or expired `since` cursor: take a new `document.checkpoint`"))?;
+            if c.uid != uid {
+                return Err(bad(cmd, "that `since` cursor belongs to another document"));
+            }
+            (Some(c.doc.clone()), Some("since"))
+        }
+        None => match &s.eureka.turn {
+            Some((u, d)) if *u == uid => (Some(d.clone()), Some("turn")),
+            _ => (None, None),
+        },
+    };
+    let keep_proposal = match get(p, "keep") {
+        None => false,
+        Some(Value::String(k)) if k == "manual" => false,
+        Some(Value::String(k)) if k == "proposal" => true,
+        Some(_) => return Err(bad(cmd, "`keep` must be \"manual\" or \"proposal\"")),
+    };
+    let overrides = match get(p, "override") {
+        None => BTreeSet::new(),
+        Some(Value::Array(a)) if a.len() <= MAX_ENTRIES => {
+            a.iter().map(|v| v.as_u64().ok_or_else(|| bad(cmd, "`override` lists layer ids (numbers)"))).collect::<Result<_>>()?
+        }
+        Some(_) => return Err(bad(cmd, "`override` must be a list of at most 500 layer ids")),
+    };
+    Ok(Manual { baseline, source, keep_proposal, overrides })
+}
+
+/// The edit group a binding belongs with: binding `fill` goes with `fills`, `fontSize` with the
+/// text `style`, `gap` and padding with `layout`, radii with `corners`.
+fn bound_group(k: &str) -> String {
+    let g = if k.starts_with("fill") {
+        "fills"
+    } else if k.starts_with("stroke") && k.ends_with("Weight") {
+        "stroke"
+    } else if k.starts_with("stroke") {
+        "strokes"
+    } else if k.starts_with("effect") {
+        "effects"
+    } else if k.starts_with("font") || k.starts_with("line") || k.starts_with("letter") || k.starts_with("paragraph") {
+        "style"
+    } else if k.ends_with("Gap") || k == "gap" || k.starts_with("padding") {
+        "layout"
+    } else if k.ends_with("Radius") {
+        "corners"
+    } else {
+        k
+    };
+    g.to_string()
+}
+
+/// A layer's editable aspects: its top-level keys (bindings one by one, as `bound.<field>`),
+/// without what only follows from layout.
+fn aspects(v: Option<&Value>) -> BTreeMap<String, Value> {
+    let mut out = BTreeMap::new();
+    let Some(o) = v.and_then(Value::as_object) else { return out };
+    for (k, val) in o {
+        if k == "id" || LAYOUT_KEYS.contains(&k.as_str()) {
+            continue;
+        }
+        if k == "bound" {
+            for (bk, bv) in val.as_object().into_iter().flatten() {
+                out.insert(format!("bound.{bk}"), bv.clone());
+            }
+        } else {
+            out.insert(k.clone(), val.clone());
+        }
+    }
+    out
+}
+
+fn group_of(aspect: &str) -> String {
+    aspect.strip_prefix("bound.").map_or_else(|| aspect.to_string(), bound_group)
+}
+
+/// The edit groups that differ between two versions of a layer.
+fn changed_groups(a: &BTreeMap<String, Value>, b: &BTreeMap<String, Value>) -> BTreeSet<String> {
+    a.keys().chain(b.keys()).filter(|k| a.get(*k) != b.get(*k)).map(|k| group_of(k)).collect()
+}
+
+/// After a proposal's steps ran on `before`: where they change what the designer edited by hand
+/// since the baseline, put the hand-made values back (unless the proposal wins there) and say so.
+/// A layer the proposal removes can't be kept that way: it is reported as `needs-choice`.
+fn resolve_manual(s: &mut Session, m: &Manual, before: &Document) -> Result<Vec<Value>> {
+    let Some(base) = &m.baseline else { return Ok(Vec::new()) };
+    let after = s.ds()?.doc.clone();
+    let ids = after.changed_ids(before, MAX_CHANGED).ok_or_else(|| EngineError::Other("too many layers changed to list".into()))?;
+    let names: BTreeMap<String, String> = variable_map(&after)
+        .into_iter()
+        .chain(variable_map(before))
+        .filter_map(|(id, v)| Some((id, v.get("name")?.as_str()?.to_string())))
+        .collect();
+    let (mut out, mut restored) = (Vec::new(), false);
+    for id in ids {
+        let Some(b) = before.node(id).map(node_json) else { continue };
+        let was = base.node(id).map(node_json);
+        let (ab, bb) = (aspects(Some(&b)), aspects(was.as_ref()));
+        // A layer made by hand after the baseline is all the designer's.
+        let manual: BTreeSet<String> = if was.is_none() { ab.keys().map(|k| group_of(k)).collect() } else { changed_groups(&bb, &ab) };
+        if manual.is_empty() {
+            continue;
+        }
+        let proposal_wins = m.keep_proposal || m.overrides.contains(&id.0);
+        let name = b.get("name").cloned().unwrap_or(Value::Null);
+        let Some(a) = after.node(id).map(node_json) else {
+            let kept = if proposal_wins { "proposal" } else { "needs-choice" };
+            out.push(json!({"id": id.0, "name": name, "removed": true, "kept": kept}));
+            continue;
+        };
+        let aa = aspects(Some(&a));
+        let both: BTreeSet<String> = changed_groups(&ab, &aa).intersection(&manual).cloned().collect();
+        if both.is_empty() {
+            continue;
+        }
+        let keys: Vec<&str> = both.iter().map(String::as_str).chain(["bound"]).collect();
+        let (by_hand, _) = describe(was.as_ref().unwrap_or(&Value::Null), &b, &names, Some(&keys));
+        let (by_claude, _) = describe(&b, &a, &names, Some(&keys));
+        out.push(json!({
+            "id": id.0, "name": name, "props": both, "kept": if proposal_wins { "proposal" } else { "manual" },
+            "manual": by_hand, "proposal": by_claude,
+        }));
+        if proposal_wins {
+            continue;
+        }
+        // Back to the hand-made values for every aspect in the contested groups.
+        let mut merged = a.as_object().cloned().unwrap_or_default();
+        for key in ab.keys().chain(aa.keys()).collect::<BTreeSet<_>>() {
+            if !both.contains(&group_of(key)) {
+                continue;
+            }
+            if let Some(bk) = key.strip_prefix("bound.") {
+                let bound = merged.entry("bound").or_insert_with(|| json!({}));
+                if let Some(bo) = bound.as_object_mut() {
+                    match b.get("bound").and_then(|x| x.get(bk)) {
+                        Some(v) => bo.insert(bk.to_string(), v.clone()),
+                        None => bo.remove(bk),
+                    };
+                }
+            } else {
+                match b.get(key) {
+                    Some(v) => merged.insert(key.clone(), v.clone()),
+                    None => merged.remove(key),
+                };
+            }
+        }
+        let node: figcraft_doc::Node =
+            serde_json::from_value(Value::Object(merged)).map_err(|e| EngineError::Other(format!("could not keep the hand edit on layer {}: {e}", id.0)))?;
+        let ds = s.ds_mut()?;
+        let slot = ds.doc_mut().node_mut(id).ok_or_else(|| EngineError::Other(format!("layer {} is gone", id.0)))?;
+        *slot = node;
+        restored = true;
+    }
+    if restored {
+        let ds = s.ds_mut()?;
+        crate::normalize(ds.doc_mut(), before);
+    }
+    Ok(out)
 }
 
 fn stale(hash: &str, conflicts: Value) -> EngineError {

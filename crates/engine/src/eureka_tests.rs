@@ -268,3 +268,130 @@ fn ds_warnings_flag_raw_values_without_blocking() {
     let applied = f.s.execute("command.batch", &json!({"commands": cmds}));
     assert!(applied.is_ok());
 }
+
+fn node_value(s: &Session, id: NodeId) -> Value {
+    serde_json::to_value(s.doc().unwrap().node(id).unwrap()).unwrap()
+}
+
+fn dry_then_apply(f: &mut Fixture, extra: Value) -> (Value, Value) {
+    let mut dp = batch(f, extra.clone());
+    dp["dryRun"] = json!(true);
+    let dry = run(&mut f.s, "command.batch", dp);
+    let mut ap = batch(f, extra);
+    ap["ifUnchanged"] = dry["baseHash"].clone();
+    let out = run(&mut f.s, "command.batch", ap);
+    (dry, out)
+}
+
+#[test]
+fn the_designer_hand_edit_wins_over_a_proposal_by_default() {
+    let mut f = setup();
+    run(&mut f.s, "proposal.turn", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine", "fill": "#00FF00"}}));
+    let (dry, out) = dry_then_apply(&mut f, json!({}));
+    assert_eq!(dry["manualBaseline"], json!("turn"));
+    assert_eq!(dry["blocked"], json!(false));
+    let c = &dry["manualConflicts"][0];
+    assert_eq!(c["id"], json!(f.card.0));
+    assert_eq!(c["kept"], json!("manual"));
+    assert!(c["props"].as_array().unwrap().contains(&json!("fills")) && c["props"].as_array().unwrap().contains(&json!("name")), "{c}");
+    assert!(c["manual"].to_string().contains("#00FF00") && c["proposal"].to_string().contains("Card v2"), "both sides are told: {c}");
+    // The dry run shows no change on the card: the proposal does not reach it.
+    assert!(!dry["changed"].as_array().unwrap().iter().any(|e| e["id"] == json!(f.card.0)), "{dry}");
+    assert_eq!(out["applied"], json!(true));
+    let card = node_value(&f.s, f.card);
+    assert_eq!(card["name"], json!("Mine"));
+    assert!(card["bound"].get("fill").is_none() && card["bound"].as_object().is_none_or(|b| b.keys().all(|k| !k.starts_with("fill"))), "binding not forced: {card}");
+    // What the designer did not touch still changes: the badge is made.
+    assert!(out["results"].to_string().contains("Badge") || f.s.doc().unwrap().nodes().any(|n| n.name == "Badge"));
+}
+
+#[test]
+fn override_lets_the_proposal_win_on_that_layer() {
+    let mut f = setup();
+    run(&mut f.s, "proposal.turn", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine", "fill": "#00FF00"}}));
+    let card_id = f.card.0;
+    let (dry, _) = dry_then_apply(&mut f, json!({"override": [card_id]}));
+    assert_eq!(dry["manualConflicts"][0]["kept"], json!("proposal"));
+    let card = node_value(&f.s, f.card);
+    assert_eq!(card["name"], json!("Card v2"));
+    assert!(card["bound"].to_string().contains(&f.var), "proposal binding applied: {card}");
+}
+
+#[test]
+fn a_hand_edit_on_other_aspects_is_no_conflict() {
+    let mut f = setup();
+    run(&mut f.s, "proposal.turn", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"opacity": 0.5}}));
+    let (dry, _) = dry_then_apply(&mut f, json!({}));
+    assert_eq!(dry["manualConflicts"], json!([]));
+    let card = node_value(&f.s, f.card);
+    assert_eq!(card["name"], json!("Card v2"));
+    assert_eq!(card["opacity"], json!(0.5));
+}
+
+#[test]
+fn removing_a_hand_edited_layer_needs_a_choice() {
+    let mut f = setup();
+    run(&mut f.s, "proposal.turn", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.other.0, "props": {"name": "Kept by hand"}}));
+    let del = json!({"label": "Tidy", "commands": [{"command": "edit.delete", "params": {"ids": [f.other.0]}}]});
+    let mut dp = del.clone();
+    dp["dryRun"] = json!(true);
+    let dry = run(&mut f.s, "command.batch", dp);
+    assert_eq!(dry["blocked"], json!(true));
+    assert_eq!(dry["manualConflicts"][0]["kept"], json!("needs-choice"));
+    let doc = f.s.doc().unwrap().clone();
+    let mut ap = del.clone();
+    ap["ifUnchanged"] = dry["baseHash"].clone();
+    let err = f.s.execute("command.batch", &ap).unwrap_err().to_string();
+    assert!(err.contains("override"), "{err}");
+    assert_eq!(*f.s.doc().unwrap(), doc);
+    let mut ap = del;
+    ap["override"] = json!([f.other.0]);
+    ap["ifUnchanged"] = dry["baseHash"].clone();
+    run(&mut f.s, "command.batch", ap);
+    assert!(f.s.doc().unwrap().node(f.other).is_none());
+}
+
+#[test]
+fn a_guarded_apply_starts_a_new_turn_and_no_baseline_protects_nothing() {
+    let mut f = setup();
+    // No turn yet: nothing is protected.
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Early"}}));
+    let (dry, _) = dry_then_apply(&mut f, json!({}));
+    assert_eq!(dry["manualBaseline"], Value::Null);
+    assert_eq!(node_value(&f.s, f.card)["name"], json!("Card v2"));
+    // The apply was Claude's turn: an edit after it is the designer's.
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Later"}}));
+    let p = json!({"dryRun": true, "commands": [{"command": "node.set", "params": {"id": f.card.0, "props": {"name": "Claude"}}}]});
+    let dry = run(&mut f.s, "command.batch", p);
+    assert_eq!(dry["manualBaseline"], json!("turn"));
+    assert_eq!(dry["manualConflicts"][0]["kept"], json!("manual"));
+    assert!(f.s.execute("command.batch", &json!({"dryRun": true, "keep": "both", "commands": []})).is_err());
+    assert!(f.s.execute("command.batch", &json!({"dryRun": true, "override": ["x"], "commands": []})).is_err());
+}
+
+#[test]
+fn a_text_size_set_by_hand_survives_a_token_binding() {
+    let mut f = setup();
+    let v = run(&mut f.s, "variable.create", json!({"collection": "Tokens", "name": "Font/Size/fs-xs", "type": "number", "value": 16}));
+    let fs = v["id"].as_str().unwrap().to_string();
+    run(&mut f.s, "node.set", json!({"id": f.title.0, "props": {"fontSize": 14}}));
+    let cp = run(&mut f.s, "document.checkpoint", json!({}));
+    run(&mut f.s, "node.set", json!({"id": f.title.0, "props": {"fontSize": 18, "characters": "R$ 349,90"}}));
+    let p = json!({"dryRun": true, "since": cp["cursor"], "commands": [
+        {"command": "variable.bind", "params": {"ids": [f.title.0], "field": "fontSize", "variable": fs}}
+    ]});
+    let dry = run(&mut f.s, "command.batch", p.clone());
+    assert_eq!(dry["manualBaseline"], json!("since"));
+    assert_eq!(dry["manualConflicts"][0]["kept"], json!("manual"), "{dry}");
+    let mut ap = p;
+    ap.as_object_mut().unwrap().remove("dryRun");
+    ap["ifUnchanged"] = dry["baseHash"].clone();
+    run(&mut f.s, "command.batch", ap);
+    let t = node_value(&f.s, f.title);
+    assert!(t.to_string().contains("18"), "size kept: {t}");
+    assert!(!t["bound"].to_string().contains(&fs), "binding left out: {t}");
+}

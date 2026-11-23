@@ -97,6 +97,14 @@ def readable(diff):
     v = diff.get("variables")
     if v:
         lines.append(f"variables: {json.dumps(v, ensure_ascii=False)[:300]}")
+    mc = diff.get("manualConflicts")
+    if mc:
+        lines.append("conflitos com edição manual (a sua edição vence, salvo escolha):")
+        for c in mc:
+            who = {"manual": "fica a sua", "proposal": "fica a do Claude", "needs-choice": "PRECISA DE ESCOLHA"}.get(c.get("kept"), c.get("kept"))
+            lines.append(f"  ⚑ {c['name']} [id {c['id']}] — {', '.join(c.get('props', [])) or 'camada removida'} → {who}")
+            lines += [f"      você:   {x}" for x in c.get("manual", [])]
+            lines += [f"      Claude: {x}" for x in c.get("proposal", [])]
     if "dsWarnings" in diff:
         w = diff["dsWarnings"]
         lines.append("avisos de DS (valor solto, sem variable): " + ("nenhum" if not w else ""))
@@ -187,6 +195,7 @@ for step in STEPS:
         save("2-generate-bindings.json", notes)
         state["ids"] = ids
         state["cursor"] = ex("document.checkpoint", {})["cursor"]
+        ex("proposal.turn", {})  # what the designer edits from here on is protected (ADR-009)
         ex("view.zoomFit", {})
         shot("2-generate")
         print(json.dumps(notes, ensure_ascii=False)[:900])
@@ -216,12 +225,20 @@ for step in STEPS:
         open(f"{S}/5a-draft-warnings.txt", "w").write(readable(d) + "\n")
         print("draft warnings:", json.dumps(d["dsWarnings"], ensure_ascii=False))
         cmds = refine_commands(state["ids"])
-        r = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "dryRun": True, "commands": cmds})
+        # Default: every hand edit the proposal contradicts stays as the designer made it.
+        c = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "dryRun": True, "commands": cmds})
+        save("5b-conflicts.json", c["manualConflicts"])
+        open(f"{S}/5b-conflicts.txt", "w").write(readable(c) + "\n")
+        print(readable(c))
+        # On the card the designer takes Claude's tokens for the two colours and keeps the price size.
+        ids = state["ids"]
+        state["override"] = [ids["Button"], ids["Label"]]
+        r = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "dryRun": True, "override": state["override"], "commands": cmds})
         state["hash"] = r["baseHash"]
         save("5-propose-diff.json", r)
         open(f"{S}/5-propose-diff.txt", "w").write(readable(r) + "\n")
         print(readable(r))
-        p = ex("proposal.preview", {"label": "Claude: refinar (tokens + selo)", "commands": cmds})
+        p = ex("proposal.preview", {"label": "Claude: refinar (tokens + selo)", "override": state["override"], "commands": cmds})
         ex("view.zoomFit", {})
         shot("5-propose-preview")
         ex("proposal.previewEnd", {})
@@ -229,10 +246,10 @@ for step in STEPS:
 
     elif step == "accept":
         cmds = refine_commands(state["ids"])
-        r = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "ifUnchanged": state["hash"], "commands": cmds})
+        r = ex("command.batch", {"label": "Claude: refinar (tokens + selo)", "ifUnchanged": state["hash"], "override": state["override"], "commands": cmds})
         save("6-accept.json", r)
         ids = ids_by_name()
-        kept = {n: call("node.get", {"id": ids[n], "fields": ["name", "characters"]}) for n in ("Nome", "Preço")}
+        kept = {n: call("node.get", {"id": ids[n], "fields": ["name", "characters", "fontSize", "boundVariables"]}) for n in ("Nome", "Preço")}
         save("6-designer-text-kept.json", kept)
         ex("view.zoomFit", {})
         shot("6-accept")

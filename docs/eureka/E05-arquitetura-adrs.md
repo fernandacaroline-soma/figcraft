@@ -186,7 +186,14 @@ Regras do diagrama:
   - **Limites.** Origem é **informativa, não prova** (nome do agente é auto-declarado; qualquer cliente local escreve `pluginData`). Edição feita fora do Eureka (ex.: `.fig` reimportado) perde a marca. Colaboração ao vivo fora do MVP. Não usar origem para auditoria ou bloqueio de governança.
 - **Alternativas.** (a) Campo `author` no `Node`: muda formato e muitos arquivos do upstream. (b) Diário de origem fora do documento: sai de sincronia com undo.
 - **Evidência do spike (13/11):** na demo, a proposta de refino trocou o tamanho do Preço de 18 (escolhido à mão pelo designer) para `Font/Size/fs-xs` (16), só porque o valor manual não tinha vínculo. Sem origem por propriedade, o Claude não distingue "valor solto a corrigir" de "decisão manual a preservar". Regra proposta para o G1: item que toca propriedade editada à mão desde o último turno (via `document.changesSince`) entra no cartão como **conflito**, com a edição manual vencendo por padrão (decisão provisória 1 do protótipo).
-- **Status.** **Proposta** (depende do evento do ADR-004).
+- **G1, primeira entrega (17/11): proteção da edição manual.** Implementada sem `pluginData` e sem evento, por comparação com uma linha de base:
+  - **Linha de base = último turno do Claude:** todo aceite com guarda (`ifUnchanged` / `proposal.apply`) a renova; `proposal.turn` marca na mão (ex.: depois de uma geração simples); `since: <cursor>` usa um checkpoint.
+  - **Granularidade:** aspecto da camada (texto, preenchimento, contorno, estilo do texto, auto layout, cantos, nome…); o vínculo de variable acompanha o aspecto (vínculo `fill` com `fills`, `fontSize` com o estilo do texto).
+  - **Regra:** onde a proposta e o designer mexeram no mesmo aspecto, **a edição manual vence**: o engine devolve o valor feito à mão antes de calcular o diff, e o cartão recebe `manualConflicts` com os dois lados por extenso (`manual`, `proposal`) e `kept`.
+  - **Escolha do designer:** `override: [ids]` (a proposta vence naquela camada) ou `keep: "proposal"` (vence em tudo). Mesma política no dry-run e no aceite, então o `baseHash` bate.
+  - **Remoção de camada editada à mão** não tem como "manter a edição": vira `needs-choice`, o dry-run volta com `blocked: true` e o aceite é recusado até haver `override`.
+  - Origem por camada persistida (`pluginData`) e "desfazer só a IA" seguem para o G2.
+- **Status.** **Proteção aceita por delegação (17/11) e implementada; origem persistida ainda Proposta.**
 - **Evidência.** E01 "Lacunas" (origem; esforço M), "Segurança" (nome auto-declarado); E03 §1 item 3; HANDOFF "Benchmark".
 
 ## 4. Contratos de interface (rascunho, não implementar)
@@ -363,17 +370,19 @@ Regras para todas as fases: worktree por frente; nada de merge sem a dona; `carg
 
 ## 7. Decisões ainda pendentes da dona
 
+> **17/11 — Gate 0 fechado por delegação.** A dona viajou e pediu para o projeto seguir com autonomia ("toque com independência e autonomia, tomando as decisões… Siga o projeto determinado"). Fechei o G0 com as recomendações abaixo (D3, D4, D7–D9). Seguem valendo os limites: sem merge, sem exclusão no Figma, sem mudar tokens/componentes/regras do DS, sem PR ao upstream, nada distribuído antes do rebranding (D6). Toda decisão delegada é revisável na volta dela.
+
 | # | Decisão | Recomendação | Alternativas |
 |---|---|---|---|
 | D1 ✅ Aceita 13/11 | Segurança do canal local no MVP (ADR-008) | Raízes confinadas + porta aleatória + sem `online/live` já; token antes do 2º usuário | Aceitar risco só em máquina pessoal; proxy autenticado |
 | D2 ✅ Aceita 13/11 | Onde fica o cache de tokens (ADR-002) | Fora do repo; no repo só manifesto sem valores; testes com fixture sintética | Versionar snapshot no repo; repo privado só de snapshots |
-| D3 | Aliases no snapshot (ADR-002) | Guardar alias e valor resolvido | Só resolvido (como o exemplo atual) |
-| D4 | Escopo `GAP` do Spacing usado em padding (ADR-002) | Aviso, não erro, até a liderança de DS decidir | Erro; ignorar escopos |
+| D3 ✅ Delegada 17/11 | Aliases no snapshot (ADR-002) | **Decidido:** guardar alias e valor resolvido (`tokens_snapshot.py` mantém `VARIABLE_ALIAS`; o cache atual de 23 vars ainda está só resolvido e será regerado) | Só resolvido |
+| D4 ✅ Delegada 17/11 | Escopo `GAP` do Spacing usado em padding (ADR-002) | **Decidido:** aviso, não erro, até a liderança de DS decidir | Erro; ignorar escopos |
 | D5 ✅ Aceita 13/11 | CI (ADR-005) | Workflow próprio do Eureka, sem mexer nos do upstream | Pedir acesso ao `craft-common-actions` |
-| D6 | Nome e marca do produto (rebranding obrigatório) | Definir antes de G3 | — |
-| D7 | Contribuir de volta ao upstream (ex.: token do canal, dry-run) | Sim, para mudanças genéricas; reduz conflito de rebase | Só consumir |
-| D8 | Ponto de entrada do DS Experts (ADR-006) | Skills individuais por capacidade no MVP; `ds-workflow` para demandas longas | `ds-orchestrator` como entrada única |
-| D9 | Critério para ampliar importação TSX (ADR-003) | Os 4 critérios do ADR-003 | Outro critério |
+| D6 ⏸ Fica com a dona | Nome e marca do produto (rebranding obrigatório) | Definir antes de G3; nada é distribuído até lá | — |
+| D7 ✅ Delegada 17/11 | Contribuir de volta ao upstream | **Decidido:** sim para mudanças genéricas, mas **nenhum PR ao upstream é aberto sem a dona** (ação externa) | Só consumir |
+| D8 ✅ Delegada 17/11 | Ponto de entrada do DS Experts (ADR-006) | **Decidido:** skills individuais por capacidade no MVP; `ds-workflow` para demandas longas | `ds-orchestrator` como entrada única |
+| D9 ✅ Delegada 17/11 | Critério para ampliar importação TSX (ADR-003) | **Decidido:** os 4 critérios do ADR-003 | Outro critério |
 
 ## 8. Conflitos encontrados entre relatórios e decisões
 
