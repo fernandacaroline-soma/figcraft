@@ -185,9 +185,11 @@ pub fn card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
     }
     let t = Tokens::get(ctx);
     let x = (canvas.max.x - CARD_W - 12.0).max(canvas.min.x + 12.0);
-    let max_h = (canvas.height() - 76.0).max(120.0);
+    // Room for the banner above and the toolbar below.
+    let max_h = (canvas.height() - 160.0).max(120.0);
     let action = egui::Area::new(Id::unique("proposal_card"))
         .order(egui::Order::Foreground)
+        .fade_in(false)
         .pivot(Align2::LEFT_TOP)
         .fixed_pos(egui::pos2(x, canvas.min.y + 64.0))
         .show(ctx, |ui| {
@@ -199,7 +201,11 @@ pub fn card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
                 .inner_margin(egui::Margin::same(12))
                 .show(ui, |ui| {
                     ui.set_width(CARD_W - 24.0);
-                    egui::ScrollArea::vertical().max_height(max_h).auto_shrink([false, true]).show(ui, |ui| body(ui, c, &t))
+                    egui::ScrollArea::vertical()
+                        .max_height(max_h)
+                        .min_scrolled_height(max_h)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| body(ui, c, &t))
                 })
                 .inner
                 .inner
@@ -261,29 +267,11 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
         return out;
     }
 
-    // Summary: each created, changed and removed layer with what changes on it.
     let r = &c.result;
-    for (key, title) in [("created", tr("Created")), ("changed", tr("Changed")), ("removed", tr("Removed"))] {
-        let Some(items) = r.get(key).and_then(Value::as_array).filter(|a| !a.is_empty()) else { continue };
-        heading(ui, title, t);
-        for item in items.iter().take(MAX_LISTED) {
-            let name = item.get("name").and_then(Value::as_str).unwrap_or_default();
-            let id = item.get("id").and_then(Value::as_u64).unwrap_or_default();
-            ui.label(egui::RichText::new(format!("{name}  #{id}")).font(semibold(11.0)).color(t.text));
-            let summary: Vec<&str> =
-                item.get("summary").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
-            if summary.is_empty() && key == "changed" {
-                line(ui, tr("Only layout changes"), t.text_tertiary);
-            }
-            for s in summary {
-                line(ui, &format!("  {s}"), t.text_secondary);
-            }
-        }
-        if items.len() > MAX_LISTED {
-            line(ui, &trn("{n} more layers", items.len() - MAX_LISTED, &[]), t.text_tertiary);
-        }
+    if result_blocked(r) {
+        ui.add_space(10.0);
+        line(ui, tr("Apply waits for a choice on every conflict."), t.warning);
     }
-
     // Conflicts with the designer's own edits.
     let list = conflicts(r);
     if !list.is_empty() {
@@ -341,10 +329,28 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
         }
     }
 
-    if result_blocked(r) {
-        ui.add_space(10.0);
-        line(ui, tr("Apply waits for a choice on every conflict."), t.warning);
+    // Summary: each created, changed and removed layer with what changes on it.
+    for (key, title) in [("created", tr("Created")), ("changed", tr("Changed")), ("removed", tr("Removed"))] {
+        let Some(items) = r.get(key).and_then(Value::as_array).filter(|a| !a.is_empty()) else { continue };
+        heading(ui, title, t);
+        for item in items.iter().take(MAX_LISTED) {
+            let name = item.get("name").and_then(Value::as_str).unwrap_or_default();
+            let id = item.get("id").and_then(Value::as_u64).unwrap_or_default();
+            ui.label(egui::RichText::new(format!("{name}  #{id}")).font(semibold(11.0)).color(t.text));
+            let summary: Vec<&str> =
+                item.get("summary").and_then(Value::as_array).map(|a| a.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+            if summary.is_empty() && key == "changed" {
+                line(ui, tr("Only layout changes"), t.text_tertiary);
+            }
+            for s in summary {
+                line(ui, &format!("  {s}"), t.text_secondary);
+            }
+        }
+        if items.len() > MAX_LISTED {
+            line(ui, &trn("{n} more layers", items.len() - MAX_LISTED, &[]), t.text_tertiary);
+        }
     }
+
     out
 }
 
