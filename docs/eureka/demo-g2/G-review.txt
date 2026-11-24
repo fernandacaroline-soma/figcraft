@@ -1,0 +1,4 @@
+Lint da proposta: 2 achado(s)
+  · Selo Frete grátis: padding 4, 8, 4, 8 está fixo; use um token de espaçamento do DS.  [valor-solto]
+  · Selo Frete grátis: raio 4 está fixo; use um token de raio do DS.  [valor-solto]
+Parecer: com-ressalvas por DS Gatekeeper (demo) (só orienta)

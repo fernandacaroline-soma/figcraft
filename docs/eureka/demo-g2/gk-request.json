@@ -1,0 +1,95 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP; marca na tela: Animale (CERTO)",
+ "proposal": "Claude: botão no token + selo",
+ "layers": [
+  {
+   "layer": "Selo Frete grátis",
+   "id": 9,
+   "what": "criada",
+   "changes": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Surface",
+    "Preenchimento: — → #6F966D (12% de opacidade)"
+   ]
+  },
+  {
+   "layer": "Selo texto",
+   "id": 10,
+   "what": "criada",
+   "changes": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Feedback/Success/Content",
+    "Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xxxs",
+    "Texto: — → \"FRETE GRÁTIS\"",
+    "Preenchimento: — → #1D5B1B"
+   ]
+  },
+  {
+   "layer": "Button",
+   "id": 7,
+   "what": "alterada",
+   "changes": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background",
+    "Preenchimento: #7A4B2A → #0D0D0D"
+   ]
+  }
+ ],
+ "hand_edit_conflicts": [
+  {
+   "id": 7,
+   "kept": "proposal",
+   "manual": [
+    "Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo",
+    "Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A"
+   ],
+   "name": "Button",
+   "proposal": [
+    "Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background",
+    "Preenchimento: #7A4B2A → #0D0D0D"
+   ],
+   "props": [
+    "fills"
+   ]
+  }
+ ],
+ "ds_lint": [
+  {
+   "id": 9,
+   "message": "Selo Frete grátis: padding 4, 8, 4, 8 está fixo; use um token de espaçamento do DS.",
+   "name": "Selo Frete grátis",
+   "prop": "padding",
+   "rule": "valor-solto",
+   "source": "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")",
+   "value": [
+    4.0,
+    8.0,
+    4.0,
+    8.0
+   ]
+  },
+  {
+   "id": 9,
+   "message": "Selo Frete grátis: raio 4 está fixo; use um token de raio do DS.",
+   "name": "Selo Frete grátis",
+   "prop": "cornerRadius",
+   "rule": "valor-solto",
+   "source": "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")",
+   "value": [
+    4.0,
+    4.0,
+    4.0,
+    4.0
+   ]
+  }
+ ],
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}
