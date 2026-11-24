@@ -44,6 +44,9 @@ pub(crate) struct State {
     /// The last `proposal.preview`: its batch, baseHash and the agent that proposed it, for
     /// `proposal.apply`.
     shown: Option<(Value, String, Option<String>)>,
+    /// Whether edits stamp `eureka.origin` on the layers (`origin.track`; off by default, so a
+    /// plain FigCraft session, its branches and exports are unchanged).
+    track_origin: bool,
     /// Who an applied proposal is credited to (its author, even when a person clicked Apply).
     applied_by: Option<Option<String>>,
     /// The document as Claude's last turn left it (a guarded apply or `proposal.turn`): what
@@ -183,6 +186,17 @@ pub fn specs() -> Vec<CommandSpec> {
                 let out = apply_guarded(s, &label, &steps, cont, &hash, &policy)?;
                 s.eureka.applied_by = Some(author);
                 Ok(out)
+            }
+        ),
+        spec!(
+            "origin.track",
+            "Track who changes what",
+            "{on}  start (true) or stop (false) stamping, on every edit, who changed each aspect of the layers it edits (`pluginData[\"eureka.origin\"]`). Off by default. While on, the stamps travel with the file: branch merges may report them as conflicts → {tracking}",
+            false,
+            |s, p| {
+                let on = get(p, "on").and_then(Value::as_bool).ok_or_else(|| bad("origin.track", "`on` must be true or false"))?;
+                s.eureka.track_origin = on;
+                Ok(json!({"tracking": on}))
             }
         ),
         spec!(
@@ -556,6 +570,9 @@ fn origin_of(n: &figcraft_doc::Node) -> Value {
 /// as its author's), or the person at the app. Part of the same undo step as the edit.
 pub(crate) fn record_origin(s: &mut Session, id: &str, uid: u64, before: &Document) {
     let applied = s.eureka.applied_by.take();
+    if !s.eureka.track_origin {
+        return;
+    }
     // Undo and redo bring back the origin the layers had; files, versions and branches are not edits.
     if NO_ORIGIN_PREFIXES.iter().any(|p| id.starts_with(p)) {
         return;

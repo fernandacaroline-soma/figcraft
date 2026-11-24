@@ -193,7 +193,8 @@ Regras do diagrama:
   - **Escolha do designer:** `override: [ids]` (a proposta vence naquela camada) ou `keep: "proposal"` (vence em tudo). Mesma política no dry-run e no aceite, então o `baseHash` bate.
   - **Remoção de camada editada à mão** não tem como "manter a edição": vira `needs-choice`, o dry-run volta com `blocked: true` e o aceite é recusado até haver `override`.
   - Origem por camada persistida (`pluginData`) e "desfazer só a IA" seguem para o G2.
-- **Status.** **Proteção aceita por delegação (17/11) e implementada; origem persistida ainda Proposta.**
+- **G2, Frente E (24/11): origem persistida.** `pluginData["eureka.origin"]` por camada e aspecto, gravada no mesmo passo de desfazer, creditando ao autor uma proposta aplicada por clique (`origin.get`, `origin.list`). **Desligada por padrão (`origin.track {on}`):** gravada sempre, ela mudava o documento em todo fluxo do FigCraft (branches acusavam conflito na marca, exportações e leituras a carregavam) e quebrava ~10 testes do upstream. Ligada, esse custo existe: merge de branch pode acusar conflito em `eureka.origin`. Próximo passo: o merge tratar essa chave como "o mais recente vence".
+- **Status.** **Proteção e origem implementadas (origem opt-in); "desfazer só a IA" e selo no canvas pendentes.**
 - **Evidência.** E01 "Lacunas" (origem; esforço M), "Segurança" (nome auto-declarado); E03 §1 item 3; HANDOFF "Benchmark".
 
 ## 4. Contratos de interface (rascunho, não implementar)

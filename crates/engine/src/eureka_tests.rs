@@ -480,6 +480,7 @@ fn origin(s: &mut Session, id: NodeId) -> Value {
 #[test]
 fn origin_records_who_changed_each_aspect() {
     let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
     f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"fill": "#FF0000"}})).unwrap();
     run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine"}}));
     let o = origin(&mut f.s, f.card);
@@ -496,10 +497,13 @@ fn origin_records_who_changed_each_aspect() {
 #[test]
 fn origin_goes_back_with_undo_and_a_dry_run_leaves_none() {
     let mut f = setup();
-    // The card was made by hand in `setup`.
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Card"}}));
+    let card = id_of(&run(&mut f.s, "node.create", json!({"type": "frame", "name": "Made by hand", "width": 10, "height": 10}))["id"]).unwrap();
+    let made_new = origin(&mut f.s, card);
+    assert_eq!(made_new["name"]["by"], json!("human"), "{made_new}");
+    assert!(made_new.get("type").is_none(), "the kind of layer is no aspect: {made_new}");
     let made = origin(&mut f.s, f.card);
-    assert_eq!(made["name"]["by"], json!("human"), "{made}");
-    assert!(made.get("type").is_none(), "the kind of layer is no aspect: {made}");
     let dp = batch(&f, json!({"dryRun": true}));
     f.s.execute_as(Some("Claude"), "command.batch", &dp).unwrap();
     assert_eq!(origin(&mut f.s, f.card), made, "a dry run stamps nothing");
@@ -514,6 +518,7 @@ fn origin_goes_back_with_undo_and_a_dry_run_leaves_none() {
 #[test]
 fn a_proposal_applied_by_a_click_is_credited_to_its_author() {
     let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
     let pp = batch(&f, json!({}));
     f.s.execute_as(Some("Claude"), "proposal.preview", &pp).unwrap();
     // The designer clicks Apply: no agent on this call.
@@ -524,4 +529,13 @@ fn a_proposal_applied_by_a_click_is_credited_to_its_author() {
     let ai = run(&mut f.s, "origin.list", json!({"by": "ai"}));
     assert!(ai.as_array().unwrap().iter().any(|e| e["id"] == json!(f.card.0)));
     assert!(f.s.execute("origin.list", &json!({"by": "robot"})).is_err());
+}
+
+#[test]
+fn origin_is_not_tracked_unless_asked() {
+    let mut f = setup();
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"name": "AI"}})).unwrap();
+    assert_eq!(origin(&mut f.s, f.card), json!({}));
+    assert!(f.s.doc().unwrap().node(f.card).unwrap().plugin_data.is_empty());
+    assert!(f.s.execute("origin.track", &json!({"on": "yes"})).is_err());
 }
