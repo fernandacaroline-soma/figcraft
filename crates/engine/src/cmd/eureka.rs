@@ -41,8 +41,11 @@ pub(crate) struct State {
     next_cursor: u64,
     checkpoints: VecDeque<Checkpoint>,
     proposals: VecDeque<Proposal>,
-    /// The last `proposal.preview`: its batch and baseHash, for `proposal.apply`.
-    shown: Option<(Value, String)>,
+    /// The last `proposal.preview`: its batch, baseHash and the agent that proposed it, for
+    /// `proposal.apply`.
+    shown: Option<(Value, String, Option<String>)>,
+    /// Who an applied proposal is credited to (its author, even when a person clicked Apply).
+    applied_by: Option<Option<String>>,
     /// The document as Claude's last turn left it (a guarded apply or `proposal.turn`): what
     /// changed after it is the designer's own edit.
     turn: Option<(u64, Arc<Document>)>,
@@ -152,7 +155,7 @@ pub fn specs() -> Vec<CommandSpec> {
                 let (mut out, after) = dry_run(s, &label, &steps, cont, &policy)?;
                 let hash = out.get("baseHash").and_then(Value::as_str).unwrap_or_default().to_string();
                 s.ds_mut()?.start_preview(PREVIEW_ID, &label, 0, after);
-                s.eureka.shown = Some((p.clone(), hash));
+                s.eureka.shown = Some((p.clone(), hash, s.agent.clone()));
                 if let Some(o) = out.as_object_mut() {
                     o.insert("preview".into(), json!(true));
                 }
@@ -172,12 +175,54 @@ pub fn specs() -> Vec<CommandSpec> {
             "{}  leave the `proposal.preview` and apply its batch as one undo step, only if the layers it touches are unchanged since the dry run (else a `stale` error; the preview is over either way)",
             false,
             |s, _| {
-                let Some((params, hash)) = s.eureka.shown.take() else {
+                let Some((params, hash, author)) = s.eureka.shown.take() else {
                     return Err(bad("proposal.apply", "no proposal to apply: show one with `proposal.preview` first"));
                 };
                 let (label, steps, cont) = parse_batch(&params)?;
                 let policy = manual_policy(s, &params)?;
-                apply_guarded(s, &label, &steps, cont, &hash, &policy)
+                let out = apply_guarded(s, &label, &steps, cont, &hash, &policy)?;
+                s.eureka.applied_by = Some(author);
+                Ok(out)
+            }
+        ),
+        spec!(
+            "origin.get",
+            "Who changed a layer",
+            "{id}  per aspect of the layer (fills, characters, style, layout, corners, name…), who changed it last: {aspects: {aspect: {by: \"ai\"|\"human\", agent?, revision}}}. Informative, not proof: an agent's name is what it says it is",
+            false,
+            |s, p| {
+                let id = crate::params::id_of(get(p, "id").unwrap_or(&Value::Null)).ok_or_else(|| bad("origin.get", "`id` is required"))?;
+                let doc = s.doc()?;
+                let n = doc.node(id).ok_or_else(|| bad("origin.get", "no such layer"))?;
+                Ok(json!({"id": id.0, "name": n.name, "aspects": origin_of(n)}))
+            }
+        ),
+        spec!(
+            "origin.list",
+            "Layers by origin",
+            "{by? (\"ai\" | \"human\"; default ai), limit? (default 500)}  the layers on the current document with at least one aspect last changed by `by` → [{id, name, aspects: [..]}]",
+            false,
+            |s, p| {
+                let by = match get(p, "by") {
+                    None => "ai".to_string(),
+                    Some(Value::String(b)) if b == "ai" || b == "human" => b.clone(),
+                    Some(_) => return Err(bad("origin.list", "`by` must be \"ai\" or \"human\"")),
+                };
+                let limit = limit_param("origin.list", p)?;
+                let doc = s.doc()?;
+                let mut out = Vec::new();
+                for n in doc.nodes() {
+                    let o = origin_of(n);
+                    let hits: Vec<&String> =
+                        o.as_object().into_iter().flatten().filter(|(_, v)| v.get("by") == Some(&json!(by))).map(|(k, _)| k).collect();
+                    if !hits.is_empty() {
+                        out.push(json!({"id": n.id.0, "name": n.name, "aspects": hits}));
+                        if out.len() >= limit {
+                            break;
+                        }
+                    }
+                }
+                Ok(Value::Array(out))
             }
         ),
         spec!(
@@ -470,7 +515,7 @@ fn aspects(v: Option<&Value>) -> BTreeMap<String, Value> {
     let mut out = BTreeMap::new();
     let Some(o) = v.and_then(Value::as_object) else { return out };
     for (k, val) in o {
-        if k == "id" || LAYOUT_KEYS.contains(&k.as_str()) {
+        if matches!(k.as_str(), "id" | "type" | "pluginData" | "plugin_data") || LAYOUT_KEYS.contains(&k.as_str()) {
             continue;
         }
         if k == "bound" {
@@ -491,6 +536,62 @@ fn group_of(aspect: &str) -> String {
 /// The edit groups that differ between two versions of a layer.
 fn changed_groups(a: &BTreeMap<String, Value>, b: &BTreeMap<String, Value>) -> BTreeSet<String> {
     a.keys().chain(b.keys()).filter(|k| a.get(*k) != b.get(*k)).map(|k| group_of(k)).collect()
+}
+
+/// Commands whose document change is not an edit of the layers' aspects.
+const NO_ORIGIN_PREFIXES: &[&str] = &["edit.undo", "edit.redo", "file.", "version.", "branch", "online.", "live."];
+/// Most layers one edit stamps (a bigger edit, such as an import, is left unstamped).
+const MAX_ORIGIN_LAYERS: usize = 500;
+
+/// The `pluginData` key the origin of a layer's aspects lives under.
+pub const ORIGIN_KEY: &str = "eureka.origin";
+
+/// A layer's recorded origin (`{}` when none, or when the stored text is not an object).
+fn origin_of(n: &figcraft_doc::Node) -> Value {
+    n.plugin_data.get(ORIGIN_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}))
+}
+
+/// After top-level command `id` changed document `uid` from `before`: record on each layer it
+/// edited who changed which aspect — the agent the command ran for (an applied proposal counts
+/// as its author's), or the person at the app. Part of the same undo step as the edit.
+pub(crate) fn record_origin(s: &mut Session, id: &str, uid: u64, before: &Document) {
+    let applied = s.eureka.applied_by.take();
+    // Undo and redo bring back the origin the layers had; files, versions and branches are not edits.
+    if NO_ORIGIN_PREFIXES.iter().any(|p| id.starts_with(p)) {
+        return;
+    }
+    let author = if id == "proposal.apply" { applied.flatten() } else { s.agent.clone() };
+    let Some(ds) = s.docs.iter_mut().find(|d| d.uid == uid) else { return };
+    if ds.preview.is_some() || ds.interaction.is_some() {
+        return;
+    }
+    let now = ds.doc.clone();
+    let Some(ids) = now.changed_ids(before, MAX_ORIGIN_LAYERS + 1).filter(|v| v.len() <= MAX_ORIGIN_LAYERS) else {
+        return;
+    };
+    let revision = ds.revision + 1;
+    let mut stamp = json!({"by": if author.is_some() { "ai" } else { "human" }, "revision": revision});
+    if let (Some(a), Some(o)) = (&author, stamp.as_object_mut()) {
+        o.insert("agent".into(), json!(a));
+    }
+    for nid in ids {
+        let Some(n) = now.node(nid) else { continue };
+        let (b, a) = (before.node(nid).map(node_json), node_json(n));
+        let (ab, aa) = (aspects(b.as_ref()), aspects(Some(&a)));
+        let groups: BTreeSet<String> = if b.is_none() { aa.keys().map(|k| group_of(k)).collect() } else { changed_groups(&ab, &aa) };
+        if groups.is_empty() {
+            continue;
+        }
+        let mut origin = origin_of(n);
+        if let Some(o) = origin.as_object_mut() {
+            for g in groups {
+                o.insert(g, stamp.clone());
+            }
+        }
+        if let Some(node) = ds.doc_mut().node_mut(nid) {
+            node.plugin_data.insert(ORIGIN_KEY.to_string(), origin.to_string());
+        }
+    }
 }
 
 /// After a proposal's steps ran on `before`: where they change what the designer edited by hand

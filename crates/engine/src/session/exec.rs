@@ -180,6 +180,9 @@ impl Session {
                 // (a group that always fails) never gets here with its edit.
                 if group_depth_before == 0 {
                     self.record_document_change(id, &real_before);
+                    if let Some((uid, bdoc)) = &real_before {
+                        cmd::eureka::record_origin(self, id, *uid, bdoc);
+                    }
                 }
                 self.after_command(spec, before);
                 self.apply_view_prefs();
