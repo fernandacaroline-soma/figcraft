@@ -727,3 +727,59 @@ fn lint_is_read_only_bounded_and_refuses_bad_params() {
         assert!(f.s.execute("ds.lint", &bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn a_branch_merge_never_conflicts_on_the_origin_and_keeps_both_aspects() {
+    for from_main in [false, true] {
+        let mut f = setup();
+        run(&mut f.s, "origin.track", json!({"on": true}));
+        let b = run(&mut f.s, "branch.create", json!({"name": "Explore"}));
+        let id = b["id"].as_str().unwrap().to_string();
+        // The branch changes the card's fill (the agent), main its name (the designer).
+        f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"fill": "#FF0000"}})).unwrap();
+        run(&mut f.s, "doc.switch", json!({"index": 0}));
+        run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine"}}));
+        let review = run(&mut f.s, "branch.review", json!({"id": id}));
+        assert_eq!(review["conflicts"], json!([]), "{review}");
+        if from_main {
+            run(&mut f.s, "doc.switch", json!({"index": 1}));
+            run(&mut f.s, "branch.updateFromMain", json!({"id": id}));
+        } else {
+            run(&mut f.s, "branch.merge", json!({"id": id}));
+        }
+        let o = origin(&mut f.s, f.card);
+        assert_eq!(o["fills"]["by"], json!("ai"), "{o}");
+        assert_eq!(o["name"]["by"], json!("human"), "{o}");
+        let n = f.s.doc().unwrap().node(f.card).unwrap();
+        assert_eq!(n.name, "Mine");
+    }
+}
+
+#[test]
+fn other_plugin_data_still_conflicts_beside_the_origin() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    let id = run(&mut f.s, "branch.create", json!({"name": "Explore"}))["id"].as_str().unwrap().to_string();
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"pluginData": {"x.note": "branch"}}}));
+    run(&mut f.s, "doc.switch", json!({"index": 0}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"pluginData": {"x.note": "main"}}}));
+    let review = run(&mut f.s, "branch.review", json!({"id": id}));
+    assert_eq!(review["conflicts"].as_array().unwrap().len(), 1, "{review}");
+}
+
+#[test]
+fn an_agent_changing_a_layer_it_made_records_nothing_to_go_back_to() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    let made = f.s.execute_as(Some("Claude"), "node.create", &json!({"type": "rectangle", "name": "AI made", "width": 5, "height": 5})).unwrap();
+    let mid = id_of(&made["id"]).unwrap();
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": mid.0, "props": {"fill": "#FF0000", "opacity": 0.5}})).unwrap();
+    let o = origin(&mut f.s, mid);
+    assert!(o.as_object().unwrap().values().all(|st| st["by"] == json!("ai") && st.get("was").is_none()), "{o}");
+    let r = run(&mut f.s, "origin.undoAI", json!({"ids": [mid.0]}));
+    assert!(r["reverted"].as_array().unwrap().is_empty(), "{r}");
+    // Once the designer changed it, what the agent changes next can be put back.
+    run(&mut f.s, "node.set", json!({"id": mid.0, "props": {"name": "Mine"}}));
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": mid.0, "props": {"fill": "#0000FF"}})).unwrap();
+    assert!(origin(&mut f.s, mid)["fills"].get("was").is_some());
+}
