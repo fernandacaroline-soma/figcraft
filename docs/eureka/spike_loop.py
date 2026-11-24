@@ -71,7 +71,9 @@ def hexs(c):
 state = json.load(open(f"{S}/state.json"))
 ids = state["ids"]
 names = {v: k for k, v in ids.items()}
-tokens = tokens_snapshot.resolve(tokens_snapshot.load(TOK), "Animale")
+APP = "--app" in sys.argv
+COL = "Tokens APP" if APP else "Tokens WEB"
+tokens = tokens_snapshot.resolve(tokens_snapshot.load(TOK), "Animale (CERTO)" if APP else "Animale")
 colour_tokens = {k: v for k, v in tokens.items() if isinstance(v, dict) and "r" in v and v.get("a", 1) > 0.99}
 size_tokens = {k: v for k, v in tokens.items() if k.startswith("Font/Size/") and isinstance(v, (int, float))}
 
@@ -132,12 +134,12 @@ for i in changed:
         why.append(f"{node['name']}: tamanho solto {size:g} → {tok} ({size_tokens[tok]:g})")
 cmds += [
     {"command": "frame.create", "as": "tag", "params": {"parent": ids["Product Card"], "index": 1, "x": 0, "y": 0, "width": 100, "height": 24,
-        "name": "Selo Frete grátis", "props": {"fill": {"$var": "Tokens WEB/Colors/Feedback/Success/Surface"}, "layout": "horizontal", "padding": 0, "sizingH": "hug", "sizingV": "hug"}}},
+        "name": "Selo Frete grátis", "props": {"fill": {"$var": COL + "/Colors/Feedback/Success/Surface"}, "layout": "horizontal", "padding": 0, "sizingH": "hug", "sizingV": "hug"}}},
     {"command": "variable.bind", "params": {"ids": [{"$ref": "tag"}], "field": "paddingHorizontal", "variable": "Spacing/sp-xs"}},
     {"command": "variable.bind", "params": {"ids": [{"$ref": "tag"}], "field": "paddingVertical", "variable": "Spacing/sp-xxs"}},
     {"command": "variable.bind", "params": {"ids": [{"$ref": "tag"}], "field": "cornerRadius", "variable": "Border/Radius/Components/br-chips"}},
     {"command": "text.create", "as": "t", "params": {"parent": {"$ref": "tag"}, "text": "FRETE GRÁTIS", "x": 0, "y": 0, "name": "Selo texto",
-        "props": {"fontSize": 12, "fill": {"$var": "Tokens WEB/Colors/Feedback/Success/Content"}}}},
+        "props": {"fontSize": 12, "fill": {"$var": COL + "/Colors/Feedback/Success/Content"}}}},
     {"command": "variable.bind", "params": {"ids": [{"$ref": "t"}], "field": "fontSize", "variable": "Font/Size/fs-xxxs"}},
 ]
 why.append("novo: selo Frete grátis, todo em tokens")

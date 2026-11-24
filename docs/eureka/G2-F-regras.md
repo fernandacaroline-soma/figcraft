@@ -38,3 +38,18 @@ Páginas lidas:
 5. **Texto literal.** Existe lista de textos que **devem** ter token Business Rule (ex.: CTA da PDP, sacola vazia)? Sem ela, a regra 8 não tem como ser mecânica.
 6. **Outra marca.** O que é "referência antiga ou de outra marca" de forma checável: um token com nome de marca, um modo de outra marca numa tela, outra coisa?
 7. **Coleção de marca.** A coleção de marca é sempre `Tokens WEB`? Em Apps a coleção é outra; o lint aceita o nome por parâmetro (`brandCollection`).
+
+## Respostas da dona (24/11)
+
+A dona aprovou as recomendações da sessão principal e definiu que o Eureka começa pelo **DS Apps**.
+
+1. **D4 retirada.** No Figma o escopo `GAP` cobre gap e padding; o aviso de "Spacing em padding" saiu do `ds.lint` e a D4 foi retirada no E05.
+2. **Coleções oficiais.**
+   - **App (alvo principal):** a coleção **Tokens APP** do DS Apps (`U3pOCU4CEBgYKHGVR1F3sK`).
+   - **Web:** Tokens WEB, Layout e a coleção do Checkout e Account.
+
+   Com a lista escrita, a regra 5 pode entrar numa próxima rodada.
+3. **Componente oficial:** pela biblioteca de origem (DS Apps, Checkout WL, TC da marca). A regra 6 entra quando o documento guardar a biblioteca de cada instância.
+4. **Tipo de arquivo:** o próprio arquivo declara se é "Telas e Fluxos" ou "Checkout". O lint não adivinha.
+5. e 6. **Texto literal e referência de outra marca:** ficam fora até existir lista escrita.
+7. **Coleção de marca:** parâmetro `brandCollection`. O padrão passa a ser **Tokens APP** quando o documento a tem, senão Tokens WEB.

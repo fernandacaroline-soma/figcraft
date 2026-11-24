@@ -3,8 +3,8 @@
 //! source it comes from (`docs/eureka/G2-F-regras.md`); a rule without one does not belong here.
 //!
 //! Rules: `valor-solto` (a raw value where the document has a variable for that property; reuses
-//! the proposals' [`ds_warnings`]), `escopo` (a variable bound outside its declared scope, and
-//! decision D4: padding bound to a `GAP` variable), `marca-nao-escolhida` (a screen using the brand
+//! the proposals' [`ds_warnings`]), `escopo` (a variable bound outside its declared scope),
+//! `marca-nao-escolhida` (a screen using the brand
 //! collection without choosing its mode) and `marca-no-componente` (a brand mode set on a main
 //! component, which every instance inherits).
 
@@ -30,8 +30,9 @@ const MAX_SCANNED: usize = 100_000;
 const MAX_DEPTH: usize = 64;
 /// Most `ids` a call takes.
 const MAX_IDS: usize = 10_000;
-/// The brand collection when `brandCollection` is not given (E05 D3; DS N Marcas — Web).
-const DEFAULT_BRAND: &str = "Tokens WEB";
+/// The brand collection when `brandCollection` is not given: DS Apps first (the owner's decision of
+/// 24/11), else DS N Marcas — Web.
+const DEFAULT_BRANDS: &[&str] = &["Tokens APP", "Tokens WEB"];
 
 const SRC_TOKENS: &str =
     "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")";
@@ -43,7 +44,7 @@ pub fn specs() -> Vec<CommandSpec> {
     vec![spec!(
         CMD,
         "Lint the design system",
-        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), brandCollection? (the brand collection, default \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
+        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
         false,
         run
     )]
@@ -58,7 +59,10 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
         },
     };
     let brand_name = match get(p, "brandCollection") {
-        None => DEFAULT_BRAND.to_string(),
+        None => {
+            let doc = s.doc()?;
+            DEFAULT_BRANDS.iter().copied().find(|n| doc.variables.collection(n).is_some()).unwrap_or("Tokens APP").to_string()
+        }
         Some(Value::String(t)) if !t.trim().is_empty() && t.chars().count() <= 200 => t.trim().to_string(),
         Some(_) => return Err(bad(CMD, "`brandCollection` must be a collection name or id")),
     };
@@ -176,8 +180,9 @@ impl Lint<'_> {
             .or_insert_with(|| doc.variables.variables.iter().any(|v| v.kind == kind && scope.is_none_or(|sc| v.in_scope(sc))))
     }
 
-    /// `escopo`: bindings to a variable whose declared scopes leave the field out; and, by decision
-    /// D4, padding bound to a variable scoped to `GAP`.
+    /// `escopo`: bindings to a variable whose declared scopes leave the field out. (Padding bound to
+    /// a `GAP` variable is in scope: in Figma the GAP scope covers gap and padding, so decision D4
+    /// was withdrawn on 24/11.)
     fn scopes(&mut self, node: &figcraft_doc::Node) {
         for (field, vid) in &node.bound {
             let Some(var) = self.doc.variables.get_by_id(vid) else { continue };
@@ -186,14 +191,6 @@ impl Lint<'_> {
             if !var.in_scope(scope) {
                 let message = format!(
                     "{}: {} usa {}, cujo escopo declarado é {declared}; está fora do escopo (só aviso).",
-                    node.name,
-                    field_label(field),
-                    var.name
-                );
-                self.push(node, "escopo", message, SRC_SCOPE, Some(field), Some(json!(var.name)));
-            } else if field.starts_with("padding") && var.scopes.as_ref().is_some_and(|l| l.iter().any(|s| s == "GAP")) {
-                let message = format!(
-                    "{}: {} usa {} (escopo {declared}). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.",
                     node.name,
                     field_label(field),
                     var.name

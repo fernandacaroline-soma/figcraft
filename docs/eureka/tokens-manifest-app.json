@@ -1,0 +1,219 @@
+{
+ "note": "Manifesto do snapshot de tokens. Sem valores: a fonte é o Figma (Variables) e o cache fica fora do repo.",
+ "source": {
+  "source": "Figma DS Apps",
+  "fileKey": "U3pOCU4CEBgYKHGVR1F3sK",
+  "collection": "Tokens APP",
+  "collectionKey": "f3f7dfc37a92070c08e33cf2ab0e2b40ce9e018a",
+  "exportedAt": "2026-11-24T11:40:54Z"
+ },
+ "aliasesKept": true,
+ "collections": [
+  {
+   "name": "Tokens APP",
+   "modes": [
+    "Farm",
+    "Animale (CERTO)"
+   ]
+  }
+ ],
+ "count": 23,
+ "valuesHash": "9a70a2961b9d",
+ "variables": [
+  {
+   "name": "Border/Radius/Components/br-button",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Border/Radius/Components/br-card",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Border/Radius/Components/br-chips",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "CORNER_RADIUS"
+   ]
+  },
+  {
+   "name": "Colors/Content/01",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Brand/Highlight",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Brand/On Brand",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Content/Pure",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Feedback/Success/Content",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "ALL_SCOPES"
+   ]
+  },
+  {
+   "name": "Colors/Feedback/Success/Surface",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Background",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Background",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Component/Card",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": []
+  },
+  {
+   "name": "Colors/Surface/Brand/Secondary",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Colors/Surface/Brand/Stroke",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": []
+  },
+  {
+   "name": "Colors/Surface/Container",
+   "collection": "Tokens APP",
+   "type": "COLOR",
+   "scopes": [
+    "EFFECT_COLOR",
+    "FRAME_FILL",
+    "SHAPE_FILL",
+    "STROKE_COLOR"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xs",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xxs",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Font/Size/fs-xxxs",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "FONT_SIZE"
+   ]
+  },
+  {
+   "name": "Spacing/Mobile/sp-productcard-gap",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-md",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-sm",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-xs",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  },
+  {
+   "name": "Spacing/sp-xxs",
+   "collection": "Tokens APP",
+   "type": "FLOAT",
+   "scopes": [
+    "GAP"
+   ]
+  }
+ ]
+}

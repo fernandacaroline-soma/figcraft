@@ -659,10 +659,9 @@ fn lint_flags_variables_outside_their_scope_and_d4_padding() {
     run(&mut f.s, "variable.bind", json!({"ids": [f.button.0], "field": "gap", "variable": f.space}));
     let list = findings(&mut f.s, json!({}));
     assert!(has(&list, f.button, "escopo", "cornerRadius"), "{list:?}");
-    assert!(has(&list, f.button, "escopo", "paddingHorizontal"), "D4: {list:?}");
+    // GAP covers gap and padding in Figma: neither is out of scope (D4 withdrawn on 24/11).
+    assert!(!has(&list, f.button, "escopo", "paddingHorizontal"), "{list:?}");
     assert!(!has(&list, f.button, "escopo", "gap"), "gap is the GAP scope: {list:?}");
-    let d4 = list.iter().find(|x| x["prop"] == json!("paddingHorizontal")).unwrap();
-    assert!(d4["source"].as_str().unwrap().contains("D4"), "{d4}");
 }
 
 #[test]
