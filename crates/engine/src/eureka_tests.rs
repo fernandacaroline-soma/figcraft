@@ -943,6 +943,9 @@ fn a_bad_board_is_refused_whole() {
 #[test]
 fn the_chosen_proposal_comes_with_its_lint_and_context_for_the_reviewer() {
     let mut s = Session::new();
+    // A token for the screen's colour: the raw #EEEEEE is then a loose value.
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens WEB", "modes": ["Farm", "Animale"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens WEB", "name": "Colors/Surface/Container", "type": "color", "value": "#EEEEEE"}));
     let out = run(
         &mut s,
         "explore.board",
