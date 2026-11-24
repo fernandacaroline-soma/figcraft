@@ -1,0 +1,11 @@
+Rodada NV no quadro: 5 propostas — A · Incremental · Tamanho na hora de escolher; B · Incremental · Como veste; C · Incremental · Concierge NV para tamanho e styling; D · Incremental · Galeria editorial com look comprável; E · Incremental · Botão fixo que resolve o tamanho
+Lint: 29 achado(s)
+  · Chip PP: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip P: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip M: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip G: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip GG: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip PP: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip P: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+  · Chip M: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).
+Nada gravado no Notion; o Figma da designer não foi tocado. Escolha: com a designer.
