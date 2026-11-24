@@ -164,8 +164,9 @@ r = ex("explore.board", {"title": "NV App · PDP · Rodada 01 (13/11)", "brand":
 ids = [p["id"] for p in r["proposals"]]
 ex("variable.setMode", {"ids": ids, "collection": COL, "mode": MODE})
 lint = ex("ds.lint", {"ids": ids})
+call("engine.execute", {"command": "select.set", "params": {"ids": [r["section"]]}})
+call("engine.execute", {"command": "view.zoomSelection", "params": {}})
 call("engine.execute", {"command": "select.none", "params": {}})
-call("engine.execute", {"command": "view.zoomFit", "params": {}})
 import time  # noqa: E402
 
 time.sleep(3)
