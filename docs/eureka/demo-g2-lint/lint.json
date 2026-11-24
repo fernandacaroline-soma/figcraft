@@ -1,0 +1,70 @@
+{
+ "counted": 7,
+ "findings": [
+  {
+   "id": 2,
+   "message": "PDP Mobile: o padding horizontal usa Spacing/sp-md (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.",
+   "name": "PDP Mobile",
+   "prop": "paddingHorizontal",
+   "rule": "escopo",
+   "source": "docs/eureka/E05-arquitetura-adrs.md §7 D4 (\"aviso, não erro, até a liderança de DS decidir\")",
+   "value": "Spacing/sp-md"
+  },
+  {
+   "id": 2,
+   "message": "PDP Mobile: o padding vertical usa Spacing/sp-md (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.",
+   "name": "PDP Mobile",
+   "prop": "paddingVertical",
+   "rule": "escopo",
+   "source": "docs/eureka/E05-arquitetura-adrs.md §7 D4 (\"aviso, não erro, até a liderança de DS decidir\")",
+   "value": "Spacing/sp-md"
+  },
+  {
+   "id": 3,
+   "message": "Product Card: o padding horizontal usa Spacing/sp-sm (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.",
+   "name": "Product Card",
+   "prop": "paddingHorizontal",
+   "rule": "escopo",
+   "source": "docs/eureka/E05-arquitetura-adrs.md §7 D4 (\"aviso, não erro, até a liderança de DS decidir\")",
+   "value": "Spacing/sp-sm"
+  },
+  {
+   "id": 3,
+   "message": "Product Card: o padding vertical usa Spacing/sp-sm (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.",
+   "name": "Product Card",
+   "prop": "paddingVertical",
+   "rule": "escopo",
+   "source": "docs/eureka/E05-arquitetura-adrs.md §7 D4 (\"aviso, não erro, até a liderança de DS decidir\")",
+   "value": "Spacing/sp-sm"
+  },
+  {
+   "id": 6,
+   "message": "Preço: tamanho da fonte 18 está fixo; use um token de tamanho de fonte do DS.",
+   "name": "Preço",
+   "prop": "fontSize",
+   "rule": "valor-solto",
+   "source": "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")",
+   "value": 18.0
+  },
+  {
+   "id": 7,
+   "message": "Button: preenchimento #7A4B2A está fixo; use um token de cor do DS.",
+   "name": "Button",
+   "prop": "fill",
+   "rule": "valor-solto",
+   "source": "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")",
+   "value": "#7A4B2A"
+  },
+  {
+   "id": 8,
+   "message": "Label: preenchimento #FFFFFF está fixo; use um token de cor do DS.",
+   "name": "Label",
+   "prop": "fill",
+   "rule": "valor-solto",
+   "source": "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")",
+   "value": "#FFFFFF"
+  }
+ ],
+ "scanned": 8,
+ "truncated": false
+}

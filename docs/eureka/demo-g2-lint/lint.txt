@@ -1,0 +1,17 @@
+Lint de DS — só avisos, nada foi alterado
+
+## Variable fora do escopo declarado (4)
+   fonte: docs/eureka/E05-arquitetura-adrs.md §7 D4 ("aviso, não erro, até a liderança de DS decidir")
+   ! PDP Mobile: o padding horizontal usa Spacing/sp-md (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.  [id 2]
+   ! PDP Mobile: o padding vertical usa Spacing/sp-md (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.  [id 2]
+   ! Product Card: o padding horizontal usa Spacing/sp-sm (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.  [id 3]
+   ! Product Card: o padding vertical usa Spacing/sp-sm (escopo GAP). Pela decisão D4, variable de gap em padding é aviso até a liderança de DS decidir.  [id 3]
+
+## Valor fixo onde existe token (3)
+   fonte: https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: "use tokens e variáveis das coleções oficiais")
+   ! Preço: tamanho da fonte 18 está fixo; use um token de tamanho de fonte do DS.  [id 6]
+   ! Button: preenchimento #7A4B2A está fixo; use um token de cor do DS.  [id 7]
+   ! Label: preenchimento #FFFFFF está fixo; use um token de cor do DS.  [id 8]
+
+achados: 7 (listados 7), camadas vistas: 8, cortado: não
+documento alterado pelo lint: não

@@ -574,3 +574,157 @@ fn undo_only_the_ai_keeps_the_designer_edits() {
     assert!(f.s.doc().unwrap().node(mid).is_some());
     assert!(f.s.execute("origin.undoAI", &json!({"ids": "x"})).is_err());
 }
+
+// ds.lint (Frente F): design-system lint, read-only, every finding cites its source.
+
+struct LintFixture {
+    s: Session,
+    screen: NodeId,
+    price: NodeId,
+    button: NodeId,
+    color: String,
+    size: String,
+    space: String,
+}
+
+fn lint_setup() -> LintFixture {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens WEB", "modes": ["Farm", "Animale"]}));
+    let id = |v: Value| v["id"].as_str().unwrap_or_default().to_string();
+    let color = id(run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens WEB", "name": "Colors/Surface/Brand/Background", "type": "color", "value": "#112233"}),
+    ));
+    let size = id(run(&mut s, "variable.create", json!({"collection": "Tokens WEB", "name": "Font/Size/fs-xs", "type": "number", "value": 16})));
+    run(&mut s, "variable.update", json!({"variable": size, "scopes": ["FONT_SIZE"]}));
+    let space = id(run(&mut s, "variable.create", json!({"collection": "Tokens WEB", "name": "Spacing/sp-md", "type": "number", "value": 16})));
+    run(&mut s, "variable.update", json!({"variable": space, "scopes": ["GAP"]}));
+    let screen = id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "Tela", "width": 375, "height": 600}))["id"]).unwrap();
+    let price = id_of(&run(&mut s, "text.create", json!({"text": "Preço", "x": 10, "y": 10, "parent": screen.0}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": price.0, "props": {"fontSize": 18}}));
+    let button =
+        id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "Botão", "width": 120, "height": 40, "parent": screen.0}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": button.0, "props": {"fill": "#7A4B2A"}}));
+    LintFixture { s, screen, price, button, color, size, space }
+}
+
+fn findings(s: &mut Session, p: Value) -> Vec<Value> {
+    run(s, "ds.lint", p)["findings"].as_array().cloned().unwrap_or_default()
+}
+
+fn has(list: &[Value], id: NodeId, rule: &str, prop: &str) -> bool {
+    list.iter().any(|f| f["id"] == json!(id.0) && f["rule"] == json!(rule) && f["prop"] == json!(prop))
+}
+
+#[test]
+fn lint_flags_raw_values_where_a_token_exists_and_cites_the_source() {
+    let mut f = lint_setup();
+    let list = findings(&mut f.s, json!({}));
+    assert!(has(&list, f.price, "valor-solto", "fontSize"), "{list:?}");
+    assert!(has(&list, f.button, "valor-solto", "fill"), "{list:?}");
+    let price = list.iter().find(|x| x["id"] == json!(f.price.0) && x["prop"] == json!("fontSize")).unwrap();
+    assert_eq!(price["value"], json!(18.0));
+    assert!(price["message"].as_str().unwrap().contains("18"), "{price}");
+    assert!(price["source"].as_str().unwrap().contains("notion.com"), "{price}");
+    let button = list.iter().find(|x| x["id"] == json!(f.button.0) && x["prop"] == json!("fill")).unwrap();
+    assert_eq!(button["value"], json!("#7A4B2A"));
+    // Bound to a token: no longer raw.
+    run(&mut f.s, "variable.bind", json!({"ids": [f.price.0], "field": "fontSize", "variable": f.size}));
+    let list = findings(&mut f.s, json!({}));
+    assert!(!has(&list, f.price, "valor-solto", "fontSize"), "{list:?}");
+}
+
+#[test]
+fn lint_skips_raw_values_with_no_token_for_them() {
+    let mut s = Session::new();
+    let frame = id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "Tela", "width": 100, "height": 100}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": frame.0, "props": {"fill": "#7A4B2A"}}));
+    let out = run(&mut s, "ds.lint", json!({}));
+    assert_eq!(out["counted"], json!(0), "{out}");
+    // A number variable scoped to font size is no token for a radius.
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens WEB", "modes": ["Farm"]}));
+    let v = run(&mut s, "variable.create", json!({"collection": "Tokens WEB", "name": "Font/Size/fs-xs", "type": "number", "value": 16}));
+    run(&mut s, "variable.update", json!({"variable": v["id"], "scopes": ["FONT_SIZE"]}));
+    run(&mut s, "node.set", json!({"id": frame.0, "props": {"cornerRadius": 8}}));
+    assert!(!has(&findings(&mut s, json!({})), frame, "valor-solto", "cornerRadius"));
+}
+
+#[test]
+fn lint_flags_variables_outside_their_scope_and_d4_padding() {
+    let mut f = lint_setup();
+    run(&mut f.s, "node.set", json!({"id": f.button.0, "props": {"layoutMode": "horizontal"}}));
+    run(&mut f.s, "variable.bind", json!({"ids": [f.button.0], "field": "cornerRadius", "variable": f.size}));
+    run(&mut f.s, "variable.bind", json!({"ids": [f.button.0], "field": "paddingHorizontal", "variable": f.space}));
+    run(&mut f.s, "variable.bind", json!({"ids": [f.button.0], "field": "gap", "variable": f.space}));
+    let list = findings(&mut f.s, json!({}));
+    assert!(has(&list, f.button, "escopo", "cornerRadius"), "{list:?}");
+    assert!(has(&list, f.button, "escopo", "paddingHorizontal"), "D4: {list:?}");
+    assert!(!has(&list, f.button, "escopo", "gap"), "gap is the GAP scope: {list:?}");
+    let d4 = list.iter().find(|x| x["prop"] == json!("paddingHorizontal")).unwrap();
+    assert!(d4["source"].as_str().unwrap().contains("D4"), "{d4}");
+}
+
+#[test]
+fn lint_flags_a_screen_left_on_the_default_brand() {
+    let mut f = lint_setup();
+    // No brand token in the screen yet: nothing to choose.
+    assert!(!has(&findings(&mut f.s, json!({})), f.screen, "marca-nao-escolhida", "variableMode"));
+    run(&mut f.s, "variable.bind", json!({"ids": [f.button.0], "field": "fill", "variable": f.color}));
+    let list = findings(&mut f.s, json!({}));
+    let miss = list.iter().find(|x| x["rule"] == json!("marca-nao-escolhida")).expect("screen without brand");
+    assert_eq!(miss["id"], json!(f.screen.0));
+    assert!(miss["message"].as_str().unwrap().contains("Farm"), "names the default it inherits: {miss}");
+    run(&mut f.s, "variable.setMode", json!({"ids": [f.screen.0], "collection": "Tokens WEB", "mode": "Animale"}));
+    assert!(!findings(&mut f.s, json!({})).iter().any(|x| x["rule"] == json!("marca-nao-escolhida")));
+    // Another collection name: the rule follows `brandCollection`, and is off when it is absent.
+    let out = run(&mut f.s, "ds.lint", json!({"brandCollection": "Tokens APP"}));
+    assert!(!out["findings"].as_array().unwrap().iter().any(|x| x["rule"].as_str().unwrap_or("").starts_with("marca")));
+}
+
+#[test]
+fn lint_flags_a_brand_mode_on_the_main_component() {
+    let mut f = lint_setup();
+    let out = run(&mut f.s, "component.create", json!({"ids": [f.button.0]}));
+    let comp = id_of(&out["id"]).unwrap_or(f.button);
+    run(&mut f.s, "variable.setMode", json!({"ids": [comp.0], "collection": "Tokens WEB", "mode": "Animale"}));
+    let list = findings(&mut f.s, json!({}));
+    let on = list.iter().find(|x| x["rule"] == json!("marca-no-componente")).expect("brand on component");
+    assert_eq!(on["id"], json!(comp.0));
+    assert_eq!(on["value"], json!("Animale"));
+    assert!(on["source"].as_str().unwrap().contains("39e690e9a7e281978c0dfc4333a87e8c"), "{on}");
+    // The same mode on the screen is fine.
+    run(&mut f.s, "variable.setMode", json!({"ids": [comp.0], "collection": "Tokens WEB", "mode": null}));
+    run(&mut f.s, "variable.setMode", json!({"ids": [f.screen.0], "collection": "Tokens WEB", "mode": "Animale"}));
+    assert!(!findings(&mut f.s, json!({})).iter().any(|x| x["rule"] == json!("marca-no-componente")));
+}
+
+#[test]
+fn lint_is_read_only_bounded_and_refuses_bad_params() {
+    let mut f = lint_setup();
+    let doc = f.s.doc().unwrap().clone();
+    let depth = f.s.undo_depth();
+    let all = run(&mut f.s, "ds.lint", json!({}));
+    assert_eq!(*f.s.doc().unwrap(), doc);
+    assert_eq!(f.s.undo_depth(), depth);
+    let counted = all["counted"].as_u64().unwrap();
+    assert!(counted >= 2, "{all}");
+    let one = run(&mut f.s, "ds.lint", json!({"limit": 1}));
+    assert_eq!(one["findings"].as_array().unwrap().len(), 1);
+    assert_eq!(one["counted"], json!(counted));
+    assert_eq!(one["truncated"], json!(true));
+    // `ids`: only that subtree.
+    let only = findings(&mut f.s, json!({"ids": [f.price.0]}));
+    assert!(only.iter().all(|x| x["id"] == json!(f.price.0)), "{only:?}");
+    for bad in [
+        json!({"limit": 0}),
+        json!({"limit": "x"}),
+        json!({"ids": "x"}),
+        json!({"ids": []}),
+        json!({"ids": ["nope"]}),
+        json!({"ids": [999_999]}),
+        json!({"brandCollection": 5}),
+    ] {
+        assert!(f.s.execute("ds.lint", &bad).is_err(), "{bad}");
+    }
+}

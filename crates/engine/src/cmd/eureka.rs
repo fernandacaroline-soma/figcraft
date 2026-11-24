@@ -987,7 +987,7 @@ pub(crate) const LAYOUT_KEYS: &[&str] = &["transform", "width", "height", "child
 /// The design-system hint for `fills`, `strokes` and the like: `(prop, value)` pairs of raw values
 /// on layer `a` that no variable binds. Only the aspects in `changed` are looked at (all for a
 /// created layer, `None`). A hint, never an error.
-fn ds_warnings(id: NodeId, a: &Value, changed: Option<&Map<String, Value>>) -> Vec<Value> {
+pub(crate) fn ds_warnings(id: NodeId, a: &Value, changed: Option<&Map<String, Value>>) -> Vec<Value> {
     let touched = |key: &str| changed.is_none_or(|m| m.contains_key(key));
     let bound = |prefix: &str| a.get("bound").and_then(Value::as_object).is_some_and(|b| b.keys().any(|k| k.starts_with(prefix)));
     let name = a.get("name").cloned().unwrap_or(Value::Null);
@@ -1036,7 +1036,7 @@ fn paint_visible_solid(p: &Value) -> bool {
 }
 
 /// `#RRGGBB` of a paint's colour.
-fn paint_hex(p: &Value) -> Option<String> {
+pub(crate) fn paint_hex(p: &Value) -> Option<String> {
     let c = p.get("color")?;
     let ch = |k: &str| c.get(k).and_then(Value::as_f64).map(|v| (v * 255.0).round().clamp(0.0, 255.0) as u8);
     Some(format!("#{:02X}{:02X}{:02X}", ch("r")?, ch("g")?, ch("b")?))
@@ -1061,7 +1061,7 @@ fn paints_text(v: &Value) -> String {
         .join(", ")
 }
 
-fn num_text(x: f64) -> String {
+pub(crate) fn num_text(x: f64) -> String {
     let r = (x * 100.0).round() / 100.0;
     if r.fract() == 0.0 { format!("{r:.0}") } else { format!("{r}") }
 }
