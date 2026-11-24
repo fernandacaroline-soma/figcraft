@@ -607,7 +607,7 @@ fn origin_of(n: &figcraft_doc::Node) -> Value {
 
 /// What a reviewer needs to know about the layers a proposal touches: their kind, the component
 /// an instance comes from, and the variable modes (brand) chosen on the screens they sit in.
-fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
+pub(crate) fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
     let mode_names = |n: &figcraft_doc::Node| -> Map<String, Value> {
         n.var_modes
             .iter()
@@ -657,39 +657,47 @@ fn review(s: &mut Session, p: &Value) -> Result<Value> {
     if s.eureka.shown.is_none() || !showing {
         return Err(bad(CMD, "no proposal to review: show one with `proposal.preview` first"));
     }
+    let r = parse_review(CMD, s.agent.clone(), p)?;
+    s.eureka.review = Some(r.clone());
+    Ok(json!({"review": r}))
+}
+
+/// A reviewer's verdict, read and checked: `{verdict, reviewer, summary, items, advisory: true}`.
+/// Shared by `proposal.review` (a proposal being previewed) and `explore.review` (a proposal chosen
+/// on an exploration board).
+pub(crate) fn parse_review(cmd: &'static str, agent: Option<String>, p: &Value) -> Result<Value> {
+    const FALLBACK_REVIEWER: &str = "revisor";
     let text = |v: Option<&Value>, what: &str| -> Result<Option<String>> {
         match v {
             None | Some(Value::Null) => Ok(None),
             Some(Value::String(t)) if t.chars().count() <= MAX_REVIEW_TEXT => Ok(Some(t.trim().to_string())),
-            Some(_) => Err(bad(CMD, format!("`{what}` must be text of at most {MAX_REVIEW_TEXT} characters"))),
+            Some(_) => Err(bad(cmd, format!("`{what}` must be text of at most {MAX_REVIEW_TEXT} characters"))),
         }
     };
     let verdict = match get(p, "verdict").and_then(Value::as_str) {
         Some(v @ ("aprovado" | "com-ressalvas" | "bloqueado")) => v.to_string(),
-        _ => return Err(bad(CMD, "`verdict` must be \"aprovado\", \"com-ressalvas\" or \"bloqueado\"")),
+        _ => return Err(bad(cmd, "`verdict` must be \"aprovado\", \"com-ressalvas\" or \"bloqueado\"")),
     };
-    let reviewer = text(get(p, "reviewer"), "reviewer")?.or_else(|| s.agent.clone()).unwrap_or_else(|| "revisor".into());
+    let reviewer = text(get(p, "reviewer"), "reviewer")?.or(agent).unwrap_or_else(|| FALLBACK_REVIEWER.into());
     let summary = text(get(p, "summary"), "summary")?;
     let mut items = Vec::new();
     match get(p, "items") {
         None | Some(Value::Null) => {}
         Some(Value::Array(a)) if a.len() <= MAX_REVIEW_ITEMS => {
             for it in a {
-                let message = text(it.get("message"), "items[].message")?.ok_or_else(|| bad(CMD, "every item needs a `message`"))?;
+                let message = text(it.get("message"), "items[].message")?.ok_or_else(|| bad(cmd, "every item needs a `message`"))?;
                 let source = text(it.get("source"), "items[].source")?;
                 let ids: Vec<u64> = match it.get("ids") {
                     None | Some(Value::Null) => Vec::new(),
                     Some(Value::Array(l)) => l.iter().take(MAX_ENTRIES).filter_map(Value::as_u64).collect(),
-                    Some(_) => return Err(bad(CMD, "`items[].ids` must be a list of layer ids")),
+                    Some(_) => return Err(bad(cmd, "`items[].ids` must be a list of layer ids")),
                 };
                 items.push(json!({"message": message, "source": source, "ids": ids}));
             }
         }
-        Some(_) => return Err(bad(CMD, format!("`items` must be a list of at most {MAX_REVIEW_ITEMS}"))),
+        Some(_) => return Err(bad(cmd, format!("`items` must be a list of at most {MAX_REVIEW_ITEMS}"))),
     }
-    let r = json!({"verdict": verdict, "reviewer": reviewer, "summary": summary, "items": items, "advisory": true});
-    s.eureka.review = Some(r.clone());
-    Ok(json!({"review": r}))
+    Ok(json!({"verdict": verdict, "reviewer": reviewer, "summary": summary, "items": items, "advisory": true}))
 }
 
 /// `origin.undoAI`: put back, on the given layers, the aspects an agent changed last.

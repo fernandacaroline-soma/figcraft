@@ -939,3 +939,54 @@ fn a_bad_board_is_refused_whole() {
     let lone = id_of(&run(&mut s, "node.create", json!({"type": "frame", "width": 10, "height": 10}))["id"]).unwrap();
     assert!(s.execute("explore.choose", &json!({"id": lone.0})).is_err());
 }
+
+#[test]
+fn the_chosen_proposal_comes_with_its_lint_and_context_for_the_reviewer() {
+    let mut s = Session::new();
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "Lint", "proposals": [proposal("Um", "incremental", "#EEEEEE"), proposal("Dois", "disruptiva", "#DDDDDD")]}),
+    );
+    let a = id_of(&out["proposals"][0]["id"]).unwrap();
+    let r = run(&mut s, "explore.choose", json!({"id": a.0}));
+    // The screen's own fill is a loose colour: the lint of the chosen screen finds it.
+    let lint = r["lint"].as_array().unwrap();
+    assert!(lint.iter().any(|f| f["id"] == json!(a.0)), "{lint:?}");
+    let layers = r["context"]["layers"].as_array().unwrap();
+    assert!(layers.len() >= 2, "the screen and what is in it: {layers:?}");
+    assert_eq!(r["context"]["screens"][0]["brandChosen"], json!(false));
+}
+
+#[test]
+fn a_verdict_is_kept_on_the_chosen_proposal_only() {
+    let mut s = Session::new();
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "Parecer", "proposals": [proposal("Um", "incremental", "#EEEEEE"), proposal("Dois", "disruptiva", "#DDDDDD")]}),
+    );
+    let a = id_of(&out["proposals"][0]["id"]).unwrap();
+    let b = id_of(&out["proposals"][1]["id"]).unwrap();
+    let verdict = json!({"verdict": "com-ressalvas", "reviewer": "DS Gatekeeper", "summary": "Trocar a cor solta.",
+        "items": [{"message": "Use um token de superfície.", "source": "Regras de tokens"}]});
+    // Nothing chosen yet: refused.
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "aprovado"})).is_err());
+    run(&mut s, "explore.choose", json!({"id": a.0}));
+    assert!(s.execute("explore.review", &json!({"id": b.0, "verdict": "aprovado"})).is_err(), "not the chosen one");
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "talvez"})).is_err());
+    let mut p = verdict.clone();
+    p["id"] = json!(a.0);
+    let r = run(&mut s, "explore.review", p);
+    assert_eq!(r["review"]["advisory"], json!(true));
+    let kept: Value = serde_json::from_str(&s.doc().unwrap().node(a).unwrap().plugin_data["eureka.review"]).unwrap();
+    assert_eq!(kept["verdict"], json!("com-ressalvas"));
+    assert_eq!(kept["reviewer"], json!("DS Gatekeeper"));
+    // Undo takes the verdict back.
+    run(&mut s, "edit.undo", json!({}));
+    assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.review"));
+    run(&mut s, "edit.redo", json!({}));
+    // Choosing another proposal drops the old verdict: it belonged to the other choice.
+    run(&mut s, "explore.choose", json!({"id": b.0}));
+    assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.review"));
+}

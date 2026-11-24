@@ -12,6 +12,13 @@ the official flow.
                    attaches the Gatekeeper's verdict ({verdict, summary, items: [{message, source}]})
                    to the proposal being previewed (`proposal.review`, reviewer "DS Gatekeeper").
 
+  export-choice WORKDIR SCREEN_ID
+                   the same request for the proposal the designer CHOSE on an exploration board
+                   (`explore.choose`): the proposal's description, the DS lint of its screen and the
+                   context. Writes WORKDIR/gk-request.json.
+  post-choice WORKDIR SCREEN_ID VERDICT_JSON
+                   keeps the verdict on the chosen proposal (`explore.review`, reviewer "DS Gatekeeper").
+
 The review itself runs in Claude (the `ds-orchestrator:ds-gatekeeper` agent, read-only), between the
 two calls. The app only shows it; the designer decides.
 """
@@ -68,6 +75,31 @@ elif cmd == "post":
     r = call("engine.execute", {"command": "proposal.review", "params": {
         "verdict": v["verdict"], "reviewer": "DS Gatekeeper", "summary": v.get("summary"), "items": v.get("items", [])}})
     call("ui.screenshot", {"path": f"{S}/G2-card-gatekeeper.png"})
+    print(json.dumps(r, ensure_ascii=False)[:600])
+elif cmd == "export-choice":
+    sid = int(sys.argv[3])
+    c = call("engine.execute", {"command": "explore.choose", "params": {"id": sid}})
+    info = c["chosen"]["proposal"] or {}
+    modes = [sc.get("modes", {}) for sc in c["context"].get("screens", [])]
+    req = {
+        "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+        "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+        "brand_modes": modes,
+        "board": info.get("board"), "problem": (info.get("context") or {}).get("problem"),
+        "proposal": {k: info.get(k) for k in ("letter", "name", "type", "mechanism", "summary", "confidence")},
+        "not_chosen": [o["name"] for o in c["others"]],
+        "ds_lint": c["lint"],
+        "context": c["context"],
+        "rules_file": "docs/eureka/G2-F-regras.md",
+        "answer_schema": {"verdict": "aprovado | com-ressalvas | bloqueado", "summary": "1-2 frases em pt-BR",
+                          "items": [{"message": "o que corrigir, em pt-BR", "source": "regra oficial citada (página do Notion e seção)"}]},
+    }
+    json.dump(req, open(f"{S}/gk-request.json", "w"), indent=1, ensure_ascii=False)
+    print(f"{S}/gk-request.json")
+elif cmd == "post-choice":
+    sid, v = int(sys.argv[3]), json.load(open(sys.argv[4]))
+    r = call("engine.execute", {"command": "explore.review", "params": {
+        "id": sid, "verdict": v["verdict"], "reviewer": "DS Gatekeeper", "summary": v.get("summary"), "items": v.get("items", [])}})
     print(json.dumps(r, ensure_ascii=False)[:600])
 else:
     raise SystemExit(__doc__)
