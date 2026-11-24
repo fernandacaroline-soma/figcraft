@@ -1,0 +1,14 @@
+Quem mudou o quê (último a mexer em cada aspecto):
+  Product Card  cantos: Claude (agent) · cor: Claude (agent) · auto layout: Claude (agent) · nome: Claude (agent)
+  Nome          texto: Claude (agent) · cor: Claude (agent) · nome: Claude (agent) · estilo do texto: Claude (agent)
+  Preço         texto: designer · cor: Claude (agent) · nome: Claude (agent) · estilo do texto: designer
+  Button        cantos: Claude (agent) · cor: Claude (agent) · auto layout: Claude (agent) · nome: Claude (agent)
+  Label         texto: Claude (agent) · cor: Claude (agent) · nome: Claude (agent) · estilo do texto: Claude (agent)
+Camadas com algo feito pela IA: PDP Mobile, Product Card, Imagem, Nome, Preço, Button, Label, Selo Frete grátis, Selo texto
+
+Depois de 1 desfazer (a proposta aplicada volta, e a marca volta junto):
+  Product Card  cantos: Claude (agent) · cor: Claude (agent) · auto layout: Claude (agent) · nome: Claude (agent)
+  Nome          texto: Claude (agent) · cor: Claude (agent) · nome: Claude (agent) · estilo do texto: Claude (agent)
+  Preço         texto: designer · cor: Claude (agent) · nome: Claude (agent) · estilo do texto: designer
+  Button        cantos: Claude (agent) · cor: designer · auto layout: Claude (agent) · nome: Claude (agent)
+  Label         texto: Claude (agent) · cor: designer · nome: Claude (agent) · estilo do texto: Claude (agent)

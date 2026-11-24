@@ -147,6 +147,7 @@ for step in STEPS:
     print(f"== {step}")
     if step == "import":
         ex("file.new", {"name": "Eureka · propostas · Animale"}, agent=None)
+        ex("origin.track", {"on": True}, agent=None)  # Eureka mode: record who changes what (G2-E)
         toks = json.load(open(TOK))
         r = ex("variable.import", {"variables": toks})
         save("1-import.json", r)

@@ -472,3 +472,70 @@ fn a_hand_edit_tells_the_edited_layer_apart_from_the_ones_that_moved() {
     let changed = ev[0].data["changed"].as_array().unwrap();
     assert!(changed.contains(&json!(b.0)) || changed.contains(&json!(card.0)), "layout followed: {:?}", ev[0].data);
 }
+
+fn origin(s: &mut Session, id: NodeId) -> Value {
+    run(s, "origin.get", json!({"id": id.0}))["aspects"].clone()
+}
+
+#[test]
+fn origin_records_who_changed_each_aspect() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"fill": "#FF0000"}})).unwrap();
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine"}}));
+    let o = origin(&mut f.s, f.card);
+    assert_eq!(o["fills"]["by"], json!("ai"), "{o}");
+    assert_eq!(o["fills"]["agent"], json!("Claude (agent)"));
+    assert_eq!(o["name"]["by"], json!("human"), "{o}");
+    // A later hand edit of the same aspect takes it over.
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#00FF00"}}));
+    assert_eq!(origin(&mut f.s, f.card)["fills"]["by"], json!("human"));
+    let ai = run(&mut f.s, "origin.list", json!({}));
+    assert!(ai.as_array().unwrap().iter().all(|e| e["id"] != json!(f.card.0)), "{ai}");
+}
+
+#[test]
+fn origin_goes_back_with_undo_and_a_dry_run_leaves_none() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Card"}}));
+    let card = id_of(&run(&mut f.s, "node.create", json!({"type": "frame", "name": "Made by hand", "width": 10, "height": 10}))["id"]).unwrap();
+    let made_new = origin(&mut f.s, card);
+    assert_eq!(made_new["name"]["by"], json!("human"), "{made_new}");
+    assert!(made_new.get("type").is_none(), "the kind of layer is no aspect: {made_new}");
+    let made = origin(&mut f.s, f.card);
+    let dp = batch(&f, json!({"dryRun": true}));
+    f.s.execute_as(Some("Claude"), "command.batch", &dp).unwrap();
+    assert_eq!(origin(&mut f.s, f.card), made, "a dry run stamps nothing");
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"name": "AI"}})).unwrap();
+    assert_eq!(origin(&mut f.s, f.card)["name"]["by"], json!("ai"));
+    run(&mut f.s, "edit.undo", json!({}));
+    assert_eq!(origin(&mut f.s, f.card), made, "undo takes the stamp back with the edit");
+    run(&mut f.s, "edit.redo", json!({}));
+    assert_eq!(origin(&mut f.s, f.card)["name"]["by"], json!("ai"));
+}
+
+#[test]
+fn a_proposal_applied_by_a_click_is_credited_to_its_author() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    let pp = batch(&f, json!({}));
+    f.s.execute_as(Some("Claude"), "proposal.preview", &pp).unwrap();
+    // The designer clicks Apply: no agent on this call.
+    run(&mut f.s, "proposal.apply", json!({}));
+    let o = origin(&mut f.s, f.card);
+    assert_eq!(o["name"]["by"], json!("ai"), "{o}");
+    assert_eq!(o["name"]["agent"], json!("Claude (agent)"));
+    let ai = run(&mut f.s, "origin.list", json!({"by": "ai"}));
+    assert!(ai.as_array().unwrap().iter().any(|e| e["id"] == json!(f.card.0)));
+    assert!(f.s.execute("origin.list", &json!({"by": "robot"})).is_err());
+}
+
+#[test]
+fn origin_is_not_tracked_unless_asked() {
+    let mut f = setup();
+    f.s.execute_as(Some("Claude"), "node.set", &json!({"id": f.card.0, "props": {"name": "AI"}})).unwrap();
+    assert_eq!(origin(&mut f.s, f.card), json!({}));
+    assert!(f.s.doc().unwrap().node(f.card).unwrap().plugin_data.is_empty());
+    assert!(f.s.execute("origin.track", &json!({"on": "yes"})).is_err());
+}
