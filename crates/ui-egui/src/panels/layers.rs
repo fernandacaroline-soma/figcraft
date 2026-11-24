@@ -535,7 +535,6 @@ pub(crate) fn list_width(ui: &Ui) -> f32 {
 /// past it instead of making the list that wide.
 pub(crate) const NAME_ROOM: f32 = 1200.0;
 
-/// A row's name: the layer's, or its kind's label when it has none.
 /// Whether an AI agent changed some aspect of the layer last (Eureka origin tracking).
 pub(crate) fn by_ai(n: &figcraft_doc::Node) -> bool {
     n.plugin_data.get(figcraft_engine::cmd::eureka::ORIGIN_KEY).is_some_and(|o| o.contains("\"by\":\"ai\""))
@@ -546,6 +545,7 @@ pub(crate) fn ai_undoable(n: &figcraft_doc::Node) -> bool {
     n.plugin_data.get(figcraft_engine::cmd::eureka::ORIGIN_KEY).is_some_and(|o| o.contains("\"by\":\"ai\"") && o.contains("\"was\""))
 }
 
+/// A row's name: the layer's, or its kind's label when it has none.
 fn row_name(n: &figcraft_doc::Node) -> &str {
     if n.name.is_empty() { tr(n.kind.label()) } else { &n.name }
 }
@@ -1268,10 +1268,19 @@ fn layers(app: &mut FigApp, ui: &mut Ui) {
                 let max_w = (rr.max.x - 56.0 - tag_w - name_x).clamp(20.0, NAME_ROOM);
                 let named = crate::bidi::paint_name(ui.painter(), pos2(name_x, r.center().y), &name, font, col, max_w);
                 if ai {
-                    // Eureka: an AI agent changed something on this layer last (`origin.get` tells what).
+                    // Eureka: an AI agent changed something on this layer last (`origin.get` tells
+                    // what). Filled when it changed what was there (so "Undo only the AI" has
+                    // something to put back); only outlined on a layer it made and nobody changed
+                    // since, so a screen the agent generated isn't a column of loud tags.
                     let tag = Rect::from_min_size(pos2(named.max.x + 6.0, r.center().y - 7.0), vec2(18.0, 14.0));
-                    ui.painter().rect_filled(tag, 3.0, t.accent);
-                    ui.painter().text(tag.center(), egui::Align2::CENTER_CENTER, tr("AI"), egui::FontId::proportional(9.0), t.accent_on);
+                    let font = egui::FontId::proportional(9.0);
+                    if ai_undoable(n) {
+                        ui.painter().rect_filled(tag, 3.0, t.accent);
+                        ui.painter().text(tag.center(), egui::Align2::CENTER_CENTER, tr("AI"), font, t.accent_on);
+                    } else {
+                        ui.painter().rect_stroke(tag, CornerRadius::same(3), Stroke::new(1.0, t.text_tertiary), egui::StrokeKind::Inside);
+                        ui.painter().text(tag.center(), egui::Align2::CENTER_CENTER, tr("AI"), font, t.text_tertiary);
+                    }
                 }
             }
             let (v, l) = eye_lock(ui, &t, [r, rr], row, n, over && !dev, dev, &mut sweep);
