@@ -8,6 +8,12 @@ name = "Português (Brasil)"
 status = "draft — needs native review"
 
 [ui]
+"Source: {source}" = "Fonte: {source}"
+"Pre-approved" = "Pré-aprovado"
+"Pre-approved with notes" = "Pré-aprovado com ressalvas"
+"Not pre-approved" = "Não pré-aprovado"
+"Review by {reviewer}" = "Parecer de {reviewer}"
+"A review only advises: you decide whether to apply." = "O parecer só orienta: quem decide aplicar é você."
 "AI" = "IA"
 "Undo only the AI" = "Desfazer só a IA"
 "% of all commits" = "% de todos os commits"

@@ -8,6 +8,12 @@
 name = "English"
 
 [ui]
+"Source: {source}" = "Source: {source}"
+"Pre-approved" = "Pre-approved"
+"Pre-approved with notes" = "Pre-approved with notes"
+"Not pre-approved" = "Not pre-approved"
+"Review by {reviewer}" = "Review by {reviewer}"
+"A review only advises: you decide whether to apply." = "A review only advises: you decide whether to apply."
 "AI" = "AI"
 "Undo only the AI" = "Undo only the AI"
 "% of all commits" = "% of all commits"

@@ -30,6 +30,8 @@ pub struct Card {
     keep_removed: BTreeSet<u64>,
     /// A stale apply: the layers that changed since the preview.
     stale: Option<String>,
+    /// A reviewer's verdict (`proposal.review`, e.g. the DS Gatekeeper's). Advisory.
+    review: Option<Value>,
 }
 
 /// One edit-conflict row.
@@ -63,7 +65,13 @@ pub fn observe(app: &mut FigApp, cmd: &str, params: &Value, result: &Value) {
     match cmd {
         "proposal.preview" => {
             let Ok(uid) = app.session.ds().map(|d| d.uid) else { return };
-            app.ui.proposal = Some(Card { uid, params: params.clone(), result: result.clone(), keep_removed: BTreeSet::new(), stale: None });
+            app.ui.proposal =
+                Some(Card { uid, params: params.clone(), result: result.clone(), keep_removed: BTreeSet::new(), stale: None, review: None });
+        }
+        "proposal.review" => {
+            if let Some(c) = app.ui.proposal.as_mut() {
+                c.review = result.get("review").cloned();
+            }
         }
         "proposal.apply" | "proposal.previewEnd" => app.ui.proposal = None,
         _ => {}
@@ -236,6 +244,19 @@ pub fn card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
     }
 }
 
+/// A rule source as a person reads it: the names in parentheses after each link ("Fluxo Oficial
+/// §4: …"), not the links themselves; text without links as it is.
+pub fn source_label(src: &str) -> String {
+    let parts: Vec<String> = src
+        .split("; ")
+        .map(|part| match (part.starts_with("http"), part.find(" ("), part.rfind(')')) {
+            (true, Some(a), Some(b)) if b > a + 2 => part.get(a + 2..b).unwrap_or(part).to_string(),
+            _ => part.to_string(),
+        })
+        .collect();
+    trf("Source: {source}", &[("source", &parts.join("; "))])
+}
+
 fn heading(ui: &mut Ui, text: &str, t: &Tokens) {
     ui.add_space(10.0);
     ui.label(egui::RichText::new(text).font(semibold(11.0)).color(t.text));
@@ -274,6 +295,28 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
     if result_blocked(r) {
         ui.add_space(10.0);
         line(ui, tr("Apply waits for a choice on every conflict."), t.warning);
+    }
+    // A reviewer's pre-approval (the DS Gatekeeper's): shown, never acted on.
+    if let Some(rv) = &c.review {
+        let verdict = rv.get("verdict").and_then(Value::as_str).unwrap_or_default();
+        let (label, color) = match verdict {
+            "aprovado" => (tr("Pre-approved"), t.success),
+            "com-ressalvas" => (tr("Pre-approved with notes"), t.warning),
+            _ => (tr("Not pre-approved"), t.danger),
+        };
+        let reviewer = rv.get("reviewer").and_then(Value::as_str).unwrap_or_default();
+        heading(ui, &trf("Review by {reviewer}", &[("reviewer", &reviewer)]), t);
+        ui.label(egui::RichText::new(label).font(semibold(12.0)).color(color));
+        if let Some(sm) = rv.get("summary").and_then(Value::as_str).filter(|x| !x.is_empty()) {
+            line(ui, sm, t.text);
+        }
+        for it in rv.get("items").and_then(Value::as_array).into_iter().flatten().take(MAX_LISTED) {
+            line(ui, &format!("· {}", it.get("message").and_then(Value::as_str).unwrap_or_default()), t.text_secondary);
+            if let Some(src) = it.get("source").and_then(Value::as_str).filter(|x| !x.is_empty()) {
+                line(ui, &source_label(src), t.text_tertiary);
+            }
+        }
+        line(ui, tr("A review only advises: you decide whether to apply."), t.text_tertiary);
     }
     // Conflicts with the designer's own edits.
     let list = conflicts(r);
@@ -316,8 +359,20 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
         }
     }
 
-    // Design-system hints: raw values with no variable. A note, never an error.
-    let warnings: Vec<&Value> = r.get("dsWarnings").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
+    // The DS lint of what the proposal makes or edits, each finding with its source. A note, never
+    // an error. (Older results only carry `dsWarnings`.)
+    let lint: Vec<&Value> = r.get("lint").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default();
+    if !lint.is_empty() {
+        heading(ui, tr("Design system notes"), t);
+        for f in lint.iter().take(MAX_LISTED) {
+            line(ui, f.get("message").and_then(Value::as_str).unwrap_or_default(), t.warning);
+            if let Some(src) = f.get("source").and_then(Value::as_str) {
+                line(ui, &source_label(src), t.text_tertiary);
+            }
+        }
+    }
+    let warnings: Vec<&Value> =
+        if lint.is_empty() { r.get("dsWarnings").and_then(Value::as_array).map(|a| a.iter().collect()).unwrap_or_default() } else { Vec::new() };
     if !warnings.is_empty() {
         heading(ui, tr("Design system notes"), t);
         for w in warnings.iter().take(MAX_LISTED) {
@@ -393,6 +448,13 @@ mod tests {
         let mine = params_with_choice(&p, &r, 7, Choice::Mine);
         assert_eq!(mine["override"], json!([]));
         assert_eq!(mine["commands"], json!([]));
+    }
+
+    #[test]
+    fn sources_read_as_names_not_links() {
+        let s = "https://app.notion.com/p/3a46 (Fluxo Oficial §4: \"use tokens\"); docs/eureka/E05.md";
+        assert!(source_label(s).ends_with(": Fluxo Oficial §4: \"use tokens\"; docs/eureka/E05.md"), "{}", source_label(s));
+        assert!(source_label("https://x").ends_with(": https://x"));
     }
 
     #[test]
