@@ -789,8 +789,18 @@ pub(crate) fn record_origin(s: &mut Session, id: &str, uid: u64, before: &Docume
             continue;
         }
         let mut origin = origin_of(n);
+        // A layer an agent made and nobody else changed since stays the agent's work: changing it
+        // again records nothing to go back to (the agent's own earlier values are no designer's).
+        let made_by_ai = author.is_some()
+            && origin
+                .as_object()
+                .is_some_and(|o| !o.is_empty() && o.values().all(|st| st.get("by") == Some(&json!("ai")) && st.get("was").is_none()));
         if let Some(o) = origin.as_object_mut() {
             for g in groups {
+                if made_by_ai {
+                    o.insert(g, stamp.clone());
+                    continue;
+                }
                 let mut st = stamp.clone();
                 // An agent changing again what an agent changed keeps the value from before the AI.
                 let earlier = o.get(&g).filter(|e| e.get("by") == Some(&json!("ai"))).and_then(|e| e.get("was")).cloned();

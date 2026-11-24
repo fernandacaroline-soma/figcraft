@@ -262,6 +262,64 @@ fn merged_fields(base: &Document, key: &Key, b: Option<&Change>, m: Option<&Chan
     merge_fields(&o.0, &bv.0, &mv.0)
 }
 
+/// The `pluginData` key where Eureka Design records who (person or agent) last changed each
+/// aspect of a layer: `{<aspect>: {by, revision, agent?, was?}}` (ADR-009 in
+/// `docs/eureka/E05-arquitetura-adrs.md`).
+const ORIGIN_KEY: &str = "eureka.origin";
+
+/// Two layer origins ([`ORIGIN_KEY`]) merged aspect by aspect: the stamp with the higher
+/// `revision` wins, and `incoming`'s when they can't be compared. `None` when neither has one.
+fn merged_origin(incoming: Option<&Value>, other: Option<&Value>) -> Option<Value> {
+    let parse =
+        |v: Option<&Value>| v.and_then(Value::as_str).and_then(|t| serde_json::from_str::<Value>(t).ok()).and_then(|v| v.as_object().cloned());
+    let (Some(a), Some(b)) = (parse(incoming), parse(other)) else {
+        return incoming.or(other).cloned();
+    };
+    let mut out = b;
+    for (aspect, stamp) in a {
+        let rev = |s: &Value| s.get("revision").and_then(Value::as_u64);
+        let older = matches!((rev(&stamp), out.get(&aspect).and_then(rev)), (Some(x), Some(y)) if x < y);
+        if !older {
+            out.insert(aspect, stamp);
+        }
+    }
+    Some(Value::String(Value::Object(out).to_string()))
+}
+
+/// Both sides' writes `b` and `m` of a layer's `pluginData`, with its origin ([`ORIGIN_KEY`])
+/// merged aspect by aspect, as written when merging from the branch and from main. The origin is
+/// informative (ADR-009) and stamped on every edit, so it must never stop a merge; the other keys
+/// merge as before (as a whole, and in conflict when both sides changed them differently), and
+/// then `None` is returned.
+fn merged_plugin_data(base: &Document, key: &Key, b: Option<&Change>, m: Option<&Change>) -> Option<(Json, Json)> {
+    let Key::Node(id, Prop::PluginData) = key else { return None };
+    let (Some(Change::Set { value: bv, .. }), Some(Change::Set { value: mv, .. })) = (b, m) else { return None };
+    let o = Prop::PluginData.get(base.node(*id)?).ok()?;
+    let (o, b, m) = (o.0.as_object()?, bv.0.as_object()?, mv.0.as_object()?);
+    let rest = |x: &Map<String, Value>| {
+        let mut x = x.clone();
+        x.remove(ORIGIN_KEY);
+        x
+    };
+    let (ro, rb, rm) = (rest(o), rest(b), rest(m));
+    let merged = if rb == ro {
+        rm
+    } else if rm == ro || rb == rm {
+        rb
+    } else {
+        return None;
+    };
+    let with = |origin: Option<Value>| {
+        let mut v = merged.clone();
+        if let Some(t) = origin {
+            v.insert(ORIGIN_KEY.to_string(), t);
+        }
+        Json(Value::Object(v))
+    };
+    let (ob, om) = (b.get(ORIGIN_KEY), m.get(ORIGIN_KEY));
+    Some((with(merged_origin(ob, om)), with(merged_origin(om, ob))))
+}
+
 /// Whether layer `n` of `doc` is placed by its parent's auto layout (not absolute).
 fn in_flow(doc: &Document, n: &Node) -> bool {
     !n.child_layout.absolute && n.parent.and_then(|p| doc.node(p)).is_some_and(|p| p.layout.is_some())
@@ -394,6 +452,7 @@ pub fn plan(base: &Document, branch: &Document, main: &Document) -> Result<Plan,
     let mut mc: Vec<Change> = m.changes.into_iter().filter(merges).collect();
     let mut conflicts = Vec::new();
     let mut lists = Vec::new();
+    let mut sided = Vec::new();
     let mut derived = BTreeSet::new();
     let mut fields = BTreeMap::new();
     let km = by_key(&mc);
@@ -412,6 +471,10 @@ pub fn plan(base: &Document, branch: &Document, main: &Document) -> Result<Plan,
         }
         if derived_on_both(branch, main, &k) {
             derived.insert(k);
+            continue;
+        }
+        if let Some((from_branch, from_main)) = merged_plugin_data(base, &k, only(&bi, &bc), only(mi, &mc)) {
+            sided.push((bi, mi.clone(), from_branch, from_main));
             continue;
         }
         if let Some(value) = merged_list(base, &k, only(&bi, &bc), only(mi, &mc)) {
@@ -434,6 +497,17 @@ pub fn plan(base: &Document, branch: &Document, main: &Document) -> Result<Plan,
     // field) become the merged value, so merging either way writes it.
     for (bi, mi, value) in lists {
         for (changes, at) in [(&mut bc, bi), (&mut mc, mi)] {
+            for i in at {
+                if let Some(Change::Set { value: v, .. }) = changes.get_mut(i) {
+                    *v = value.clone();
+                }
+            }
+        }
+    }
+    // A merged `pluginData` differs by direction (the incoming side's origin wins a tie): each
+    // side's writes become the value written when merging from that side.
+    for (bi, mi, from_branch, from_main) in sided {
+        for (changes, at, value) in [(&mut bc, bi, from_branch), (&mut mc, mi, from_main)] {
             for i in at {
                 if let Some(Change::Set { value: v, .. }) = changes.get_mut(i) {
                     *v = value.clone();
