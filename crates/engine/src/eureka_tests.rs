@@ -758,3 +758,33 @@ fn lint_flags_a_variable_from_a_non_official_collection() {
     assert!(s.execute("ds.lint", &json!({"officialCollections": []})).is_err());
     assert!(s.execute("ds.lint", &json!({"officialCollections": [3]})).is_err());
 }
+
+#[test]
+fn a_preview_lints_what_the_proposal_makes_and_takes_a_review() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "Animale (CERTO)"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface/Background", "type": "color", "value": "#FFFFFF"}));
+    let keep = id_of(
+        &run(&mut s, "node.create", json!({"type": "rectangle", "name": "Untouched", "width": 10, "height": 10, "props": {"fill": "#FF0000"}}))["id"],
+    )
+    .unwrap();
+    assert!(s.execute("proposal.review", &json!({"verdict": "aprovado"})).is_err(), "no proposal yet");
+    let p = json!({"commands": [{"command": "node.create", "params": {"type": "rectangle", "name": "Raw", "width": 10, "height": 10, "props": {"fill": "#00FF00"}}}]});
+    let out = s.execute_as(Some("Claude"), "proposal.preview", &p).unwrap();
+    let lint = out["lint"].as_array().unwrap();
+    assert!(lint.iter().any(|f| f["name"] == json!("Raw") && f["rule"] == json!("valor-solto")), "{lint:?}");
+    assert!(!lint.iter().any(|f| f["id"] == json!(keep.0)), "only what the proposal makes or edits: {lint:?}");
+    let r = run(
+        &mut s,
+        "proposal.review",
+        json!({"verdict": "com-ressalvas", "reviewer": "DS Gatekeeper", "summary": "Cor solta no retângulo novo.",
+        "items": [{"message": "Use um token de Colors/Surface.", "source": "Fluxo Oficial §4"}]}),
+    );
+    assert_eq!(r["review"]["verdict"], json!("com-ressalvas"));
+    assert_eq!(r["review"]["advisory"], json!(true));
+    assert!(s.execute("proposal.review", &json!({"verdict": "ok"})).is_err());
+    assert!(s.execute("proposal.review", &json!({"verdict": "aprovado", "items": [{"source": "x"}]})).is_err());
+    // A review is advisory: even "bloqueado" leaves Apply to the designer.
+    run(&mut s, "proposal.review", json!({"verdict": "bloqueado"}));
+    assert_eq!(run(&mut s, "proposal.apply", json!({}))["applied"], json!(true));
+}

@@ -126,6 +126,34 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
     Ok(json!({"findings": lint.findings, "counted": lint.counted, "scanned": lint.scanned, "truncated": lint.truncated}))
 }
 
+/// The lint of the given layers only (not what is inside them), with the default brand and
+/// official collections: what a proposal's preview shows for the layers it makes or edits.
+pub(crate) fn lint_layers(doc: &Document, ids: &[NodeId], limit: usize) -> Vec<Value> {
+    let brand_name = DEFAULT_BRANDS.iter().copied().find(|n| doc.variables.collection(n).is_some()).unwrap_or("Tokens APP");
+    let app = OFFICIAL_APP.iter().any(|n| doc.variables.collection(n).is_some());
+    let names: Vec<String> = (if app { OFFICIAL_APP } else { OFFICIAL_WEB }).iter().map(|n| (*n).to_string()).collect();
+    let official: Vec<String> = names.iter().filter_map(|n| doc.variables.collection(n).map(|c| c.id.clone())).collect();
+    let brand = doc.variables.collection(brand_name).map(|c| c.id.clone());
+    let mut lint = Lint {
+        doc,
+        brand,
+        official,
+        official_names: names,
+        findings: Vec::new(),
+        counted: 0,
+        limit: limit.min(MAX_LIMIT),
+        scanned: 0,
+        truncated: false,
+        tokens: BTreeMap::new(),
+    };
+    for id in ids.iter().take(MAX_SCANNED) {
+        if let Some(node) = doc.node(*id).filter(|n| !matches!(n.kind, NodeKind::Page { .. })) {
+            lint.check(node);
+        }
+    }
+    lint.findings
+}
+
 struct Lint<'a> {
     doc: &'a Document,
     /// The brand collection's id, when the document has it.
