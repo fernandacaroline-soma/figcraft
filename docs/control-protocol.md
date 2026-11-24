@@ -162,7 +162,7 @@ Every command: `[{id, label, params, menu, shortcut, undoable}]`.
 
 Wait for live changes: the app's in-memory event log records `comment.added`, `comment.replied`,
 `comment.edited`, `comment.reacted`, `comment.resolved`, `comment.moved` and `comment.deleted`
-(`topics`: `comments` (default), `document`, `all`). `document` gives `document.changed` after every top-level command that changes the document (`data`: `command`, `source` human or agent, `agent`, `changed` layer ids up to 500, `truncated`, `variables`); dry runs and refused applies emit nothing. Returns pending events after `after`
+(`topics`: `comments` (default), `document`, `all`). `document` gives `document.changed` after every top-level command that changes the document (`data`: `command`, `source` human or agent, `agent`, `edited` (layers changed in more than layout), `changed` (also those that only moved or resized to follow layout) layer ids up to 500, `truncated`, `variables`); dry runs and refused applies emit nothing. Returns pending events after `after`
 at once, otherwise waits up to `timeoutMs` (default 20 000, max 25 000; 0 = no wait):
 
 ```json
