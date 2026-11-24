@@ -251,7 +251,7 @@ impl Lint<'_> {
         }
         for (field, vid) in &node.bound {
             let Some(var) = self.doc.variables.get_by_id(vid) else { continue };
-            if self.official.iter().any(|c| *c == var.collection) {
+            if self.official.contains(&var.collection) {
                 continue;
             }
             let coll = self.doc.variables.collection(&var.collection).map_or_else(|| var.collection.clone(), |c| c.name.clone());
