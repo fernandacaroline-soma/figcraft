@@ -727,3 +727,34 @@ fn lint_is_read_only_bounded_and_refuses_bad_params() {
         assert!(f.s.execute("ds.lint", &bad).is_err(), "{bad}");
     }
 }
+
+#[test]
+fn lint_flags_a_variable_from_a_non_official_collection() {
+    let mut s = Session::new();
+    let id = |v: Value| v["id"].as_str().unwrap_or_default().to_string();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "Animale (CERTO)"]}));
+    run(&mut s, "variable.createCollection", json!({"name": "Rascunho", "modes": ["Mode 1"]}));
+    let ok = id(run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Surface/Background", "type": "color", "value": "#FFFFFF"}),
+    ));
+    let draft = id(run(&mut s, "variable.create", json!({"collection": "Rascunho", "name": "Cor nova", "type": "color", "value": "#123456"})));
+    let a = id_of(&run(&mut s, "node.create", json!({"type": "rectangle", "name": "Oficial", "width": 10, "height": 10}))["id"]).unwrap();
+    let b = id_of(&run(&mut s, "node.create", json!({"type": "rectangle", "name": "Solta", "width": 10, "height": 10}))["id"]).unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [a.0], "field": "fill", "variable": ok}));
+    run(&mut s, "variable.bind", json!({"ids": [b.0], "field": "fill", "variable": draft}));
+    let list = findings(&mut s, json!({}));
+    let hit: Vec<&Value> = list.iter().filter(|f| f["rule"] == json!("colecao-nao-oficial")).collect();
+    assert_eq!(hit.len(), 1, "{list:?}");
+    assert_eq!(hit[0]["id"], json!(b.0));
+    assert!(hit[0]["message"].as_str().unwrap().contains("Rascunho") && hit[0]["source"].as_str().unwrap().contains("Fluxo Oficial"), "{:?}", hit[0]);
+    // The list can be given: with both collections official, nothing is flagged.
+    let list = findings(&mut s, json!({"officialCollections": ["Tokens APP", "Rascunho"]}));
+    assert!(!list.iter().any(|f| f["rule"] == json!("colecao-nao-oficial")), "{list:?}");
+    // None of the official collections in the document: nothing to compare with.
+    let list = findings(&mut s, json!({"officialCollections": ["Outra"]}));
+    assert!(!list.iter().any(|f| f["rule"] == json!("colecao-nao-oficial")), "{list:?}");
+    assert!(s.execute("ds.lint", &json!({"officialCollections": []})).is_err());
+    assert!(s.execute("ds.lint", &json!({"officialCollections": [3]})).is_err());
+}

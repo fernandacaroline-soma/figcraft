@@ -36,7 +36,15 @@ const DEFAULT_BRANDS: &[&str] = &["Tokens APP", "Tokens WEB"];
 
 const SRC_TOKENS: &str =
     "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §4: \"use tokens e variáveis das coleções oficiais\")";
-const SRC_SCOPE: &str = "docs/eureka/E05-arquitetura-adrs.md §7 D4 (\"aviso, não erro, até a liderança de DS decidir\")";
+const SRC_SCOPE: &str =
+    "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)";
+const SRC_COLLECTION: &str = "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial §10: \"tokens e variáveis pertencem às coleções corretas\"); https://app.notion.com/p/39e690e9a7e2816ca310d7e9f4e1eabb (Playbook §3); lista de coleções oficiais: docs/eureka/G2-F-regras.md, respostas de 24/11";
+/// The official collections when `officialCollections` is not given (the owner's answer of 24/11):
+/// DS Apps when the document has its collection, else DS N Marcas — Web.
+const OFFICIAL_APP: &[&str] = &["Tokens APP"];
+const OFFICIAL_WEB: &[&str] = &["Tokens WEB", "Layout"];
+/// Most names `officialCollections` takes.
+const MAX_OFFICIAL: usize = 32;
 const SRC_BRAND_SCREEN: &str = "docs/eureka/E05-arquitetura-adrs.md §7 D3 (\"a marca deve ser escolhida na tela, nunca deixada ao padrão\"); https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (\"conferir modos de marca\")";
 const SRC_BRAND_COMPONENT: &str = "https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (DS N Marcas — Web §3: \"nunca deixando um modo específico preso ao componente original\")";
 
@@ -44,7 +52,7 @@ pub fn specs() -> Vec<CommandSpec> {
     vec![spec!(
         CMD,
         "Lint the design system",
-        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
+        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), officialCollections? (collection names or ids counted as official; default [\"Tokens APP\"] when the document has it, else [\"Tokens WEB\", \"Layout\"]), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, variable of a non-official collection, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
         false,
         run
     )]
@@ -87,7 +95,31 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
         Some(_) => return Err(bad(CMD, "`ids` must be an array of node ids")),
     };
     let brand = doc.variables.collection(&brand_name).map(|c| c.id.clone());
-    let mut lint = Lint { doc, brand, findings: Vec::new(), counted: 0, limit, scanned: 0, truncated: false, tokens: BTreeMap::new() };
+    let names: Vec<String> = match get(p, "officialCollections") {
+        None => {
+            let app = OFFICIAL_APP.iter().any(|n| doc.variables.collection(n).is_some());
+            (if app { OFFICIAL_APP } else { OFFICIAL_WEB }).iter().map(|n| (*n).to_string()).collect()
+        }
+        Some(Value::Array(a)) if !a.is_empty() && a.len() <= MAX_OFFICIAL => a
+            .iter()
+            .map(|v| v.as_str().filter(|t| !t.trim().is_empty()).map(|t| t.trim().to_string()))
+            .collect::<Option<_>>()
+            .ok_or_else(|| bad(CMD, "`officialCollections` lists collection names or ids"))?,
+        Some(_) => return Err(bad(CMD, format!("`officialCollections` must list 1 to {MAX_OFFICIAL} collection names or ids"))),
+    };
+    let official: Vec<String> = names.iter().filter_map(|n| doc.variables.collection(n).map(|c| c.id.clone())).collect();
+    let mut lint = Lint {
+        doc,
+        brand,
+        official,
+        official_names: names,
+        findings: Vec::new(),
+        counted: 0,
+        limit,
+        scanned: 0,
+        truncated: false,
+        tokens: BTreeMap::new(),
+    };
     for root in roots {
         lint.walk(root, 0);
     }
@@ -98,6 +130,9 @@ struct Lint<'a> {
     doc: &'a Document,
     /// The brand collection's id, when the document has it.
     brand: Option<String>,
+    /// The official collections' ids (those the document has), and the names asked for.
+    official: Vec<String>,
+    official_names: Vec<String>,
     findings: Vec<Value>,
     counted: usize,
     limit: usize,
@@ -144,6 +179,7 @@ impl Lint<'_> {
     fn check(&mut self, node: &figcraft_doc::Node) {
         self.raw_values(node);
         self.scopes(node);
+        self.collections(node);
         self.brand_mode(node);
     }
 
@@ -178,6 +214,28 @@ impl Lint<'_> {
             .tokens
             .entry((kind.id(), scope))
             .or_insert_with(|| doc.variables.variables.iter().any(|v| v.kind == kind && scope.is_none_or(|sc| v.in_scope(sc))))
+    }
+
+    /// `colecao-nao-oficial`: bindings to a variable of a collection outside the official list.
+    fn collections(&mut self, node: &figcraft_doc::Node) {
+        if self.official.is_empty() {
+            return; // None of the official collections is in this document: nothing to compare with.
+        }
+        for (field, vid) in &node.bound {
+            let Some(var) = self.doc.variables.get_by_id(vid) else { continue };
+            if self.official.iter().any(|c| *c == var.collection) {
+                continue;
+            }
+            let coll = self.doc.variables.collection(&var.collection).map_or_else(|| var.collection.clone(), |c| c.name.clone());
+            let message = format!(
+                "{}: {} usa {} da coleção \"{coll}\", que não é oficial (oficiais: {}).",
+                node.name,
+                field_label(field),
+                var.name,
+                self.official_names.join(", ")
+            );
+            self.push(node, "colecao-nao-oficial", message, SRC_COLLECTION, Some(field), Some(json!(var.name)));
+        }
     }
 
     /// `escopo`: bindings to a variable whose declared scopes leave the field out. (Padding bound to
