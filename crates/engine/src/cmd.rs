@@ -6,6 +6,7 @@ pub mod component;
 pub mod create;
 pub mod edit;
 pub mod eureka;
+pub mod eureka_explore;
 pub mod eureka_lint;
 pub mod facilitate;
 pub mod file;
@@ -79,6 +80,7 @@ fn registry() -> &'static Registry {
         list.extend(create::specs());
         list.extend(edit::specs());
         list.extend(eureka::specs());
+        list.extend(eureka_explore::specs());
         list.extend(eureka_lint::specs());
         list.extend(lists::specs());
         list.extend(crate::selection_colors::specs());

@@ -807,3 +807,79 @@ fn a_new_proposal_preview_replaces_the_one_showing_instead_of_stacking() {
     assert!(s.execute("proposal.review", &json!({"verdict": "aprovado"})).is_err());
     assert!(s.execute("proposal.apply", &json!({})).is_err());
 }
+
+fn proposal(name: &str, kind: &str, color: &str) -> Value {
+    json!({"name": name, "type": kind, "mechanism": "teste", "confidence": "baixa", "commands": [
+        {"command": "frame.create", "as": "screen", "params": {"width": 120, "height": 200, "name": "tela", "props": {"fill": color}}},
+        {"command": "text.create", "params": {"parent": {"$ref": "screen"}, "text": name, "x": 8, "y": 8}}
+    ]})
+}
+
+#[test]
+fn an_exploration_board_draws_the_proposals_side_by_side_as_one_step() {
+    let mut s = Session::new();
+    let existing = id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "PDP atual", "width": 300, "height": 300}))["id"]).unwrap();
+    let depth = s.undo_depth();
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "PDP · frete", "brand": "Animale", "platform": "app", "journey": "PDP",
+        "proposals": [proposal("Selo no preço", "incremental", "#EEEEEE"), proposal("Frete na galeria", "incremental", "#DDDDDD"), proposal("Sacola falante", "disruptiva", "#CCCCCC")]}),
+    );
+    assert_eq!(s.undo_depth().0, depth.0 + 1, "one undo step: {:?}", s.undo_labels(4));
+    let list = out["proposals"].as_array().unwrap();
+    assert_eq!(list.len(), 3);
+    assert_eq!(list[0]["name"], json!("A · Incremental · Selo no preço"));
+    assert_eq!(list[2]["name"], json!("C · Disruptiva · Sacola falante"));
+    let doc = s.doc().unwrap();
+    let xs: Vec<f64> = list.iter().map(|p| doc.world_bounds(id_of(&p["id"]).unwrap()).unwrap().x0).collect();
+    assert!(xs.windows(2).all(|w| w[1] > w[0]), "side by side: {xs:?}");
+    let current = doc.world_bounds(existing).unwrap();
+    assert!(xs[0] > current.x1, "to the right of what was on the page");
+    let section = doc.node(id_of(&list[0]["id"]).unwrap()).unwrap().parent.unwrap();
+    assert!(doc.node(section).unwrap().name.contains("Exploração"));
+    let info: Value = serde_json::from_str(&doc.node(id_of(&list[1]["id"]).unwrap()).unwrap().plugin_data["eureka.proposal"]).unwrap();
+    assert_eq!(info["status"], json!("proposta"));
+    assert_eq!(info["context"]["brand"], json!("Animale"));
+    run(&mut s, "edit.undo", json!({}));
+    assert!(s.doc().unwrap().nodes().all(|n| !n.name.contains("Selo no preço")), "undo takes the whole board");
+}
+
+#[test]
+fn choosing_a_proposal_marks_it_and_keeps_the_others() {
+    let mut s = Session::new();
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "Sacola", "proposals": [proposal("Um", "incremental", "#EEEEEE"), proposal("Dois", "disruptiva", "#DDDDDD")]}),
+    );
+    let b = id_of(&out["proposals"][1]["id"]).unwrap();
+    let a = id_of(&out["proposals"][0]["id"]).unwrap();
+    let r = run(&mut s, "explore.choose", json!({"id": b.0}));
+    assert_eq!(r["chosen"]["proposal"]["status"], json!("escolhida"));
+    assert_eq!(r["others"][0]["id"], json!(a.0));
+    let info: Value = serde_json::from_str(&s.doc().unwrap().node(a).unwrap().plugin_data["eureka.proposal"]).unwrap();
+    assert_eq!(info["status"], json!("não escolhida"));
+    assert!(s.doc().unwrap().node(a).is_some(), "nothing is deleted");
+    assert_eq!(s.ds().unwrap().selection, vec![b]);
+}
+
+#[test]
+fn a_bad_board_is_refused_whole() {
+    let mut s = Session::new();
+    let before = s.doc().unwrap().clone();
+    assert!(s.execute("explore.board", &json!({"title": "x", "proposals": [proposal("só uma", "incremental", "#EEEEEE")]})).is_err());
+    assert!(
+        s.execute(
+            "explore.board",
+            &json!({"title": "x", "proposals": [proposal("a", "incremental", "#EEEEEE"), proposal("b", "radical", "#EEEEEE")]})
+        )
+        .is_err()
+    );
+    let broken =
+        json!({"name": "quebrada", "type": "disruptiva", "commands": [{"command": "node.set", "params": {"id": 424242, "props": {"name": "x"}}}]});
+    assert!(s.execute("explore.board", &json!({"title": "x", "proposals": [proposal("a", "incremental", "#EEEEEE"), broken]})).is_err());
+    assert_eq!(*s.doc().unwrap(), before, "nothing drawn");
+    let lone = id_of(&run(&mut s, "node.create", json!({"type": "frame", "width": 10, "height": 10}))["id"]).unwrap();
+    assert!(s.execute("explore.choose", &json!({"id": lone.0})).is_err());
+}
