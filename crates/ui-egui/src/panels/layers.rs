@@ -536,6 +536,16 @@ pub(crate) fn list_width(ui: &Ui) -> f32 {
 pub(crate) const NAME_ROOM: f32 = 1200.0;
 
 /// A row's name: the layer's, or its kind's label when it has none.
+/// Whether an AI agent changed some aspect of the layer last (Eureka origin tracking).
+pub(crate) fn by_ai(n: &figcraft_doc::Node) -> bool {
+    n.plugin_data.get(figcraft_engine::cmd::eureka::ORIGIN_KEY).is_some_and(|o| o.contains("\"by\":\"ai\""))
+}
+
+/// Whether "Undo only the AI" has something to put back on the layer.
+pub(crate) fn ai_undoable(n: &figcraft_doc::Node) -> bool {
+    n.plugin_data.get(figcraft_engine::cmd::eureka::ORIGIN_KEY).is_some_and(|o| o.contains("\"by\":\"ai\"") && o.contains("\"was\""))
+}
+
 fn row_name(n: &figcraft_doc::Node) -> &str {
     if n.name.is_empty() { tr(n.kind.label()) } else { &n.name }
 }
@@ -1253,8 +1263,16 @@ fn layers(app: &mut FigApp, ui: &mut Ui) {
                 let name = row_name(n).to_string();
                 // Room left of the lock and eye buttons (the row is wide enough for the whole
                 // name, up to `NAME_ROOM`: a row widened by a deeper name gives no more).
-                let max_w = (rr.max.x - 56.0 - name_x).clamp(20.0, NAME_ROOM);
-                crate::bidi::paint_name(ui.painter(), pos2(name_x, r.center().y), &name, font, col, max_w);
+                let ai = by_ai(n);
+                let tag_w = if ai { 22.0 } else { 0.0 };
+                let max_w = (rr.max.x - 56.0 - tag_w - name_x).clamp(20.0, NAME_ROOM);
+                let named = crate::bidi::paint_name(ui.painter(), pos2(name_x, r.center().y), &name, font, col, max_w);
+                if ai {
+                    // Eureka: an AI agent changed something on this layer last (`origin.get` tells what).
+                    let tag = Rect::from_min_size(pos2(named.max.x + 6.0, r.center().y - 7.0), vec2(18.0, 14.0));
+                    ui.painter().rect_filled(tag, 3.0, t.accent);
+                    ui.painter().text(tag.center(), egui::Align2::CENTER_CENTER, tr("AI"), egui::FontId::proportional(9.0), t.accent_on);
+                }
             }
             let (v, l) = eye_lock(ui, &t, [r, rr], row, n, over && !dev, dev, &mut sweep);
             vis = v.or(vis);
