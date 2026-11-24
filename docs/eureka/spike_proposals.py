@@ -26,7 +26,12 @@ PORT = int(open(f"{S}/port").read())
 sock = socket.create_connection(("127.0.0.1", PORT), timeout=120)
 f = sock.makefile("rw")
 n = [0]
-T = "Tokens WEB/"
+# --app: DS Apps (collection "Tokens APP", Animale mode "Animale (CERTO)"); default DS N Marcas Web.
+APP = "--app" in sys.argv
+COL = "Tokens APP" if APP else "Tokens WEB"
+ANIMALE = "Animale (CERTO)" if APP else "Animale"
+IMG = "Colors/Surface/Container" if APP else "Colors/Surface/Brand/Terciary"
+T = COL + "/"
 
 
 def call(method, params=None, check=True):
@@ -146,7 +151,7 @@ def refine_commands(ids, loose=False):
 for step in STEPS:
     print(f"== {step}")
     if step == "import":
-        ex("file.new", {"name": "Eureka · propostas · Animale"}, agent=None)
+        ex("file.new", {"name": "Eureka · propostas · Animale" + (" · App" if APP else "")}, agent=None)
         ex("origin.track", {"on": True}, agent=None)  # Eureka mode: record who changes what (G2-E)
         toks = json.load(open(TOK))
         r = ex("variable.import", {"variables": toks})
@@ -162,7 +167,7 @@ for step in STEPS:
             {"command": "frame.create", "as": "card", "params": {"parent": {"$ref": "screen"}, "x": 0, "y": 0, "width": 328, "height": 100, "name": "Product Card",
                 "props": {"fill": V("Colors/Surface/Brand/Component/Card"), "layout": "vertical", "padding": 12, "gap": 8, "sizingV": "hug"}}},
             {"command": "shape.rectangle", "as": "img", "params": {"parent": {"$ref": "card"}, "x": 0, "y": 0, "width": 304, "height": 240, "name": "Imagem",
-                "props": {"fill": V("Colors/Surface/Brand/Terciary")}}},
+                "props": {"fill": V(IMG)}}},
             {"command": "text.create", "as": "nome", "params": {"parent": {"$ref": "card"}, "text": "Camisa de linho manga longa", "x": 0, "y": 0, "name": "Nome",
                 "props": {"fontSize": 14, "fill": V("Colors/Content/01")}}},
             {"command": "text.create", "as": "preco", "params": {"parent": {"$ref": "card"}, "text": "R$ 389,90", "x": 0, "y": 0, "name": "Preço",
@@ -197,7 +202,7 @@ for step in STEPS:
         state["ids"] = ids
         # The brand is chosen on the screen, never left to the collection's default mode (in the
         # DS file the default is Farm).
-        ex("variable.setMode", {"ids": [ids["PDP Mobile"]], "collection": "Tokens WEB", "mode": "Animale"})
+        ex("variable.setMode", {"ids": [ids["PDP Mobile"]], "collection": COL, "mode": ANIMALE})
         state["cursor"] = ex("document.checkpoint", {})["cursor"]
         ex("proposal.turn", {})  # what the designer edits from here on is protected (ADR-009)
         ex("view.zoomFit", {})
@@ -261,7 +266,7 @@ for step in STEPS:
 
     elif step == "brand":
         ids = ids_by_name()
-        r = ex("variable.setMode", {"ids": [ids["PDP Mobile"]], "collection": "Tokens WEB", "mode": "Farm"})
+        r = ex("variable.setMode", {"ids": [ids["PDP Mobile"]], "collection": COL, "mode": "Farm"})
         shot("6b-brand-farm")
         ex("edit.undo", {}, agent=None)  # back to Animale, keeping the accepted refinement
         shot("6c-brand-back-animale")

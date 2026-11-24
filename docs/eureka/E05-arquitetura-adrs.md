@@ -371,6 +371,8 @@ Regras para todas as fases: worktree por frente; nada de merge sem a dona; `carg
 
 ## 7. Decisões ainda pendentes da dona
 
+> **24/11 — Alvo: DS Apps primeiro.** A dona decidiu que o Eureka começa pelo DS Apps (`U3pOCU4CEBgYKHGVR1F3sK`, coleção **Tokens APP**, 9 modos de marca, padrão Farm, Animale = "Animale (CERTO)"). A Web segue suportada; demos com `--app`; `ds.lint` usa Tokens APP por padrão quando existe.
+
 > **17/11 — Gate 0 fechado por delegação.** A dona viajou e pediu para o projeto seguir com autonomia ("toque com independência e autonomia, tomando as decisões… Siga o projeto determinado"). Fechei o G0 com as recomendações abaixo (D3, D4, D7–D9). Seguem valendo os limites: sem merge, sem exclusão no Figma, sem mudar tokens/componentes/regras do DS, sem PR ao upstream, nada distribuído antes do rebranding (D6). Toda decisão delegada é revisável na volta dela.
 
 | # | Decisão | Recomendação | Alternativas |
@@ -378,7 +380,7 @@ Regras para todas as fases: worktree por frente; nada de merge sem a dona; `carg
 | D1 ✅ Aceita 13/11 | Segurança do canal local no MVP (ADR-008) | Raízes confinadas + porta aleatória + sem `online/live` já; token antes do 2º usuário | Aceitar risco só em máquina pessoal; proxy autenticado |
 | D2 ✅ Aceita 13/11 | Onde fica o cache de tokens (ADR-002) | Fora do repo; no repo só manifesto sem valores; testes com fixture sintética | Versionar snapshot no repo; repo privado só de snapshots |
 | D3 ✅ Delegada 17/11 | Aliases no snapshot (ADR-002) | **Decidido:** guardar alias e valor resolvido. **23/11:** o snapshot foi regerado do Figma seguindo `VARIABLE_ALIAS` com precisão total; nenhuma das 23 variables usadas é alias (valores direto em cada modo), então não havia cadeia perdida. `tokens_snapshot.py` compara cores em 8 bits. O modo padrão da coleção no Figma é **Farm**: a marca deve ser escolhida na tela (`variable.setMode`), nunca deixada ao padrão | Só resolvido |
-| D4 ✅ Delegada 17/11 | Escopo `GAP` do Spacing usado em padding (ADR-002) | **Decidido:** aviso, não erro, até a liderança de DS decidir | Erro; ignorar escopos |
+| D4 ❌ Retirada 24/11 | Escopo `GAP` do Spacing usado em padding (ADR-002) | **Retirada:** no Figma o escopo GAP cobre gap **e** padding; a premissa estava errada (achado da Frente F). O `ds.lint` não avisa mais | — |
 | D5 ✅ Aceita 13/11 | CI (ADR-005) | Workflow próprio do Eureka, sem mexer nos do upstream | Pedir acesso ao `craft-common-actions` |
 | D6 ⏸ Fica com a dona | Nome e marca do produto (rebranding obrigatório) | Definir antes de G3; nada é distribuído até lá | — |
 | D7 ✅ Delegada 17/11 | Contribuir de volta ao upstream | **Decidido:** sim para mudanças genéricas, mas **nenhum PR ao upstream é aberto sem a dona** (ação externa) | Só consumir |

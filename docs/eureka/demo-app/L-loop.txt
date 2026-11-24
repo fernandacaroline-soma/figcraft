@@ -1,0 +1,48 @@
+Claude percebeu sozinho (events.poll, tópico document):
+  · node.set por designer → editou Preço (só se moveram pelo layout: Product Card, Button)
+  · node.set por designer → editou Button
+  · node.set por designer → editou Label
+
+Proposta do Claude:
+  · Preço: tamanho solto 18 → Font/Size/fs-xs (16)
+  · Button: cor solta #7A4B2A → Colors/Surface/Brand/Background
+  · Label: cor solta #FFFFFF → Colors/Content/Brand/On Brand
+  · novo: selo Frete grátis, todo em tokens
+
+Padrão (sua edição vence):
+Cartão: 6 camadas mudam · avisos de DS: nenhum · bloqueado: não
+  ⚑ Preço — style → fica a sua
+      você:   Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo
+      você:   Texto · tamanho da fonte: 16 → 18
+      Claude: Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xs
+      Claude: Texto · tamanho da fonte: 18 → 16
+  ⚑ Button — fills → fica a sua
+      você:   Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo
+      você:   Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background
+      Claude: Preenchimento: #7A4B2A → #0D0D0D
+  ⚑ Label — fills → fica a sua
+      você:   Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo
+      você:   Preenchimento: #0D0D0D → #FFFFFF
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Content/Brand/On Brand
+
+Escolha no cartão: cores → fica a do Claude; tamanho do preço → fica a sua
+Cartão: 7 camadas mudam · avisos de DS: nenhum · bloqueado: não
+  ⚑ Preço — style → fica a sua
+      você:   Vínculo de tamanho da fonte: Font/Size/fs-xs → sem vínculo
+      você:   Texto · tamanho da fonte: 16 → 18
+      Claude: Vínculo de tamanho da fonte: sem vínculo → Font/Size/fs-xs
+      Claude: Texto · tamanho da fonte: 18 → 16
+  ⚑ Button — fills → fica a do Claude
+      você:   Vínculo de preenchimento: Colors/Surface/Brand/Secondary → sem vínculo
+      você:   Preenchimento: #FFFFFF (0% de opacidade) → #7A4B2A
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Surface/Brand/Background
+      Claude: Preenchimento: #7A4B2A → #0D0D0D
+  ⚑ Label — fills → fica a do Claude
+      você:   Vínculo de preenchimento: Colors/Content/Brand/Highlight → sem vínculo
+      você:   Preenchimento: #0D0D0D → #FFFFFF
+      Claude: Vínculo de preenchimento: sem vínculo → Colors/Content/Brand/On Brand
+
+Aplicado: True (1 passo de desfazer)
+  evento: proposal.apply por Claude (agent)
+Preço: tamanho 18, vínculos {'fill': 'VariableID:16'} (a escolha da designer ficou)
