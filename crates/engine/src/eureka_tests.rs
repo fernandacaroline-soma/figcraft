@@ -539,3 +539,38 @@ fn origin_is_not_tracked_unless_asked() {
     assert!(f.s.doc().unwrap().node(f.card).unwrap().plugin_data.is_empty());
     assert!(f.s.execute("origin.track", &json!({"on": "yes"})).is_err());
 }
+
+#[test]
+fn undo_only_the_ai_keeps_the_designer_edits() {
+    let mut f = setup();
+    run(&mut f.s, "origin.track", json!({"on": true}));
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#00FF00"}}));
+    let claude = |s: &mut Session, p: Value| {
+        s.execute_as(Some("Claude"), "node.set", &p).unwrap();
+    };
+    claude(&mut f.s, json!({"id": f.card.0, "props": {"fill": "#FF0000", "opacity": 0.5}}));
+    claude(&mut f.s, json!({"id": f.card.0, "props": {"fill": "#0000FF"}}));
+    // The designer then renames it: theirs, untouched by the undo.
+    run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"name": "Mine"}}));
+    let depth = f.s.undo_depth();
+    let r = run(&mut f.s, "origin.undoAI", json!({"ids": [f.card.0]}));
+    assert_eq!(r["reverted"][0]["id"], json!(f.card.0), "{r}");
+    assert_eq!(f.s.undo_depth().0, depth.0 + 1, "one undo step");
+    let card = node_value(&f.s, f.card);
+    assert_eq!(card["name"], json!("Mine"));
+    assert!(
+        card["fills"].to_string().contains("0.0") && !card["fills"].to_string().contains("\"b\":1.0"),
+        "fill back to the designer's green, not Claude's red or blue: {}",
+        card["fills"]
+    );
+    assert!(card.get("opacity").is_none_or(|o| o == &json!(1.0)), "opacity back: {card}");
+    let o = origin(&mut f.s, f.card);
+    assert_eq!(o["fills"]["by"], json!("human"), "{o}");
+    // A layer the agent made is listed, never deleted.
+    let made = f.s.execute_as(Some("Claude"), "node.create", &json!({"type": "rectangle", "name": "AI made", "width": 5, "height": 5})).unwrap();
+    let mid = id_of(&made["id"]).unwrap();
+    let r = run(&mut f.s, "origin.undoAI", json!({"ids": [mid.0]}));
+    assert!(r["reverted"].as_array().unwrap().is_empty() && r["kept"][0]["id"] == json!(mid.0), "{r}");
+    assert!(f.s.doc().unwrap().node(mid).is_some());
+    assert!(f.s.execute("origin.undoAI", &json!({"ids": "x"})).is_err());
+}

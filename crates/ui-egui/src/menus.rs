@@ -575,6 +575,10 @@ pub fn popups(app: &mut FigApp, ctx: &egui::Context) {
                 {
                     entries[at] = (tr("Go to main component"), "component.goToMain");
                 }
+                // Eureka: put back what an AI agent changed on these layers, keeping the designer's edits.
+                if app.session.doc().ok().is_some_and(|doc| ids.iter().any(|i| doc.node(*i).is_some_and(crate::layers::ai_undoable))) {
+                    entries.splice(0..0, [(tr("Undo only the AI"), "origin.undoAI"), ("-", "")]);
+                }
                 // A right-clicked ruler guide (selected, with no layers) can be removed.
                 if !has_sel && app.session.ds().is_ok_and(|d| d.selected_guide().is_some()) {
                     entries.splice(0..0, [(tr("Remove guide"), "guide.remove"), ("-", "")]);

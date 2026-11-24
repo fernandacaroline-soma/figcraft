@@ -200,6 +200,13 @@ pub fn specs() -> Vec<CommandSpec> {
             }
         ),
         spec!(
+            "origin.undoAI",
+            "Undo only the AI",
+            "{ids? (default: the selection)}  on these layers, put back what an AI agent changed and the designer has not changed since (the value each aspect had before the agent). Layers an agent made are listed, not deleted. One undo step → {reverted: [{id, name, aspects}], kept: [{id, name, aspects, why}]}",
+            true,
+            undo_ai
+        ),
+        spec!(
             "origin.get",
             "Who changed a layer",
             "{id}  per aspect of the layer (fills, characters, style, layout, corners, name…), who changed it last: {aspects: {aspect: {by: \"ai\"|\"human\", agent?, revision}}}. Informative, not proof: an agent's name is what it says it is",
@@ -565,6 +572,68 @@ fn origin_of(n: &figcraft_doc::Node) -> Value {
     n.plugin_data.get(ORIGIN_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}))
 }
 
+/// `origin.undoAI`: put back, on the given layers, the aspects an agent changed last.
+fn undo_ai(s: &mut Session, p: &Value) -> Result<Value> {
+    let ids: Vec<NodeId> = match get(p, "ids") {
+        Some(Value::Array(a)) => a.iter().filter_map(crate::params::id_of).collect(),
+        Some(_) => return Err(bad("origin.undoAI", "`ids` must be a list of layer ids")),
+        None => s.ds()?.selection.clone(),
+    };
+    if ids.is_empty() {
+        return Err(bad("origin.undoAI", "no layers: select some or pass `ids`"));
+    }
+    let before = s.ds()?.doc.clone();
+    let (mut reverted, mut kept) = (Vec::new(), Vec::new());
+    for id in ids.into_iter().take(MAX_ENTRIES) {
+        let Some(n) = before.node(id) else { continue };
+        let origin = origin_of(n);
+        let mut node = node_json(n);
+        let (mut back, mut made) = (Vec::new(), Vec::new());
+        for (g, st) in origin.as_object().into_iter().flatten() {
+            if st.get("by") != Some(&json!("ai")) {
+                continue;
+            }
+            let Some(was) = st.get("was").and_then(Value::as_object) else {
+                made.push(g.clone());
+                continue;
+            };
+            let Some(o) = node.as_object_mut() else { continue };
+            for (k, v) in was {
+                if let Some(bk) = k.strip_prefix("bound.") {
+                    let bound = o.entry("bound").or_insert_with(|| json!({}));
+                    if let Some(bo) = bound.as_object_mut() {
+                        if v.is_null() {
+                            bo.remove(bk)
+                        } else {
+                            bo.insert(bk.to_string(), v.clone())
+                        };
+                    }
+                } else if v.is_null() {
+                    o.remove(k);
+                } else {
+                    o.insert(k.clone(), v.clone());
+                }
+            }
+            back.push(g.clone());
+        }
+        if !back.is_empty() {
+            let restored: figcraft_doc::Node =
+                serde_json::from_value(node).map_err(|e| EngineError::Other(format!("could not undo the AI on layer {}: {e}", id.0)))?;
+            if let Some(slot) = s.ds_mut()?.doc_mut().node_mut(id) {
+                *slot = restored;
+            }
+            reverted.push(json!({"id": id.0, "name": n.name, "aspects": back}));
+        }
+        if !made.is_empty() {
+            kept.push(json!({"id": id.0, "name": n.name, "aspects": made, "why": "made by the agent: delete the layer to undo it"}));
+        }
+    }
+    if !reverted.is_empty() {
+        crate::normalize(s.ds_mut()?.doc_mut(), &before);
+    }
+    Ok(json!({"reverted": reverted, "kept": kept}))
+}
+
 /// After top-level command `id` changed document `uid` from `before`: record on each layer it
 /// edited who changed which aspect — the agent the command ran for (an applied proposal counts
 /// as its author's), or the person at the app. Part of the same undo step as the edit.
@@ -602,7 +671,28 @@ pub(crate) fn record_origin(s: &mut Session, id: &str, uid: u64, before: &Docume
         let mut origin = origin_of(n);
         if let Some(o) = origin.as_object_mut() {
             for g in groups {
-                o.insert(g, stamp.clone());
+                let mut st = stamp.clone();
+                // An agent changing again what an agent changed keeps the value from before the AI.
+                let earlier = o.get(&g).filter(|e| e.get("by") == Some(&json!("ai"))).and_then(|e| e.get("was")).cloned();
+                if let (Some(w), true, Some(so)) = (earlier, author.is_some(), st.as_object_mut()) {
+                    so.insert("was".into(), w);
+                    o.insert(g, st);
+                    continue;
+                }
+                // What an agent replaced, so `origin.undoAI` can put it back (layers it made have none).
+                if author.is_some() && b.is_some() {
+                    let was: Map<String, Value> = ab
+                        .keys()
+                        .chain(aa.keys())
+                        .filter(|k| group_of(k) == g)
+                        .map(|k| (k.clone(), ab.get(k).cloned().unwrap_or(Value::Null)))
+                        .collect();
+                    let fits = serde_json::to_string(&was).is_ok_and(|t| t.len() <= MAX_VALUE_BYTES);
+                    if let (true, Some(so)) = (fits, st.as_object_mut()) {
+                        so.insert("was".into(), Value::Object(was));
+                    }
+                }
+                o.insert(g, st);
             }
         }
         if let Some(node) = ds.doc_mut().node_mut(nid) {
