@@ -808,6 +808,7 @@ fn a_new_proposal_preview_replaces_the_one_showing_instead_of_stacking() {
     assert!(s.execute("proposal.apply", &json!({})).is_err());
 }
 
+#[test]
 fn a_branch_merge_never_conflicts_on_the_origin_and_keeps_both_aspects() {
     for from_main in [false, true] {
         let mut f = setup();
