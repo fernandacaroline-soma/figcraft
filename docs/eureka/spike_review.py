@@ -48,7 +48,9 @@ cmds = [
         "props": {"fontSize": 12, "fill": V("Colors/Feedback/Success/Content")}}},
     {"command": "variable.bind", "params": {"ids": [{"$ref": "t"}], "field": "fontSize", "variable": "Font/Size/fs-xxxs"}},
 ]
-p = ex("proposal.preview", {"label": "Claude: botão no token + selo", "override": [ids["Button"]], "commands": cmds})
+proposal = {"label": "Claude: botão no token + selo", "override": [ids["Button"]], "commands": cmds}
+json.dump(proposal, open(f"{S}/proposal.json", "w"), ensure_ascii=False)  # for gatekeeper_bridge.py
+p = ex("proposal.preview", proposal)
 lint = p.get("lint", [])
 lines = [f"Lint da proposta: {len(lint)} achado(s)"] + [f"  · {x['message']}  [{x['rule']}]" for x in lint]
 verdict = "com-ressalvas" if lint else "aprovado"

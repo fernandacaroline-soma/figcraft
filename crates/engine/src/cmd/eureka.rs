@@ -156,6 +156,13 @@ pub fn specs() -> Vec<CommandSpec> {
             false,
             |s, p| {
                 let (label, steps, cont) = parse_batch(p)?;
+                // A new proposal replaces the one showing: dry-run it on the document itself, never
+                // on the previous preview (it would stack on it). Another kind of preview is left
+                // to the person who opened it.
+                if s.ds()?.preview.as_ref().is_some_and(|pv| pv.id != PREVIEW_ID) {
+                    return Err(bad("proposal.preview", "a version preview is showing: leave it first"));
+                }
+                end_proposal_preview(s)?;
                 let policy = manual_policy(s, p)?;
                 let (mut out, after) = dry_run(s, &label, &steps, cont, &policy)?;
                 let hash = out.get("baseHash").and_then(Value::as_str).unwrap_or_default().to_string();
@@ -167,12 +174,14 @@ pub fn specs() -> Vec<CommandSpec> {
                     .filter_map(|e| e.get("id").and_then(Value::as_u64).map(NodeId))
                     .collect();
                 let lint = super::eureka_lint::lint_layers(&after, &touched, MAX_ENTRIES);
+                let context = review_context(&after, &touched);
                 s.ds_mut()?.start_preview(PREVIEW_ID, &label, 0, after);
                 s.eureka.shown = Some((p.clone(), hash, s.agent.clone()));
                 s.eureka.review = None;
                 if let Some(o) = out.as_object_mut() {
                     o.insert("preview".into(), json!(true));
                     o.insert("lint".into(), Value::Array(lint));
+                    o.insert("context".into(), context);
                 }
                 Ok(out)
             }
@@ -182,7 +191,12 @@ pub fn specs() -> Vec<CommandSpec> {
             "End proposal preview",
             "{}  go back from a `proposal.preview` (nothing was applied) → {ended}",
             false,
-            |s, _| { Ok(json!({"ended": end_proposal_preview(s)?})) }
+            |s, _| {
+                // Discarded: nothing is left to apply or review.
+                s.eureka.shown = None;
+                s.eureka.review = None;
+                Ok(json!({"ended": end_proposal_preview(s)?}))
+            }
         ),
         spec!(
             "proposal.apply",
@@ -591,6 +605,47 @@ fn origin_of(n: &figcraft_doc::Node) -> Value {
     n.plugin_data.get(ORIGIN_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}))
 }
 
+/// What a reviewer needs to know about the layers a proposal touches: their kind, the component
+/// an instance comes from, and the variable modes (brand) chosen on the screens they sit in.
+fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
+    let mode_names = |n: &figcraft_doc::Node| -> Map<String, Value> {
+        n.var_modes
+            .iter()
+            .filter_map(|(cid, mid)| {
+                let c = doc.variables.collection(cid)?;
+                let m = c.modes.iter().find(|m| &m.id == mid)?;
+                Some((c.name.clone(), json!(m.name)))
+            })
+            .collect()
+    };
+    let mut layers = Vec::new();
+    let mut screens = BTreeSet::new();
+    for id in ids.iter().take(MAX_ENTRIES) {
+        let Some(n) = doc.node(*id) else { continue };
+        let mut e = json!({"id": id.0, "name": n.name, "kind": n.kind.type_name()});
+        if let (figcraft_doc::NodeKind::Instance { component, .. }, Some(o)) = (&n.kind, e.as_object_mut()) {
+            let main = doc.node(*component);
+            o.insert("instanceOf".into(), json!(main.map(|m| m.name.clone())));
+            // The library a main component came from is not recorded in the document yet: say so
+            // rather than guess (the Gatekeeper's "componente oficial" check needs it).
+            o.insert("library".into(), Value::Null);
+        }
+        layers.push(e);
+        if let Some(top) = doc.top_level_frame(*id) {
+            screens.insert(top);
+        }
+    }
+    let screens: Vec<Value> = screens
+        .into_iter()
+        .filter_map(|sid| {
+            let n = doc.node(sid)?;
+            let modes = mode_names(n);
+            Some(json!({"id": sid.0, "name": n.name, "modes": modes, "brandChosen": !modes.is_empty()}))
+        })
+        .collect();
+    json!({"layers": layers, "screens": screens})
+}
+
 /// Longest text a review keeps per field; most items it keeps.
 const MAX_REVIEW_TEXT: usize = 2000;
 const MAX_REVIEW_ITEMS: usize = 100;
@@ -598,7 +653,8 @@ const MAX_REVIEW_ITEMS: usize = 100;
 /// `proposal.review`: attach a reviewer's verdict to the proposal being previewed.
 fn review(s: &mut Session, p: &Value) -> Result<Value> {
     const CMD: &str = "proposal.review";
-    if s.eureka.shown.is_none() {
+    let showing = s.ds()?.preview.as_ref().is_some_and(|pv| pv.id == PREVIEW_ID);
+    if s.eureka.shown.is_none() || !showing {
         return Err(bad(CMD, "no proposal to review: show one with `proposal.preview` first"));
     }
     let text = |v: Option<&Value>, what: &str| -> Result<Option<String>> {

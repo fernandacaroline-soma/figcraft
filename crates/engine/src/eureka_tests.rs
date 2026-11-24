@@ -200,7 +200,7 @@ fn proposal_preview_is_read_only_and_apply_is_guarded() {
 }
 
 #[test]
-fn applying_a_stale_proposal_leaves_the_preview_and_the_document_as_it_was() {
+fn applying_a_discarded_proposal_is_refused_and_leaves_the_document_as_it_was() {
     let mut f = setup();
     let bp = batch(&f, json!({}));
     run(&mut f.s, "proposal.preview", bp);
@@ -214,8 +214,10 @@ fn applying_a_stale_proposal_leaves_the_preview_and_the_document_as_it_was() {
     run(&mut f.s, "node.set", json!({"id": f.card.0, "props": {"fill": "#0000FF"}}));
     let doc2 = f.s.doc().unwrap().clone();
     assert_ne!(doc, doc2);
+    // A discarded proposal is gone: Apply has nothing to apply (before 24/11 it applied the
+    // discarded batch, and only the stale guard stopped it).
     let err = f.s.execute("proposal.apply", &json!({})).unwrap_err().to_string();
-    assert!(err.contains("stale") && err.contains("Card"), "{err}");
+    assert!(err.contains("no proposal"), "{err}");
     assert!(f.s.ds().unwrap().preview.is_none());
     assert_eq!(*f.s.doc().unwrap(), doc2, "not the preview's document");
 }
@@ -772,6 +774,8 @@ fn a_preview_lints_what_the_proposal_makes_and_takes_a_review() {
     let p = json!({"commands": [{"command": "node.create", "params": {"type": "rectangle", "name": "Raw", "width": 10, "height": 10, "props": {"fill": "#00FF00"}}}]});
     let out = s.execute_as(Some("Claude"), "proposal.preview", &p).unwrap();
     let lint = out["lint"].as_array().unwrap();
+    let ctx = &out["context"];
+    assert!(ctx["layers"].as_array().unwrap().iter().any(|l| l["name"] == json!("Raw") && l["kind"] == json!("RECTANGLE")), "{ctx}");
     assert!(lint.iter().any(|f| f["name"] == json!("Raw") && f["rule"] == json!("valor-solto")), "{lint:?}");
     assert!(!lint.iter().any(|f| f["id"] == json!(keep.0)), "only what the proposal makes or edits: {lint:?}");
     let r = run(
@@ -787,4 +791,19 @@ fn a_preview_lints_what_the_proposal_makes_and_takes_a_review() {
     // A review is advisory: even "bloqueado" leaves Apply to the designer.
     run(&mut s, "proposal.review", json!({"verdict": "bloqueado"}));
     assert_eq!(run(&mut s, "proposal.apply", json!({}))["applied"], json!(true));
+}
+
+#[test]
+fn a_new_proposal_preview_replaces_the_one_showing_instead_of_stacking() {
+    let mut s = Session::new();
+    let p = json!({"commands": [{"command": "node.create", "params": {"type": "rectangle", "name": "Badge", "width": 10, "height": 10}}]});
+    run(&mut s, "proposal.preview", p.clone());
+    run(&mut s, "proposal.preview", p);
+    let badges = s.doc().unwrap().nodes().filter(|n| n.name == "Badge").count();
+    assert_eq!(badges, 1, "the second preview is on the document, not on the first preview");
+    run(&mut s, "proposal.previewEnd", json!({}));
+    assert_eq!(s.doc().unwrap().nodes().filter(|n| n.name == "Badge").count(), 0, "nothing was applied");
+    // Discarded: nothing is left to review or apply.
+    assert!(s.execute("proposal.review", &json!({"verdict": "aprovado"})).is_err());
+    assert!(s.execute("proposal.apply", &json!({})).is_err());
 }
