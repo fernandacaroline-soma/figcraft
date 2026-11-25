@@ -993,3 +993,57 @@ fn a_verdict_is_kept_on_the_chosen_proposal_only() {
     run(&mut s, "explore.choose", json!({"id": b.0}));
     assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.review"));
 }
+
+#[test]
+fn the_lint_reports_an_instance_override_but_not_the_components_own_values() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface/Container", "type": "color", "value": "#EEEEEE"}));
+    // The main component itself has a raw fill: that is the DS component's matter, not the screen's.
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40, "props": {"fill": "#DDDDDD"}}))["id"]).unwrap();
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 200, "y": 0}))["id"]).unwrap();
+    let out = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    let loose = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("valor-solto")).count();
+    assert_eq!(loose(&out), 0, "{out}");
+    assert!(out["inherited"].as_u64().unwrap() >= 1, "{out}");
+    // The main component on its own still shows it.
+    assert_eq!(loose(&run(&mut s, "ds.lint", json!({"ids": [main.0]}))), 1);
+    // An override with another raw colour is the screen's own: reported.
+    run(&mut s, "node.set", json!({"id": inst.0, "props": {"fill": "#CCCCCC"}}));
+    let after = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    assert_eq!(loose(&after), 1, "{after}");
+}
+
+#[test]
+fn the_reviewer_sees_which_library_an_instance_comes_from() {
+    let mut s = Session::new();
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40}))["id"]).unwrap();
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let screen = id_of(&run(&mut s, "frame.create", json!({"x": 300, "y": 0, "width": 375, "height": 812}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "parent": screen.0}))["id"]).unwrap();
+    let doc = s.doc().unwrap();
+    // Not recorded: null, never a guess.
+    let ctx = crate::cmd::eureka::review_context(doc, &[inst]);
+    assert_eq!(ctx["layers"][0]["library"], Value::Null);
+    // Recorded by the import that brought the component.
+    run(&mut s, "node.set", json!({"id": main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\",\"file\":\"abc\"}"}}}));
+    let ctx = crate::cmd::eureka::review_context(s.doc().unwrap(), &[inst]);
+    assert_eq!(ctx["layers"][0]["library"]["name"], json!("DS Apps"));
+}
+
+#[test]
+fn the_review_context_leaves_hidden_layers_out_and_carries_the_texts() {
+    let mut s = Session::new();
+    let screen = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 375, "height": 812}))["id"]).unwrap();
+    let label = id_of(&run(&mut s, "text.create", json!({"parent": screen.0, "text": "Adicionar à sacola", "x": 0, "y": 0}))["id"]).unwrap();
+    let hidden = id_of(&run(&mut s, "frame.create", json!({"parent": screen.0, "x": 0, "y": 0, "width": 10, "height": 10}))["id"]).unwrap();
+    let inside = id_of(&run(&mut s, "text.create", json!({"parent": hidden.0, "text": "Carregando", "x": 0, "y": 0}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": hidden.0, "props": {"visible": false}}));
+    let ctx = crate::cmd::eureka::review_context(s.doc().unwrap(), &[screen, label, hidden, inside]);
+    let layers = ctx["layers"].as_array().unwrap();
+    let ids: Vec<u64> = layers.iter().map(|l| l["id"].as_u64().unwrap()).collect();
+    assert_eq!(ids, vec![screen.0, label.0], "hidden layers and what is inside them are left out");
+    assert_eq!(layers[1]["text"], json!("Adicionar à sacola"));
+    assert_eq!(layers[1]["parent"], json!(screen.0));
+}

@@ -1,0 +1,38 @@
+{
+ "verdict": "com-ressalvas",
+ "summary": "A proposta E usa a marca NV definida na tela, componentes da biblioteca DS Apps e não tem avisos de lint. Ainda há ajustes antes do handoff: o botão principal da PDP não é o fixo, a galeria é um retângulo e não há estados de erro ou indisponível.",
+ "items": [
+  {
+   "message": "O botão \"Selecione o tamanho\" (id 419) é um Button Primário solto dentro de \"Conteúdo\". O componente fixo (\"▶️ Botão\", 📍 Fixed=On) aparece só dentro do Bottom Sheet. Para a proposta ser um \"botão fixo\", use na PDP a mesma instância fixa e troque só o rótulo e o estado.",
+   "source": "Guardrails G02 (reutilizar componente oficial do mesmo produto) e G03 (estado é configuração de instância). Fluxo Oficial §4: \"não reconstrua componentes oficiais\""
+  },
+  {
+   "message": "A \"Galeria\" (id 415) é um RECTANGLE e não uma instância. No handoff, troque pelo componente de imagem ou galeria do DS Apps. Não dá para confirmar qual é o equivalente com os dados que vieram.",
+   "source": "Guardrails G02. Fluxo Oficial de Criação e Alteração no DS §4"
+  },
+  {
+   "message": "O nome do produto e o preço (ids 417 e 418) são TEXT soltos. Vale verificar se o DS Apps tem um bloco de informação do produto para reutilizar. Não dá para confirmar só com este contexto.",
+   "source": "Guardrails G02 e ordem Auditar → Reutilizar → Configurar → Compor"
+  },
+  {
+   "message": "O Bottom Sheet tem um \".HomeIndicator\" filho direto (id 449), e o \"▶️ Action\" tem outro (id 463). Os dois estão visíveis no contexto, então pode haver indicador duplicado. Revise pela configuração da instância, sem detach.",
+   "source": "Guardrails G01/G02. Playbook §3 (estrutura conforme o componente oficial)"
+  },
+  {
+   "message": "Só aparecem o estado inicial e o tamanho M selecionado. Faltam tamanho indisponível ou esgotado, tentativa de adicionar sem tamanho e o retorno depois de adicionar à sacola. Isso não bloqueia a exploração, mas é necessário no handoff.",
+   "source": "Guardrails G06 (estados simultâneos, erro e feedback). Critério de aceite UX: CTA sem destino ou erro sem recuperação"
+  },
+  {
+   "message": "O modo de marca NV está explícito na tela (Tokens APP = NV), e o ds_lint veio vazio. Nada a corrigir em marca-nao-escolhida, valor-solto ou coleção.",
+   "source": "G2-F-regras.md, regras 1, 3 e 5 (E05 D3; Fluxo Oficial §4 e §10)"
+  },
+  {
+   "message": "Não deu para verificar overrides de token nas instâncias (regra 6) nem textos que deveriam usar token de texto por marca (regra 8). O contexto não traz os vínculos de variables, as camadas ocultas nem a lista de textos com token Business Rule.",
+   "source": "G2-F-regras.md, regras 6 e 8 (Fluxo Oficial, \"Tokens — bloqueio crítico\" e §6)"
+  },
+  {
+   "message": "A confiança da proposta é \"baixa\", e ela resolve só a dúvida de tamanho. Não trata a pouca inspiração citada no problema (a proposta D cobre isso). Registre a hipótese a validar antes de avançar.",
+   "source": "gk-request.json (problem, proposal.confidence, not_chosen)"
+  }
+ ]
+}

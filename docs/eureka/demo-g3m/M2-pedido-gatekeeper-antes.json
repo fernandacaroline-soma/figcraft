@@ -1,0 +1,201 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+ "brand_modes": [
+  {
+   "Tokens APP": "NV"
+  }
+ ],
+ "board": "NV App · PDP · Rodada 01 (13/11)",
+ "problem": "Na PDP do app NV, baixa adição à sacola, dúvida de tamanho e pouca inspiração. Registro: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+ "proposal": {
+  "letter": "E",
+  "name": "Botão fixo que resolve o tamanho",
+  "type": "Incremental",
+  "mechanism": "reduzir passos",
+  "summary": "Botão fixo com estado \"Selecione o tamanho\"; ao tocar, abre o seletor de tamanhos.",
+  "confidence": "baixa"
+ },
+ "not_chosen": [
+  "A · Incremental · Tamanho na hora de escolher",
+  "B · Incremental · Como veste",
+  "C · Incremental · Concierge NV para tamanho e styling",
+  "D · Incremental · Galeria editorial com look comprável"
+ ],
+ "ds_lint": [
+  {
+   "id": 94,
+   "message": "Bottom Sheet · tamanhos: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Bottom Sheet · tamanhos",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  },
+  {
+   "id": 97,
+   "message": "Chip PP: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Chip PP",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  },
+  {
+   "id": 99,
+   "message": "Chip P: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Chip P",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  },
+  {
+   "id": 101,
+   "message": "Chip M: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Chip M",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  },
+  {
+   "id": 103,
+   "message": "Chip G: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Chip G",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  },
+  {
+   "id": 105,
+   "message": "Chip GG: `stroke` usa Colors/Surface/Brand/Stroke, cujo escopo declarado é nenhum; está fora do escopo (só aviso).",
+   "name": "Chip GG",
+   "prop": "stroke",
+   "rule": "escopo",
+   "source": "escopo declarado da variable no arquivo do DS no Figma (fonte da verdade dos tokens: docs/eureka/E02-fontes-governanca-ds.md)",
+   "value": "Colors/Surface/Brand/Stroke"
+  }
+ ],
+ "context": {
+  "layers": [
+   {
+    "id": 88,
+    "kind": "FRAME",
+    "name": "E · Incremental · Botão fixo que resolve o tamanho"
+   },
+   {
+    "id": 89,
+    "kind": "RECTANGLE",
+    "name": "Galeria"
+   },
+   {
+    "id": 90,
+    "kind": "TEXT",
+    "name": "Vestido midi de alça"
+   },
+   {
+    "id": 91,
+    "kind": "TEXT",
+    "name": "R$ 1.290,00"
+   },
+   {
+    "id": 92,
+    "kind": "FRAME",
+    "name": "Button"
+   },
+   {
+    "id": 93,
+    "kind": "TEXT",
+    "name": "Selecione o tamanho"
+   },
+   {
+    "id": 94,
+    "kind": "FRAME",
+    "name": "Bottom Sheet · tamanhos"
+   },
+   {
+    "id": 95,
+    "kind": "TEXT",
+    "name": "Escolha o tamanho para adici"
+   },
+   {
+    "id": 96,
+    "kind": "FRAME",
+    "name": "Tamanhos"
+   },
+   {
+    "id": 97,
+    "kind": "FRAME",
+    "name": "Chip PP"
+   },
+   {
+    "id": 98,
+    "kind": "TEXT",
+    "name": "PP"
+   },
+   {
+    "id": 99,
+    "kind": "FRAME",
+    "name": "Chip P"
+   },
+   {
+    "id": 100,
+    "kind": "TEXT",
+    "name": "P"
+   },
+   {
+    "id": 101,
+    "kind": "FRAME",
+    "name": "Chip M"
+   },
+   {
+    "id": 102,
+    "kind": "TEXT",
+    "name": "M"
+   },
+   {
+    "id": 103,
+    "kind": "FRAME",
+    "name": "Chip G"
+   },
+   {
+    "id": 104,
+    "kind": "TEXT",
+    "name": "G"
+   },
+   {
+    "id": 105,
+    "kind": "FRAME",
+    "name": "Chip GG"
+   },
+   {
+    "id": 106,
+    "kind": "TEXT",
+    "name": "GG"
+   }
+  ],
+  "screens": [
+   {
+    "brandChosen": true,
+    "id": 88,
+    "modes": {
+     "Tokens APP": "NV"
+    },
+    "name": "E · Incremental · Botão fixo que resolve o tamanho"
+   }
+  ]
+ },
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}

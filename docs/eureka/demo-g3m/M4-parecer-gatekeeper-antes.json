@@ -1,0 +1,38 @@
+{
+ "verdict": "com-ressalvas",
+ "summary": "A proposta E pode seguir como exploração: a tela tem o modo NV explícito e o lint só deu avisos de escopo. Antes do handoff, porém, é preciso trocar por componentes do DS Apps as peças que hoje são FRAMEs e completar os estados do fluxo de tamanho.",
+ "items": [
+  {
+   "message": "Modo de marca está correto. A tela E tem Tokens APP = NV explícito no frame de topo, então a regra marca-nao-escolhida não se aplica.",
+   "source": "G2-F-regras.md, regra 3 (E05 D3, 23/11; Web §1 Telas e Fluxos: https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c)"
+  },
+  {
+   "message": "Bottom Sheet e os 5 Chips (PP a GG) usam Colors/Surface/Brand/Stroke no contorno, uma variable com escopo declarado vazio. É só aviso, mas antes do handoff troque por um token de contorno cujo escopo cubra stroke. Não dá para confirmar qual token existe com o que veio no pedido.",
+   "source": "G2-F-regras.md, regra 2 'escopo' (E05 D4 mantida como aviso; escopos do Figma, E02-fontes-governanca-ds.md)"
+  },
+  {
+   "message": "Button, Bottom Sheet · tamanhos e os Chips aparecem como FRAME, não como INSTANCE, e a biblioteca de origem não veio no pedido. Pode ser reconstrução manual de componente oficial do DS Apps. No handoff, use instâncias de Button, Bottom Sheet e Chip/Selector do DS Apps, sem detach.",
+   "source": "guardrails G02 e G08; G2-F-regras.md, regra 10 (Fluxo Oficial §4: https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a)"
+  },
+  {
+   "message": "'Galeria' é um RECTANGLE de placeholder. No handoff, use a galeria ou o Image oficial do DS Apps.",
+   "source": "guardrails G02"
+  },
+  {
+   "message": "A lista de tamanhos tem 5 chips fixos, mas a quantidade de tamanhos varia por produto. Ela precisa ser composição editável na instância (slot), validada com 1 tamanho, com vários e com mais de 5.",
+   "source": "guardrails G05"
+  },
+  {
+   "message": "Estados não demonstrados: tamanho selecionado, tamanho esgotado ou indisponível, botão depois da escolha (adicionar à sacola), fechar o Bottom Sheet e erro ao adicionar. Sem eles não dá para verificar o destino do CTA nem a recuperação de erro. São estados de instância, não variantes.",
+   "source": "guardrails G03 e G06; gatekeeper.md, critério UX (CTA sem destino ou erro sem recuperação)"
+  },
+  {
+   "message": "Textos literais (título, preço, 'Selecione o tamanho', instrução do sheet) não foram avaliados quanto a token Business Rule. A regra ainda não está ativa no lint e não há lista escrita.",
+   "source": "G2-F-regras.md, regra 8 e resposta 5 da dona (24/11); Fluxo Oficial §6"
+  },
+  {
+   "message": "Revisão parcial: modo prévia, sem diff branch × main, sem keys nem bibliotecas das camadas e com confiança da proposta declarada como baixa. Isto não é pré-aprovação técnica nem vale para merge ou publicação.",
+   "source": "gatekeeper.md (preflight e diff); guardrails G11 e G12"
+  }
+ ]
+}
