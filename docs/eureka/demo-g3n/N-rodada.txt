@@ -1,0 +1,8 @@
+Rodada gerada: 5 propostas — A · Incremental · Tamanho na hora de escolher; B · Incremental · Como veste; C · Incremental · Concierge NV para tamanho e styling; D · Incremental · Galeria editorial com look comprável; E · Incremental · Botão fixo que resolve o tamanho
+  A · componentes do DS: Selector Size (Selector Button), Button · 10 token(s)
+  B · componentes do DS: Selector Size (Selector Button), Choice Tag (Chips), Button · 11 token(s)
+  C · componentes do DS: Selector Size (Selector Button), Button · 12 token(s)
+  D · componentes do DS: Button, Selector Size (Selector Button) · 10 token(s)
+  E · componentes do DS: Button, Selector Size (Selector Button), Bottom Sheet · 9 token(s)
+Lint: 0 achado(s) da proposta; 55 valor(es) herdado(s) dos componentes do DS
+Nada gravado no Notion nem no Figma; nenhum componente, token ou regra do DS foi alterado.
