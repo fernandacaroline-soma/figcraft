@@ -38,7 +38,8 @@ pub struct Loose {
 }
 
 /// The fields whose values a design system names by token, for [`Loose`]: colours, spacing,
-/// corner radius and font size. Sizes, opacity and line height are the layout's own.
+/// corner radius and the font (family, weight, size). Sizes, opacity and line height are the
+/// layout's own.
 const DS_FIELDS: &[&str] = &[
     "fill",
     "stroke",
@@ -53,6 +54,8 @@ const DS_FIELDS: &[&str] = &[
     "bottomRightRadius",
     "bottomLeftRadius",
     "fontSize",
+    "fontFamily",
+    "fontWeight",
 ];
 
 impl Tokens {
@@ -356,7 +359,10 @@ fn text_decls(doc: &Document, n: &Node, tx: &figcraft_doc::TextData, t: &mut Tok
         ),
     );
     put("font-size", tok(doc, n, &["fontSize"], px(s.font_size), t));
-    put("font-weight", s.weight().to_string());
+    // With design-system tokens the weight is a token too (or a warning); elsewhere it stays the
+    // number, as before.
+    let weight = s.weight().to_string();
+    put("font-weight", if t.ds { tok(doc, n, &["fontWeight"], weight, t) } else { weight });
     if s.italic() {
         put("font-style", "italic".into());
     }

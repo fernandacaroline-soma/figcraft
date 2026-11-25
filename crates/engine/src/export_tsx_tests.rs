@@ -112,3 +112,95 @@ fn a_radius_token_that_is_zero_in_this_brand_is_still_written() {
     let react = run(&mut s, "inspect.code", json!({"id": screen.0, "language": "react"}));
     assert!(!react["code"].as_str().unwrap().contains("border-radius"), "{react}");
 }
+
+/// Nine brands, as many as the app's token collection: synthetic names and values.
+const BRANDS: [&str; 9] = ["Farm", "Animale (CERTO)", "NV", "Fábula", "Marca 5", "Marca 6", "Marca 7", "Marca 8", "Marca 9"];
+
+fn nine_brands() -> Session {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": BRANDS}));
+    let colors: serde_json::Map<String, Value> =
+        BRANDS.iter().enumerate().map(|(i, b)| ((*b).to_string(), json!(format!("#0000{:02X}", i * 16)))).collect();
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface/Brand/Background", "type": "color", "values": colors}));
+    let radii: serde_json::Map<String, Value> = BRANDS.iter().enumerate().map(|(i, b)| ((*b).to_string(), json!(i))).collect();
+    run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Border/Radius/Components/br-card", "type": "number", "values": radii}),
+    );
+    run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Button/Primary", "type": "color", "value": {"alias": "Colors/Surface/Brand/Background"}}),
+    );
+    s
+}
+
+#[test]
+fn the_token_stylesheet_has_every_brand_of_the_collection() {
+    let mut s = nine_brands();
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    for b in ["farm", "animale", "nv", "fabula", "marca-5", "marca-9"] {
+        assert!(css.contains(&format!("[data-brand=\"{b}\"] {{")), "{b}: {css}");
+    }
+    assert_eq!(r["brands"].as_array().unwrap().len(), 9, "{r}");
+    assert_eq!(r["brands"][2], json!({"collection": "Tokens APP", "mode": "NV", "brand": "nv"}));
+    // The default mode is also :root, so a page without data-brand still reads the tokens.
+    assert!(css.contains(":root,\n[data-brand=\"farm\"] {"), "{css}");
+    // Names by the export.tsx rule; numbers in px; aliases by name; the value per brand.
+    assert!(css.contains("--colors-surface-brand-background: #000020;"), "{css}");
+    assert!(css.contains("--border-radius-components-br-card: 8px;"), "{css}");
+    assert!(css.contains("--colors-button-primary: var(--colors-surface-brand-background);"), "{css}");
+    assert_eq!(r["warnings"], json!([]));
+    // Read only: nothing to undo, the variables unchanged.
+    assert_eq!(run(&mut s, "variable.list", json!({})), run(&mut nine_brands(), "variable.list", json!({})));
+}
+
+#[test]
+fn clashing_css_names_are_warnings() {
+    let mut s = nine_brands();
+    run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors Surface Brand Background", "type": "color", "value": "#FF0000"}),
+    );
+    run(&mut s, "variable.addMode", json!({"collection": "Tokens APP", "name": "NV (nova)"}));
+    let w = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens APP"]}))["warnings"].to_string();
+    assert!(w.contains("--colors-surface-brand-background"), "{w}");
+    assert!(w.contains("data-brand=\\\"nv\\\""), "{w}");
+    assert!(s.execute("export.tokensCss", &json!({"collections": ["Nope"]})).is_err());
+    assert!(s.execute("export.tokensCss", &json!({"collections": "Tokens APP"})).is_err());
+}
+
+#[test]
+fn the_font_is_a_token_or_a_warning() {
+    let (mut s, screen, _card, price) = screen();
+    // The price's family and weight have no variable: two warnings, like the lint's loose values.
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let w = &r["warnings"];
+    for field in ["fontFamily", "fontWeight"] {
+        assert!(w.as_array().unwrap().iter().any(|w| w["id"] == json!(price.0) && w["field"] == field), "{field}: {r}");
+    }
+    assert!(r["code"].as_str().unwrap().contains("fontWeight: 400"), "{r}");
+    // Bound, they are tokens and the warnings go.
+    let fam = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Font/Family/Primary", "type": "string", "value": "Inter"}))
+        ["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let wt = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Font/Weight/Regular", "type": "number", "value": 400}))["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    run(&mut s, "variable.bind", json!({"ids": [price.0], "field": "fontFamily", "variable": fam}));
+    run(&mut s, "variable.bind", json!({"ids": [price.0], "field": "fontWeight", "variable": wt}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("font-family: var(--font-family-primary);"), "{code}");
+    assert!(code.contains("font-weight: var(--font-weight-regular);"), "{code}");
+    assert!(r["warnings"].as_array().unwrap().iter().all(|w| w["field"] != "fontFamily" && w["field"] != "fontWeight"), "{r}");
+    // inspect.code keeps the weight a number.
+    let react = run(&mut s, "inspect.code", json!({"id": screen.0, "language": "react"}));
+    assert!(react["code"].as_str().unwrap().contains("font-weight: 400;"), "{react}");
+}

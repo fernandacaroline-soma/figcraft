@@ -8,7 +8,7 @@ use figcraft_doc::{Collection, CollectionId, Document, Mode, ModeId, Variable, V
 use serde_json::{Value, json};
 
 use super::CommandSpec;
-use crate::codegen::{CssNames, css_var_name};
+use crate::codegen::{CssNames, css_var_name, ds_var_name};
 use crate::library::{is_remote_collection, local_collections};
 use crate::params::{get, string};
 use crate::{EngineError, Result, Session, bad, spec};
@@ -46,8 +46,8 @@ fn export(s: &mut Session, p: &Value) -> Result<Value> {
     let text = match string(p, "format").as_deref().unwrap_or("json") {
         "json" => serde_json::to_string_pretty(&figcraft_format::rest::export_variables(&doc.variables, &colls))
             .map_err(|e| EngineError::Other(e.to_string()))?,
-        "css" => css(doc, &colls, false),
-        "tailwind" => css(doc, &colls, true),
+        "css" => css(doc, &colls, CssStyle::Plain),
+        "tailwind" => css(doc, &colls, CssStyle::Tailwind),
         "dart" => dart(&doc.variables, &colls),
         _ => return Err(bad(cmd, "format: json|css|tailwind|dart")),
     };
@@ -65,17 +65,35 @@ fn css_safe(text: &str) -> String {
     text.replace("*/", "* /").replace(['"', '\\', '\n', '\r', '\u{c}'], " ")
 }
 
+/// How [`css`] names the properties and selects the modes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum CssStyle {
+    /// `inspect.code`'s names; other modes on `[data-<collection>="<mode>"]`.
+    Plain,
+    /// Tailwind theme names, the default mode as `@theme static`.
+    Tailwind,
+    /// Design-system tokens as `export.tsx` writes them ([`ds_var_name`], from the name alone);
+    /// every mode on `[data-brand="<brand>"]` ([`crate::export_tsx::brand_slug`]), the default
+    /// mode also on `:root`.
+    Ds,
+}
+
 /// Each collection's variables as custom properties (named as generated code names them): the
 /// default mode's values on `:root`, every other mode's on `[data-<collection>="<mode>"]`;
 /// aliases are `var(--name)` and colour calculations resolve to their colour in the mode.
-fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
+pub(crate) fn css(doc: &Document, colls: &[&Collection], style: CssStyle) -> String {
+    let tailwind = style == CssStyle::Tailwind;
     let vars = &doc.variables;
     let flattener = vars.flattener();
     // Tailwind theme names, unique per file and the same ones page code reads.
     let theme = crate::tailwind::Theme::new(doc);
     // CSS names, unique per file and the same ones generated code reads.
     let names = CssNames::new(doc);
-    let name = |v: &Variable| if tailwind { theme.name(v) } else { names.name(v) };
+    let name = |v: &Variable| match style {
+        CssStyle::Tailwind => theme.name(v),
+        CssStyle::Plain => names.name(v),
+        CssStyle::Ds => ds_var_name(&v.name),
+    };
     // Lengths need a unit where CSS reads them (`border-radius: var(--radius)`); opacity and
     // font weight don't.
     let roles = crate::token_roles::Roles::new(doc);
@@ -83,7 +101,14 @@ fn css(doc: &Document, colls: &[&Collection], tailwind: bool) -> String {
     for c in colls {
         let attr = css_var_name(&c.name);
         for (i, m) in c.modes.iter().enumerate() {
+            let brand = || format!("[data-brand=\"{}\"]", crate::export_tsx::brand_slug(&m.name));
             let sel = match i {
+                0 if style == CssStyle::Ds => format!(
+                    ":root,
+{}",
+                    brand()
+                ),
+                _ if style == CssStyle::Ds => brand(),
                 // `static`: Tailwind otherwise drops theme variables no utility uses, and pages also
                 // read them through `var()` and `(--name)` utilities.
                 0 if tailwind => "@theme static".to_string(),
