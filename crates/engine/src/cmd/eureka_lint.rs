@@ -7,6 +7,10 @@
 //! `marca-nao-escolhida` (a screen using the brand
 //! collection without choosing its mode) and `marca-no-componente` (a brand mode set on a main
 //! component, which every instance inherits).
+//!
+//! Inside an instance, a raw value the main component has too is the component's own (the DS
+//! team's to fix), not the screen's: it is counted as `inherited` and not reported. Only what the
+//! instance changes (an override) is reported.
 
 use std::collections::BTreeMap;
 
@@ -119,11 +123,12 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
         scanned: 0,
         truncated: false,
         tokens: BTreeMap::new(),
+        inherited: 0,
     };
     for root in roots {
         lint.walk(root, 0);
     }
-    Ok(json!({"findings": lint.findings, "counted": lint.counted, "scanned": lint.scanned, "truncated": lint.truncated}))
+    Ok(json!({"findings": lint.findings, "counted": lint.counted, "inherited": lint.inherited, "scanned": lint.scanned, "truncated": lint.truncated}))
 }
 
 /// The lint of the given layers only (not what is inside them), with the default brand and
@@ -145,6 +150,7 @@ pub(crate) fn lint_layers(doc: &Document, ids: &[NodeId], limit: usize) -> Vec<V
         scanned: 0,
         truncated: false,
         tokens: BTreeMap::new(),
+        inherited: 0,
     };
     for id in ids.iter().take(MAX_SCANNED) {
         if let Some(node) = doc.node(*id).filter(|n| !matches!(n.kind, NodeKind::Page { .. })) {
@@ -168,6 +174,8 @@ struct Lint<'a> {
     truncated: bool,
     /// Whether the document has a variable of a type for a scope (memo).
     tokens: BTreeMap<(&'static str, Option<&'static str>), bool>,
+    /// Raw values inside instances that the main component has too (not reported).
+    inherited: usize,
 }
 
 impl Lint<'_> {
@@ -215,9 +223,14 @@ impl Lint<'_> {
     /// that could take that property.
     fn raw_values(&mut self, node: &figcraft_doc::Node) {
         let Ok(a) = serde_json::to_value(node) else { return };
+        let inherited = self.main_raw_values(node);
         for w in ds_warnings(node.id, &a, None) {
             let Some(prop) = w.get("prop").and_then(Value::as_str) else { continue };
             let value = w.get("value").cloned().unwrap_or(Value::Null);
+            if inherited.iter().any(|(p, v)| p == prop && *v == value) {
+                self.inherited += 1;
+                continue;
+            }
             let (field, kind, what, family) = match prop {
                 "fill" => ("fills/0/color", VariableType::Color, "preenchimento", "de cor"),
                 "stroke" => ("strokes/0/color", VariableType::Color, "contorno", "de cor"),
@@ -325,6 +338,22 @@ impl Lint<'_> {
             }
             _ => false,
         }
+    }
+
+    /// The raw values of the main component's layer an instance layer mirrors (the instance's
+    /// component for its root, `source` inside it); empty outside instances.
+    fn main_raw_values(&self, node: &figcraft_doc::Node) -> Vec<(String, Value)> {
+        let main = match (&node.kind, node.source) {
+            (NodeKind::Instance { component, .. }, _) => Some(*component),
+            (_, Some(src)) => Some(src),
+            _ => None,
+        };
+        let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return Vec::new() };
+        let Ok(a) = serde_json::to_value(m) else { return Vec::new() };
+        ds_warnings(m.id, &a, None)
+            .into_iter()
+            .filter_map(|w| Some((w.get("prop")?.as_str()?.to_string(), w.get("value").cloned().unwrap_or(Value::Null))))
+            .collect()
     }
 
     /// Whether the layer is a main component or component set, or inside one.

@@ -1,0 +1,10 @@
+Rodada NV com componentes DS Apps: 5 propostas — A · Incremental · Tamanho na hora de escolher; B · Incremental · Como veste; C · Incremental · Concierge NV para tamanho e styling; D · Incremental · Galeria editorial com look comprável; E · Incremental · Botão fixo que resolve o tamanho
+Instâncias oficiais por tela (A–E): 6, 9, 6, 6, 2
+Import do snapshot: 5 aviso(s)
+  · variables bound to `height` are not supported and were skipped (×19)
+  · variables bound to `width` are not supported and were skipped (×19)
+  · variables bound to `cornerRadius` are not supported and were skipped
+  · variables bound to `fills` are not supported and were skipped (×2)
+  · instance swap properties whose default component isn't in the file were skipped
+Lint: 0 achado(s) da proposta; 60 valor(es) fixo(s) herdado(s) dos componentes do DS (não contam para a tela)
+Nada gravado no Notion nem no Figma; nenhum componente, token ou regra do DS foi alterado.

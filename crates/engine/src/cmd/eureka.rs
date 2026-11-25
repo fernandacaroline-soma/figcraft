@@ -607,6 +607,9 @@ fn origin_of(n: &figcraft_doc::Node) -> Value {
 
 /// What a reviewer needs to know about the layers a proposal touches: their kind, the component
 /// an instance comes from, and the variable modes (brand) chosen on the screens they sit in.
+/// Most characters of a text layer the review context carries.
+const MAX_CONTEXT_TEXT: usize = 200;
+
 pub(crate) fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
     let mode_names = |n: &figcraft_doc::Node| -> Map<String, Value> {
         n.var_modes
@@ -622,13 +625,21 @@ pub(crate) fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
     let mut screens = BTreeSet::new();
     for id in ids.iter().take(MAX_ENTRIES) {
         let Some(n) = doc.node(*id) else { continue };
-        let mut e = json!({"id": id.0, "name": n.name, "kind": n.kind.type_name()});
+        // What does not show on the screen (hidden, or inside something hidden) is left out: a
+        // reviewer would take a component's hidden states for layers on the screen.
+        if std::iter::once(*id).chain(doc.ancestors(*id).into_iter().take(64)).any(|i| doc.node(i).is_some_and(|a| !a.visible)) {
+            continue;
+        }
+        let mut e = json!({"id": id.0, "name": n.name, "kind": n.kind.type_name(), "parent": n.parent.map(|p| p.0)});
+        if let (Some(t), Some(o)) = (n.kind.text(), e.as_object_mut()) {
+            o.insert("text".into(), json!(t.characters.chars().take(MAX_CONTEXT_TEXT).collect::<String>()));
+        }
         if let (figcraft_doc::NodeKind::Instance { component, .. }, Some(o)) = (&n.kind, e.as_object_mut()) {
             let main = doc.node(*component);
             o.insert("instanceOf".into(), json!(main.map(|m| m.name.clone())));
-            // The library a main component came from is not recorded in the document yet: say so
-            // rather than guess (the Gatekeeper's "componente oficial" check needs it).
-            o.insert("library".into(), Value::Null);
+            // The library a main component came from, when the import that brought it recorded it
+            // (`eureka.library` on the main or its component set); null rather than a guess.
+            o.insert("library".into(), library_of(doc, *component));
         }
         layers.push(e);
         if let Some(top) = doc.top_level_frame(*id) {
@@ -644,6 +655,22 @@ pub(crate) fn review_context(doc: &Document, ids: &[NodeId]) -> Value {
         })
         .collect();
     json!({"layers": layers, "screens": screens})
+}
+
+/// pluginData key an import sets on the main components it brings from a design-system library.
+pub const LIBRARY_KEY: &str = "eureka.library";
+
+/// Where a main component came from: `eureka.library` on it or on its component set (JSON when it
+/// parses, else the text), or null.
+fn library_of(doc: &Document, main: NodeId) -> Value {
+    let set =
+        doc.node(main).and_then(|n| n.parent).filter(|p| doc.node(*p).is_some_and(|n| matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })));
+    std::iter::once(main)
+        .chain(set)
+        .filter_map(|i| doc.node(i)?.plugin_data.get(LIBRARY_KEY).cloned())
+        .map(|t| serde_json::from_str::<Value>(&t).unwrap_or(Value::String(t)))
+        .next()
+        .unwrap_or(Value::Null)
 }
 
 /// Longest text a review keeps per field; most items it keeps.
