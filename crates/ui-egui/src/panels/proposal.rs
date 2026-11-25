@@ -436,6 +436,8 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         return;
     }
     let Some((name, info, review)) = board_proposal(app) else { return };
+    let selected = app.session.ds().ok().and_then(|ds| ds.selection.first().copied());
+    let mut choose = false;
     let t = Tokens::get(ctx);
     let x = (canvas.max.x - CARD_W - 12.0).max(canvas.min.x + 12.0);
     let max_h = (canvas.height() - 160.0).max(120.0);
@@ -457,12 +459,17 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
                         .max_height(max_h)
                         .min_scrolled_height(max_h)
                         .auto_shrink([false, true])
-                        .show(ui, |ui| board_body(ui, &name, &info, review.as_ref(), &t));
+                        .show(ui, |ui| choose = board_body(ui, &name, &info, review.as_ref(), &t));
                 });
         });
+    // The designer's pick, the same as `explore.choose`: the others stay on the board, marked.
+    if choose && let Some(id) = selected {
+        app.run("explore.choose", json!({"id": id.0}));
+    }
 }
 
-fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: &Tokens) {
+/// The card's content; true when the designer chooses this proposal.
+fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: &Tokens) -> bool {
     ui.spacing_mut().item_spacing.y = 2.0;
     let text = |k: &str| info.get(k).and_then(Value::as_str).filter(|x| !x.is_empty());
     let (status, color) = match text("status") {
@@ -485,6 +492,16 @@ fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: 
     if let Some(c) = text("confidence") {
         line(ui, &trf("Confidence: {confidence}", &[("confidence", &c)]), t.text_secondary);
     }
+    let used: Vec<&str> =
+        info.pointer("/ds/components").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+    if !used.is_empty() {
+        line(ui, &trf("DS components: {components}", &[("components", &used.join(", "))]), t.text_secondary);
+    }
+    let mut choose = false;
+    if text("status") != Some("escolhida") {
+        ui.add_space(8.0);
+        choose = ui.button(tr("Choose this proposal")).clicked();
+    }
     match review {
         Some(rv) => {
             review_block(ui, rv, t);
@@ -496,6 +513,7 @@ fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: 
         }
         None => {}
     }
+    choose
 }
 
 #[cfg(test)]

@@ -33,7 +33,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "explore.board",
             "Exploration board",
-            "{title, problem?, brand?, platform?, journey?, proposals: [{name, type (\"incremental\" | \"disruptiva\"), mechanism?, summary?, confidence? (\"alta\" | \"média\" | \"baixa\"), commands: [{command, params, as?}] (draw ONE screen: its first created layer is the screen)}]}  draw 2 to 12 proposals side by side in a new section to the right of the page's content, as one undo step; each screen is named \"A · Incremental · <name>\" and keeps the proposal's description (`pluginData[\"eureka.proposal\"]`) → {section, proposals: [{letter, id, name}]}",
+            "{title, problem?, brand?, platform?, journey?, proposals: [{name, type (\"incremental\" | \"disruptiva\"), mechanism?, summary?, confidence? (\"alta\" | \"média\" | \"baixa\"), commands: [{command, params, as?}] (draw ONE screen: its first created layer is the screen) | screen (the screen described by its layers: {frame, width, height, layout?, gap?, padding?, fill?, children: [{frame…} | {text, size?, color?, wrap?} | {image, height, fill?} | {component, variant?: {prop: value}, props?: {name: value}, layers?: {layer: {name: value}}, slot?: [layers], width?: \"fill\", dock?: \"bottom\"}]}; names as `explore.catalog` lists them, sizes and colours as variable names)}]}  draw 2 to 12 proposals side by side in a new section to the right of the page's content, as one undo step; each screen is named \"A · Incremental · <name>\" and keeps the proposal's description (`pluginData[\"eureka.proposal\"]`) → {section, proposals: [{letter, id, name}]}",
             // Not undoable as a command: the board groups itself into its own single undo step.
             false,
             board
@@ -53,6 +53,18 @@ pub fn specs() -> Vec<CommandSpec> {
             review
         ),
     ]
+}
+
+/// How a proposal's screen is drawn: described by its layers, or by raw commands.
+enum Draw {
+    Screen(super::eureka_screen::Item),
+    Commands(Vec<BatchStep>),
+}
+
+/// An error's reason without the command name `bad` puts in front (it is added again).
+fn reason(e: &EngineError) -> String {
+    let t = e.to_string();
+    t.split_once(": ").map_or(t.clone(), |(_, r)| r.to_string())
 }
 
 fn text(p: &Value, key: &str, what: &str) -> Result<Option<String>> {
@@ -91,26 +103,41 @@ fn board(s: &mut Session, p: &Value) -> Result<Value> {
             Some(Value::String(c)) if matches!(c.as_str(), "alta" | "média" | "media" | "baixa") => Some(c.clone()),
             Some(_) => return Err(bad(CMD, "`proposals[].confidence` must be \"alta\", \"média\" or \"baixa\"")),
         };
-        let Some(Value::Array(cmds)) = item.get("commands") else {
-            return Err(bad(CMD, format!("proposal {} needs `commands` that draw its screen", letter(i))));
+        let mut ds = Value::Null;
+        let draw = match (item.get("screen"), item.get("commands")) {
+            (Some(screen), None) => {
+                let (tree, uses) =
+                    super::eureka_screen::read(s.doc()?, CMD, screen).map_err(|e| bad(CMD, format!("proposal {}: {}", letter(i), reason(&e))))?;
+                ds = json!({"components": uses.components, "variables": uses.variables});
+                Draw::Screen(tree)
+            }
+            (None, Some(Value::Array(cmds))) => {
+                if cmds.is_empty() || cmds.len() > MAX_STEPS {
+                    return Err(bad(CMD, format!("proposal {}: 1 to {MAX_STEPS} commands", letter(i))));
+                }
+                let mut steps = Vec::with_capacity(cmds.len());
+                for (j, c) in cmds.iter().enumerate() {
+                    let cmd = c
+                        .get("command")
+                        .and_then(Value::as_str)
+                        .ok_or_else(|| bad(CMD, format!("proposal {} step {j} has no `command`", letter(i))))?;
+                    crate::batch::refuse_unknown_step_keys(j, c)?;
+                    steps.push(BatchStep {
+                        name: crate::batch::step_name(j, c)?,
+                        ..BatchStep::new(cmd, c.get("params").cloned().unwrap_or(json!({})))
+                    });
+                }
+                Draw::Commands(steps)
+            }
+            _ => return Err(bad(CMD, format!("proposal {} needs either `screen` or `commands` that draw its screen", letter(i)))),
         };
-        if cmds.is_empty() || cmds.len() > MAX_STEPS {
-            return Err(bad(CMD, format!("proposal {}: 1 to {MAX_STEPS} commands", letter(i))));
-        }
-        let mut steps = Vec::with_capacity(cmds.len());
-        for (j, c) in cmds.iter().enumerate() {
-            let cmd =
-                c.get("command").and_then(Value::as_str).ok_or_else(|| bad(CMD, format!("proposal {} step {j} has no `command`", letter(i))))?;
-            crate::batch::refuse_unknown_step_keys(j, c)?;
-            steps.push(BatchStep { name: crate::batch::step_name(j, c)?, ..BatchStep::new(cmd, c.get("params").cloned().unwrap_or(json!({}))) });
-        }
         let info = json!({
             "letter": letter(i), "name": name, "type": kind,
             "mechanism": text(item, "mechanism", "proposals[].mechanism")?,
             "summary": text(item, "summary", "proposals[].summary")?,
-            "confidence": confidence, "board": title, "context": context, "status": "proposta",
+            "confidence": confidence, "board": title, "context": context, "status": "proposta", "ds": ds,
         });
-        parsed.push((format!("{} · {kind} · {name}", letter(i)), steps, info));
+        parsed.push((format!("{} · {kind} · {name}", letter(i)), draw, info));
     }
     let page = s.page()?;
     let start_x = s.doc()?.page_content_bounds(page).map_or(0.0, |r| r.x1 + GAP * 2.0);
@@ -118,12 +145,15 @@ fn board(s: &mut Session, p: &Value) -> Result<Value> {
     let mut drawn: Vec<(NodeId, String, Value)> = Vec::new();
     s.grouped(&label, |s| {
         let mut x = start_x;
-        for (screen_name, steps, info) in &parsed {
-            let results = s.batch(screen_name, steps)?;
-            let root = results
-                .iter()
-                .find_map(|r| r.get("id").and_then(id_of))
-                .ok_or_else(|| bad(CMD, format!("proposal {} drew no layer", info.get("letter").and_then(Value::as_str).unwrap_or("?"))))?;
+        for (screen_name, draw, info) in &parsed {
+            let root = match draw {
+                Draw::Screen(tree) => super::eureka_screen::build(s, tree, CMD)?,
+                Draw::Commands(steps) => s
+                    .batch(screen_name, steps)?
+                    .iter()
+                    .find_map(|r| r.get("id").and_then(id_of))
+                    .ok_or_else(|| bad(CMD, format!("proposal {} drew no layer", info.get("letter").and_then(Value::as_str).unwrap_or("?"))))?,
+            };
             let width = s.doc()?.node(root).map_or(0.0, |n| n.width);
             s.execute("node.set", &json!({"id": root.0, "props": {"x": x, "y": 0, "name": screen_name}}))?;
             let doc = s.ds_mut()?.doc_mut();

@@ -10,7 +10,8 @@
 //!
 //! Inside an instance, a raw value the main component has too is the component's own (the DS
 //! team's to fix), not the screen's: it is counted as `inherited` and not reported. Only what the
-//! instance changes (an override) is reported.
+//! instance changes (an override) is reported. A hidden layer inside an instance (a slot's
+//! placeholder, a loading or error state) is not on the screen and is not linted.
 
 use std::collections::BTreeMap;
 
@@ -185,6 +186,11 @@ impl Lint<'_> {
             return;
         }
         let Some(node) = self.doc.node(id) else { return };
+        // A hidden layer inside an instance is a state of the component nobody sees on this screen
+        // (a slot's placeholder, a loading or error state): it is the component's, not the screen's.
+        if !node.visible && self.in_instance(id) {
+            return;
+        }
         self.scanned += 1;
         if !matches!(node.kind, NodeKind::Page { .. }) {
             self.check(node);
@@ -192,6 +198,18 @@ impl Lint<'_> {
         for c in &node.children {
             self.walk(*c, depth + 1);
         }
+    }
+
+    fn in_instance(&self, id: NodeId) -> bool {
+        let mut cur = self.doc.node(id).and_then(|n| n.parent);
+        for _ in 0..64 {
+            let Some(n) = cur.and_then(|p| self.doc.node(p)) else { return false };
+            if matches!(n.kind, NodeKind::Instance { .. }) {
+                return true;
+            }
+            cur = n.parent;
+        }
+        false
     }
 
     fn push(&mut self, node: &figcraft_doc::Node, rule: &str, message: String, source: &str, prop: Option<&str>, value: Option<Value>) {
