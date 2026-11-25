@@ -298,24 +298,7 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
     }
     // A reviewer's pre-approval (the DS Gatekeeper's): shown, never acted on.
     if let Some(rv) = &c.review {
-        let verdict = rv.get("verdict").and_then(Value::as_str).unwrap_or_default();
-        let (label, color) = match verdict {
-            "aprovado" => (tr("Pre-approved"), t.success),
-            "com-ressalvas" => (tr("Pre-approved with notes"), t.warning),
-            _ => (tr("Not pre-approved"), t.danger),
-        };
-        let reviewer = rv.get("reviewer").and_then(Value::as_str).unwrap_or_default();
-        heading(ui, &trf("Review by {reviewer}", &[("reviewer", &reviewer)]), t);
-        ui.label(egui::RichText::new(label).font(semibold(12.0)).color(color));
-        if let Some(sm) = rv.get("summary").and_then(Value::as_str).filter(|x| !x.is_empty()) {
-            line(ui, sm, t.text);
-        }
-        for it in rv.get("items").and_then(Value::as_array).into_iter().flatten().take(MAX_LISTED) {
-            line(ui, &format!("· {}", it.get("message").and_then(Value::as_str).unwrap_or_default()), t.text_secondary);
-            if let Some(src) = it.get("source").and_then(Value::as_str).filter(|x| !x.is_empty()) {
-                line(ui, &source_label(src), t.text_tertiary);
-            }
-        }
+        review_block(ui, rv, t);
         line(ui, tr("A review only advises: you decide whether to apply."), t.text_tertiary);
     }
     // Conflicts with the designer's own edits.
@@ -410,6 +393,109 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
     }
 
     out
+}
+
+/// A reviewer's verdict: who gave it, the verdict, the summary and each item with its source.
+fn review_block(ui: &mut Ui, rv: &Value, t: &Tokens) {
+    let verdict = rv.get("verdict").and_then(Value::as_str).unwrap_or_default();
+    let (label, color) = match verdict {
+        "aprovado" => (tr("Pre-approved"), t.success),
+        "com-ressalvas" => (tr("Pre-approved with notes"), t.warning),
+        _ => (tr("Not pre-approved"), t.danger),
+    };
+    let reviewer = rv.get("reviewer").and_then(Value::as_str).unwrap_or_default();
+    heading(ui, &trf("Review by {reviewer}", &[("reviewer", &reviewer)]), t);
+    ui.label(egui::RichText::new(label).font(semibold(12.0)).color(color));
+    if let Some(sm) = rv.get("summary").and_then(Value::as_str).filter(|x| !x.is_empty()) {
+        line(ui, sm, t.text);
+    }
+    for it in rv.get("items").and_then(Value::as_array).into_iter().flatten().take(MAX_LISTED) {
+        line(ui, &format!("· {}", it.get("message").and_then(Value::as_str).unwrap_or_default()), t.text_secondary);
+        if let Some(src) = it.get("source").and_then(Value::as_str).filter(|x| !x.is_empty()) {
+            line(ui, &source_label(src), t.text_tertiary);
+        }
+    }
+}
+
+/// The proposal a selected screen holds on an exploration board (`explore.board`), with its
+/// reviewer's verdict once chosen (`explore.review`): `(name, proposal, review)`.
+pub fn board_proposal(app: &FigApp) -> Option<(String, Value, Option<Value>)> {
+    use figcraft_engine::cmd::eureka_explore::{PROPOSAL_KEY, REVIEW_KEY};
+    let ds = app.session.ds().ok()?;
+    let [id] = ds.selection.as_slice() else { return None };
+    let n = ds.doc.node(*id)?;
+    let info: Value = serde_json::from_str(n.plugin_data.get(PROPOSAL_KEY)?).ok()?;
+    let review = n.plugin_data.get(REVIEW_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
+    Some((n.name.clone(), info, review))
+}
+
+/// While one proposal of an exploration board is selected (and no proposal preview shows): a card
+/// with what the proposal is, whether the designer chose it, and the reviewer's verdict.
+pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
+    if previewing(app) || app.ui.proposal.is_some() {
+        return;
+    }
+    let Some((name, info, review)) = board_proposal(app) else { return };
+    let t = Tokens::get(ctx);
+    let x = (canvas.max.x - CARD_W - 12.0).max(canvas.min.x + 12.0);
+    let max_h = (canvas.height() - 160.0).max(120.0);
+    egui::Area::new(Id::unique("board_proposal_card"))
+        .order(egui::Order::Foreground)
+        .fade_in(false)
+        .pivot(Align2::LEFT_TOP)
+        .fixed_pos(egui::pos2(x, canvas.min.y + 64.0))
+        .show(ctx, |ui| {
+            egui::Frame::NONE
+                .fill(t.panel)
+                .stroke(egui::Stroke::new(1.0, t.border))
+                .corner_radius(egui::CornerRadius::same(8))
+                .shadow(egui::epaint::Shadow { offset: [0, 2], blur: 12, spread: 0, color: t.shadow })
+                .inner_margin(egui::Margin::same(12))
+                .show(ui, |ui| {
+                    ui.set_width(CARD_W - 24.0);
+                    egui::ScrollArea::vertical()
+                        .max_height(max_h)
+                        .min_scrolled_height(max_h)
+                        .auto_shrink([false, true])
+                        .show(ui, |ui| board_body(ui, &name, &info, review.as_ref(), &t));
+                });
+        });
+}
+
+fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: &Tokens) {
+    ui.spacing_mut().item_spacing.y = 2.0;
+    let text = |k: &str| info.get(k).and_then(Value::as_str).filter(|x| !x.is_empty());
+    let (status, color) = match text("status") {
+        Some("escolhida") => (tr("Chosen"), t.success),
+        Some("não escolhida") => (tr("Not chosen"), t.text_tertiary),
+        _ => (tr("Proposal on the board"), t.text_secondary),
+    };
+    ui.label(egui::RichText::new(status).font(semibold(11.0)).color(color));
+    ui.add(egui::Label::new(egui::RichText::new(name).font(semibold(13.0)).color(t.text)).wrap());
+    if let Some(b) = text("board") {
+        line(ui, b, t.text_tertiary);
+    }
+    if let Some(sm) = text("summary") {
+        ui.add_space(6.0);
+        line(ui, sm, t.text);
+    }
+    if let Some(m) = text("mechanism") {
+        line(ui, &trf("Mechanism: {mechanism}", &[("mechanism", &m)]), t.text_secondary);
+    }
+    if let Some(c) = text("confidence") {
+        line(ui, &trf("Confidence: {confidence}", &[("confidence", &c)]), t.text_secondary);
+    }
+    match review {
+        Some(rv) => {
+            review_block(ui, rv, t);
+            line(ui, tr("A review only advises: you decide."), t.text_tertiary);
+        }
+        None if text("status") == Some("escolhida") => {
+            ui.add_space(8.0);
+            line(ui, tr("No review yet."), t.text_tertiary);
+        }
+        None => {}
+    }
 }
 
 #[cfg(test)]
