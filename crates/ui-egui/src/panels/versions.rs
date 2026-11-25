@@ -523,6 +523,8 @@ fn branch_row(ui: &mut Ui, b: &BranchRow) -> Option<Action> {
 pub fn preview_banner(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
     // Claude's proposal card (also after a stale apply, when the preview is over).
     crate::proposal::card(app, ctx, canvas);
+    // A proposal selected on an exploration board: what it is and its reviewer's verdict.
+    crate::proposal::board_card(app, ctx, canvas);
     let Some((id, name, time)) = app.session.ds().ok().and_then(|ds| ds.preview.as_ref().map(|p| (p.id.clone(), p.name.clone(), p.time))) else {
         return;
     };

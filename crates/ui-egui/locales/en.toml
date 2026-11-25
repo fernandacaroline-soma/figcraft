@@ -8,6 +8,13 @@
 name = "English"
 
 [ui]
+"Chosen" = "Chosen"
+"Not chosen" = "Not chosen"
+"Proposal on the board" = "Proposal on the board"
+"Mechanism: {mechanism}" = "Mechanism: {mechanism}"
+"Confidence: {confidence}" = "Confidence: {confidence}"
+"A review only advises: you decide." = "A review only advises: you decide."
+"No review yet." = "No review yet."
 "Source: {source}" = "Source: {source}"
 "Pre-approved" = "Pre-approved"
 "Pre-approved with notes" = "Pre-approved with notes"

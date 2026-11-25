@@ -8,6 +8,13 @@ name = "Português (Brasil)"
 status = "draft — needs native review"
 
 [ui]
+"Chosen" = "Escolhida"
+"Not chosen" = "Não escolhida"
+"Proposal on the board" = "Proposta no quadro"
+"Mechanism: {mechanism}" = "Mecanismo: {mechanism}"
+"Confidence: {confidence}" = "Confiança: {confidence}"
+"A review only advises: you decide." = "O parecer só orienta: quem decide é você."
+"No review yet." = "Ainda sem parecer."
 "Source: {source}" = "Fonte: {source}"
 "Pre-approved" = "Pré-aprovado"
 "Pre-approved with notes" = "Pré-aprovado com ressalvas"
