@@ -978,6 +978,11 @@ fn a_verdict_is_kept_on_the_chosen_proposal_only() {
     run(&mut s, "explore.choose", json!({"id": a.0}));
     assert!(s.execute("explore.review", &json!({"id": b.0, "verdict": "aprovado"})).is_err(), "not the chosen one");
     assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "talvez"})).is_err());
+    // The design critique comes first, reviewed by the designer.
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "aprovado"})).is_err(), "no critique yet");
+    run(&mut s, "explore.critique", json!({"id": a.0}));
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "aprovado"})).is_err(), "critique not reviewed");
+    run(&mut s, "explore.critiqueReviewed", json!({"id": a.0}));
     let mut p = verdict.clone();
     p["id"] = json!(a.0);
     let r = run(&mut s, "explore.review", p);
