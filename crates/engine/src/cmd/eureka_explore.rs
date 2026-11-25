@@ -14,6 +14,10 @@ use crate::{BatchStep, EngineError, NodeId, Result, Session, bad, spec};
 
 /// The `pluginData` key a proposal's screen carries its description under.
 pub const PROPOSAL_KEY: &str = "eureka.proposal";
+/// The `pluginData` key a chosen proposal's screen keeps its reviewer's verdict under.
+pub const REVIEW_KEY: &str = "eureka.review";
+/// Most lint findings `explore.choose` returns for the chosen screen.
+const MAX_FINDINGS: usize = 200;
 /// Fewest and most proposals a board takes (the generator makes 3 to 10).
 const MIN_PROPOSALS: usize = 2;
 const MAX_PROPOSALS: usize = 12;
@@ -37,9 +41,16 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "explore.choose",
             "Choose a proposal",
-            "{id (a proposal's screen)}  mark the proposal the designer picked on its board (the others are kept, marked not chosen) and select it → {chosen: {id, name, proposal}, others}",
+            "{id (a proposal's screen)}  mark the proposal the designer picked on its board (the others are kept, marked not chosen) and select it; returns what a reviewer needs next: the DS lint of the screen and everything in it, and its context (kind of each layer, component of each instance, brand mode of the screen) → {chosen: {id, name, proposal}, others, lint, context}",
             true,
             choose
+        ),
+        spec!(
+            "explore.review",
+            "Review the chosen proposal",
+            "{id (the chosen proposal's screen), verdict (\"aprovado\" | \"com-ressalvas\" | \"bloqueado\"), reviewer?, summary?, items?: [{message, source?, ids?}]}  keep a reviewer's verdict (such as the DS Gatekeeper's, in preview mode) on the chosen proposal; it only advises: the designer decides → {review}",
+            true,
+            review
         ),
     ]
 }
@@ -158,6 +169,10 @@ fn choose(s: &mut Session, p: &Value) -> Result<Value> {
             let doc = s.ds_mut()?.doc_mut();
             let n = doc.node_mut(sid).ok_or(EngineError::NoNode(sid))?;
             n.plugin_data.insert(PROPOSAL_KEY.to_string(), info.to_string());
+            if sid != id {
+                // A verdict belongs to the proposal that was chosen when it was given.
+                n.plugin_data.remove(REVIEW_KEY);
+            }
             n.name.clone()
         };
         if sid != id {
@@ -165,6 +180,25 @@ fn choose(s: &mut Session, p: &Value) -> Result<Value> {
         }
     }
     s.execute("select.set", &json!({"ids": [id.0]}))?;
-    let name = s.doc()?.node(id).map(|n| n.name.clone()).unwrap_or_default();
-    Ok(json!({"chosen": {"id": id.0, "name": name, "proposal": info_of(s, id)}, "others": others}))
+    let doc = s.doc()?;
+    let name = doc.node(id).map(|n| n.name.clone()).unwrap_or_default();
+    let layers = doc.subtree(id);
+    let lint = super::eureka_lint::lint_layers(doc, &layers, MAX_FINDINGS);
+    let context = super::eureka::review_context(doc, &layers);
+    Ok(json!({"chosen": {"id": id.0, "name": name, "proposal": info_of(s, id)}, "others": others, "lint": lint, "context": context}))
+}
+
+/// `explore.review`: keep a reviewer's verdict on the proposal the designer chose.
+fn review(s: &mut Session, p: &Value) -> Result<Value> {
+    const CMD: &str = "explore.review";
+    let id = get(p, "id").and_then(id_of).ok_or_else(|| bad(CMD, "`id` is required (the chosen proposal's screen)"))?;
+    let Some(info) = info_of(s, id) else { return Err(bad(CMD, "that layer is not a proposal on an exploration board")) };
+    if info.get("status").and_then(Value::as_str) != Some("escolhida") {
+        return Err(bad(CMD, "only the chosen proposal is reviewed: pick it with `explore.choose` first"));
+    }
+    let r = super::eureka::parse_review(CMD, s.agent.clone(), p)?;
+    let doc = s.ds_mut()?.doc_mut();
+    let n = doc.node_mut(id).ok_or(EngineError::NoNode(id))?;
+    n.plugin_data.insert(REVIEW_KEY.to_string(), r.to_string());
+    Ok(json!({"review": r}))
 }

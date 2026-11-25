@@ -1,0 +1,99 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+ "brand_modes": [
+  {
+   "Tokens APP": "Animale (CERTO)"
+  }
+ ],
+ "board": "PDP Animale App · frete grátis",
+ "problem": "Na PDP do app, a cliente não percebe que a peça tem frete grátis.",
+ "proposal": {
+  "letter": "B",
+  "name": "Faixa acima da sacola",
+  "type": "Incremental",
+  "mechanism": "reforço no momento da ação",
+  "summary": "Uma faixa de frete logo acima do botão, lida na hora de adicionar à sacola.",
+  "confidence": "baixa"
+ },
+ "not_chosen": [
+  "A · Incremental · Selo junto ao preço",
+  "C · Disruptiva · O botão conta o frete"
+ ],
+ "ds_lint": [],
+ "context": {
+  "layers": [
+   {
+    "id": 12,
+    "kind": "FRAME",
+    "name": "B · Incremental · Faixa acima da sacola"
+   },
+   {
+    "id": 13,
+    "kind": "RECTANGLE",
+    "name": "Imagem"
+   },
+   {
+    "id": 14,
+    "kind": "FRAME",
+    "name": "Informações"
+   },
+   {
+    "id": 15,
+    "kind": "TEXT",
+    "name": "Camisa de linho manga lo"
+   },
+   {
+    "id": 16,
+    "kind": "FRAME",
+    "name": "Preço"
+   },
+   {
+    "id": 17,
+    "kind": "TEXT",
+    "name": "R$ 389,90"
+   },
+   {
+    "id": 18,
+    "kind": "FRAME",
+    "name": "Faixa de frete"
+   },
+   {
+    "id": 19,
+    "kind": "TEXT",
+    "name": "Frete grátis para todo o"
+   },
+   {
+    "id": 20,
+    "kind": "FRAME",
+    "name": "Button"
+   },
+   {
+    "id": 21,
+    "kind": "TEXT",
+    "name": "Adicionar à sacola"
+   }
+  ],
+  "screens": [
+   {
+    "brandChosen": true,
+    "id": 12,
+    "modes": {
+     "Tokens APP": "Animale (CERTO)"
+    },
+    "name": "B · Incremental · Faixa acima da sacola"
+   }
+  ]
+ },
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}
