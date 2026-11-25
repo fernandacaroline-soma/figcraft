@@ -14,11 +14,15 @@
 //!
 //! `export.tokensCss` writes the stylesheet those names read: every mode of the collections as a
 //! `[data-brand]` block of custom properties, from the variables in the document (imported from
-//! the design system's snapshot; nothing here changes them).
+//! the design system's snapshot; nothing here changes them). The file's text styles follow as
+//! `--text-<style>-<font-family|font-weight|font-size|line-height|letter-spacing>`
+//! ([`text_style_tokens`]): a field bound to a variable reads that token, so it changes with the
+//! brand (a weight bound as a style name reads a number written per brand from that name); a
+//! field with no variable is the style's own value, the same in every brand, and a warning.
 
 use std::collections::BTreeMap;
 
-use figcraft_doc::{Collection, Document, NodeId};
+use figcraft_doc::{Collection, Document, LetterSpacing, LineHeight, NodeId, StyleKind, trim_num};
 use serde_json::{Value, json};
 
 use crate::cmd::CommandSpec;
@@ -36,7 +40,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "export.tokensCss",
             "Export the design-system token stylesheet",
-            "{collections? [ids or names; default every collection of this file, not library copies]}  the stylesheet export.tsx's names read: each variable as `--token-name` (the same rule), every mode of each collection on `[data-brand=\"<mode name without notes in brackets>\"]` and the default mode also on `:root`; aliases as `var(--name)`, colour calculations as the colour they show in that mode, numbers in px unless used as opacity or font weight. Read only: the variables are not changed. No dialog → {css, brands: [{collection, mode, brand}], warnings: [text] (two variables or two modes with the same CSS name)}",
+            "{collections? [ids or names; default every collection of this file, not library copies], textStyles? (default true)}  the stylesheet export.tsx's names read: each variable as `--token-name` (the same rule), every mode of each collection on `[data-brand=\"<mode name without notes in brackets>\"]` and the default mode also on `:root`; aliases as `var(--name)`, colour calculations as the colour they show in that mode, numbers in px unless used as opacity or font weight. Then (unless `textStyles` is false) each text style of this file (not library copies) as `--text-<style name, same rule>-<font-family|font-weight|font-size|line-height|letter-spacing>`, on `:root` and every `[data-brand]`: a field bound to a variable is `var(--token-name)` and follows the brand; a weight from a bound style name (a string variable such as \"Semi bold\") is `var(--<variable>-weight)`, a number per brand from the name it holds there; a field with no variable is the style's own value and a warning. Read only: the variables and styles are not changed. No dialog → {css, brands: [{collection, mode, brand}], textStyles: [{style, prefix, fields: {fontFamily|fontWeight|fontSize|lineHeight|letterSpacing: {value, variable?, from? (fontStyle)}}}], weights: [{variable, token, brands: {brand: weight}}], warnings: [text] (two variables, two modes or two text styles with the same CSS name; a text style field with no variable)}",
             false,
             |s, p| {
                 let cmd = "export.tokensCss";
@@ -49,7 +53,16 @@ pub fn specs() -> Vec<CommandSpec> {
                         .collect::<crate::Result<_>>()?,
                     Some(_) => return Err(bad(cmd, "collections: [collection ids or names]")),
                 };
-                Ok(tokens_css(doc, &colls))
+                let with_styles = match get(p, "textStyles") {
+                    None | Some(Value::Null) => true,
+                    Some(Value::Bool(b)) => *b,
+                    Some(_) => return Err(bad(cmd, "textStyles: true|false")),
+                };
+                let mut out = tokens_css(doc, &colls);
+                if with_styles {
+                    add_text_styles(doc, &mut out);
+                }
+                Ok(out)
             }
         ),
         spec!(
@@ -100,6 +113,138 @@ pub fn tokens_css(doc: &Document, colls: &[&Collection]) -> Value {
  */
 ";
     json!({"css": format!("{head}{}", css(doc, colls, CssStyle::Ds)), "brands": brands, "warnings": warnings})
+}
+
+/// Text style fields, in the order they are written: (field key in a style's `bound`, CSS suffix).
+const TEXT_FIELDS: [(&str, &str); 5] = [
+    ("fontFamily", "font-family"),
+    ("fontWeight", "font-weight"),
+    ("fontSize", "font-size"),
+    ("lineHeight", "line-height"),
+    ("letterSpacing", "letter-spacing"),
+];
+
+/// Most text styles one stylesheet takes.
+const MAX_TEXT_STYLES: usize = 2000;
+
+/// The text style tokens of a file: what `export.tokensCss` adds after the variables.
+pub struct TextStyleTokens {
+    /// The `--text-<style>-<field>` declarations, without a selector.
+    pub decls: String,
+    /// Per-brand blocks of the weights read from style-name variables (`--<variable>-weight`).
+    pub weights_css: String,
+    /// `textStyles` rows: `{style, prefix, fields}`.
+    pub rows: Vec<Value>,
+    /// `weights` rows: `{variable, token, brands: {brand: weight}}`.
+    pub weights: Vec<Value>,
+    pub warnings: Vec<String>,
+}
+
+/// The text styles of this file (not library copies) as tokens, for `export.tokensCss`: one
+/// `--text-<style>-<field>` per field. A bound field is `var(--token-name)`. A weight that comes
+/// from a bound style name (a string variable such as "Semi bold", as design systems that change
+/// the face by brand bind it) is `var(--<variable>-weight)`, a number written for every mode of the
+/// variable's collection from the name it holds there (the weight the app gives that name). A
+/// field with no variable is the style's own value and a warning.
+pub fn text_style_tokens(doc: &Document) -> TextStyleTokens {
+    let mut out = TextStyleTokens { decls: String::new(), weights_css: String::new(), rows: Vec::new(), weights: Vec::new(), warnings: Vec::new() };
+    let mut seen: BTreeMap<String, String> = BTreeMap::new();
+    let mut named_weights: Vec<&figcraft_doc::Variable> = Vec::new();
+    for st in crate::library::local_styles(doc).take(MAX_TEXT_STYLES) {
+        let StyleKind::Text { style: t, .. } = &st.kind else { continue };
+        let prefix = format!("--text-{}", slug(&st.name, "style"));
+        if let Some(first) = seen.insert(prefix.clone(), st.name.clone()) {
+            out.warnings.push(format!("text styles \"{first}\" and \"{}\" are both {prefix}-*", st.name));
+            continue;
+        }
+        let mut fields = serde_json::Map::new();
+        for (key, suffix) in TEXT_FIELDS {
+            let var = st.bound.get(key).and_then(|id| doc.variables.get_by_id(id));
+            let named = (key == "fontWeight")
+                .then(|| st.bound.get("fontStyle").and_then(|id| doc.variables.get_by_id(id)))
+                .flatten()
+                .filter(|v| v.kind == figcraft_doc::VariableType::String);
+            let (value, row) = match (var, named) {
+                (Some(v), _) => {
+                    let value = format!("var({})", ds_var_name(&v.name));
+                    (value.clone(), json!({"value": value, "variable": v.name}))
+                }
+                (None, Some(v)) => {
+                    let value = format!("var({}-weight)", ds_var_name(&v.name));
+                    if !named_weights.iter().any(|w| w.id == v.id) {
+                        named_weights.push(v);
+                    }
+                    (value.clone(), json!({"value": value, "variable": v.name, "from": "fontStyle"}))
+                }
+                (None, None) => {
+                    let own = own_value(t, key);
+                    out.warnings.push(format!("{}: {suffix} {own} has no variable (the same in every brand)", st.name));
+                    (own.clone(), json!({"value": own}))
+                }
+            };
+            out.decls.push_str(&format!("  {prefix}-{suffix}: {value};\n"));
+            fields.insert(key.to_string(), row);
+        }
+        out.rows.push(json!({"style": st.name, "prefix": prefix, "fields": fields}));
+    }
+    for v in named_weights {
+        let token = format!("{}-weight", ds_var_name(&v.name));
+        if doc.variables.variables.iter().any(|o| ds_var_name(&o.name) == token) {
+            out.warnings.push(format!("{token} (the weight of \"{}\") is also a variable's name", v.name));
+        }
+        let Some(c) = doc.variables.collections.iter().find(|c| c.id == v.collection) else { continue };
+        let mut brands = serde_json::Map::new();
+        for (i, m) in c.modes.iter().enumerate() {
+            let modes = BTreeMap::from([(c.id.clone(), m.id.clone())]);
+            let Some(figcraft_doc::VariableValue::String(name)) = doc.variables.resolve(&v.id, &modes) else {
+                out.warnings.push(format!("\"{}\" has no style name in {}: no {token} there", v.name, m.name));
+                continue;
+            };
+            let w = figcraft_doc::style_weight(&name);
+            let b = brand_slug(&m.name);
+            let sel = if i == 0 { format!(":root,\n[data-brand=\"{b}\"]") } else { format!("[data-brand=\"{b}\"]") };
+            out.weights_css.push_str(&format!("{sel} {{\n  {token}: {w};\n}}\n"));
+            brands.insert(b, json!(w));
+        }
+        out.weights.push(json!({"variable": v.name, "token": token, "brands": brands}));
+    }
+    out
+}
+
+/// A text style's own value of `key`, in CSS units.
+fn own_value(t: &figcraft_doc::TextStyle, key: &str) -> String {
+    match key {
+        "fontFamily" => format!("\"{}\"", t.font_family.replace(['"', '\\', '\n', '\r'], " ")),
+        "fontWeight" => t.weight().to_string(),
+        "fontSize" => format!("{}px", trim_num(t.font_size)),
+        "lineHeight" => match t.line_height {
+            LineHeight::Auto => "normal".to_string(),
+            LineHeight::Pixels(x) => format!("{}px", trim_num(x)),
+            LineHeight::Percent(x) => trim_num(x / 100.0),
+        },
+        _ => match t.letter_spacing {
+            LetterSpacing::Pixels(x) => format!("{}px", trim_num(x)),
+            LetterSpacing::Percent(x) => format!("{}em", trim_num(x / 100.0)),
+        },
+    }
+}
+
+/// `out` (a `tokens_css` result) with the text style tokens: the weights by brand, the styles'
+/// rule, `textStyles`, `weights` and the warnings. The styles' rule is on `:root` and every
+/// `[data-brand]`: a custom property's `var()` is resolved where it is declared, so declared on
+/// `:root` alone it would keep the default brand's values inside a `data-brand` element.
+fn add_text_styles(doc: &Document, out: &mut Value) {
+    let t = text_style_tokens(doc);
+    if let Some(css) = out.get_mut("css").and_then(|c| c.as_str().map(str::to_string)) {
+        let weights = if t.weights_css.is_empty() { String::new() } else { format!("/* Weights from style-name tokens */\n{}", t.weights_css) };
+        let rule = if t.decls.is_empty() { String::new() } else { format!("/* Text styles */\n:root,\n[data-brand] {{\n{}}}\n", t.decls) };
+        out["css"] = Value::String(format!("{css}{weights}{rule}"));
+    }
+    out["textStyles"] = Value::Array(t.rows);
+    out["weights"] = Value::Array(t.weights);
+    if let Some(w) = out.get_mut("warnings").and_then(Value::as_array_mut) {
+        w.extend(t.warnings.into_iter().map(Value::String));
+    }
 }
 
 /// The TSX for `ids` (up to [`MAX_ROOTS`]): `{code, warnings, brand}`.

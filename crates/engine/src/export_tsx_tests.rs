@@ -204,3 +204,121 @@ fn the_font_is_a_token_or_a_warning() {
     let react = run(&mut s, "inspect.code", json!({"id": screen.0, "language": "react"}));
     assert!(react["code"].as_str().unwrap().contains("font-weight: 400;"), "{react}");
 }
+
+/// The nine brands with two text styles: "Heading/H1" with its size, line height and weight bound
+/// to per-brand tokens and its family loose; "Body/Small" with nothing bound. Returns the session.
+fn nine_brands_with_text_styles() -> Session {
+    let mut s = nine_brands();
+    let per_brand = |s: &mut Session, name: &str, f: &dyn Fn(usize) -> f64| {
+        let values: serde_json::Map<String, Value> = BRANDS.iter().enumerate().map(|(i, b)| ((*b).to_string(), json!(f(i)))).collect();
+        run(s, "variable.create", json!({"collection": "Tokens APP", "name": name, "type": "number", "values": values}))["id"]
+            .as_str()
+            .unwrap()
+            .to_string()
+    };
+    let size = per_brand(&mut s, "Font/Size/fs-lg", &|i| 20.0 + i as f64);
+    let lh = per_brand(&mut s, "Font/Line Height/lh-lg", &|i| 28.0 + i as f64);
+    let wt = per_brand(&mut s, "Font/Weight/Bold", &|i| if i == 2 { 600.0 } else { 700.0 });
+    let h1 = json!({"fontFamily": "Inter", "fontStyle": "Bold", "fontSize": 24, "lineHeight": 32, "letterSpacing": "-2%"});
+    let h1 = run(&mut s, "style.create", json!({"type": "text", "name": "Heading/H1", "value": h1}))["id"].as_str().unwrap().to_string();
+    for (field, var) in [("fontSize", &size), ("lineHeight", &lh), ("fontWeight", &wt)] {
+        run(&mut s, "style.bind", json!({"style": h1, "field": field, "variable": var}));
+    }
+    let body = json!({"fontFamily": "Inter", "fontStyle": "Regular", "fontSize": 12, "lineHeight": "150%", "letterSpacing": 0.5});
+    run(&mut s, "style.create", json!({"type": "text", "name": "Body/Small", "value": body}));
+    s
+}
+
+#[test]
+fn text_styles_are_tokens_that_follow_the_brand() {
+    let mut s = nine_brands_with_text_styles();
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    // Bound fields read the brand's token; the rule is on every data-brand too, so var() resolves
+    // inside a brand element and not only at :root.
+    assert!(css.contains("/* Text styles */\n:root,\n[data-brand] {"), "{css}");
+    assert!(css.contains("  --text-heading-h1-font-size: var(--font-size-fs-lg);"), "{css}");
+    assert!(css.contains("  --text-heading-h1-line-height: var(--font-line-height-lh-lg);"), "{css}");
+    assert!(css.contains("  --text-heading-h1-font-weight: var(--font-weight-bold);"), "{css}");
+    // The tokens themselves per brand: sizes in px, the weight with no unit (NV is 600).
+    assert!(css.contains("[data-brand=\"nv\"] {"), "{css}");
+    assert!(css.contains("--font-size-fs-lg: 22px;"), "{css}");
+    assert!(css.contains("--font-weight-bold: 600;"), "{css}");
+    // Loose fields are the style's own values, in CSS units.
+    assert!(css.contains("  --text-heading-h1-font-family: \"Inter\";"), "{css}");
+    assert!(css.contains("  --text-heading-h1-letter-spacing: -0.02em;"), "{css}");
+    assert!(css.contains("  --text-body-small-font-weight: 400;"), "{css}");
+    assert!(css.contains("  --text-body-small-line-height: 1.5;"), "{css}");
+    assert!(css.contains("  --text-body-small-letter-spacing: 0.5px;"), "{css}");
+    assert!(css.contains("  --text-body-small-font-size: 12px;"), "{css}");
+    // Every loose field is a warning: 2 in Heading/H1, 5 in Body/Small.
+    let w: Vec<&str> = r["warnings"].as_array().unwrap().iter().filter_map(Value::as_str).collect();
+    assert_eq!(w.len(), 7, "{w:?}");
+    assert!(w.contains(&"Heading/H1: font-family \"Inter\" has no variable (the same in every brand)"), "{w:?}");
+    // The rows name the variables by their design-system names.
+    let h1 = r["textStyles"].as_array().unwrap().iter().find(|t| t["style"] == "Heading/H1").unwrap().clone();
+    assert_eq!(h1["prefix"], "--text-heading-h1");
+    assert_eq!(h1["fields"]["fontSize"], json!({"value": "var(--font-size-fs-lg)", "variable": "Font/Size/fs-lg"}));
+    assert_eq!(h1["fields"]["fontFamily"], json!({"value": "\"Inter\""}));
+    // Read only.
+    let mut fresh = nine_brands_with_text_styles();
+    assert_eq!(run(&mut s, "style.list", json!({})), run(&mut fresh, "style.list", json!({})));
+    assert_eq!(run(&mut s, "variable.list", json!({})), run(&mut fresh, "variable.list", json!({})));
+}
+
+#[test]
+fn text_styles_can_be_left_out_and_clashes_are_warnings() {
+    let mut s = nine_brands_with_text_styles();
+    let r = run(&mut s, "export.tokensCss", json!({"textStyles": false}));
+    assert!(!r["css"].as_str().unwrap().contains("--text-"), "{r}");
+    assert_eq!(r["warnings"], json!([]));
+    assert!(s.execute("export.tokensCss", &json!({"textStyles": "yes"})).is_err());
+    // Two styles with one CSS name: the second is left out and named in a warning.
+    let v = json!({"fontFamily": "Inter", "fontSize": 10});
+    run(&mut s, "style.create", json!({"type": "text", "name": "Body / Small", "value": v}));
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let w = r["warnings"].to_string();
+    assert!(w.contains("are both --text-body-small-*"), "{w}");
+    assert_eq!(r["textStyles"].as_array().unwrap().len(), 2, "{r}");
+    // The weight from a bound style name, as the design system binds it: a string variable with a
+    // face name per brand. Each brand gets the number that name means; the style reads it.
+    let names: serde_json::Map<String, Value> = BRANDS
+        .iter()
+        .enumerate()
+        .map(|(i, b)| {
+            (
+                (*b).to_string(),
+                json!(match i {
+                    1 => "Semi bold",
+                    2 => "light",
+                    3 => "Book",
+                    _ => "Medium",
+                }),
+            )
+        })
+        .collect();
+    let fs = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Font/Weight/font-bold", "type": "string", "values": names}))
+        ["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let st = run(&mut s, "style.create", json!({"type": "text", "name": "Label", "value": {"fontFamily": "Inter", "fontStyle": "Medium"}}))["id"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    run(&mut s, "style.bind", json!({"style": st, "field": "fontStyle", "variable": fs}));
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    assert!(css.contains("  --text-label-font-weight: var(--font-weight-font-bold-weight);"), "{css}");
+    assert!(css.contains(":root,\n[data-brand=\"farm\"] {\n  --font-weight-font-bold-weight: 500;\n}"), "{css}");
+    assert!(css.contains("[data-brand=\"animale\"] {\n  --font-weight-font-bold-weight: 600;\n}"), "{css}");
+    assert!(css.contains("[data-brand=\"nv\"] {\n  --font-weight-font-bold-weight: 300;\n}"), "{css}");
+    assert!(css.contains("[data-brand=\"fabula\"] {\n  --font-weight-font-bold-weight: 400;\n}"), "{css}");
+    // The weights come before the rule that reads them, and the style name is a token, not a warning.
+    assert!(css.find("--font-weight-font-bold-weight: 500").unwrap() < css.find("/* Text styles */").unwrap(), "{css}");
+    let label = r["textStyles"].as_array().unwrap().iter().find(|t| t["style"] == "Label").unwrap().clone();
+    assert_eq!(label["fields"]["fontWeight"]["from"], "fontStyle");
+    assert!(!r["warnings"].to_string().contains("Label: font-weight"), "{r}");
+    assert_eq!(r["weights"][0]["brands"]["nv"], 300, "{r}");
+    assert_eq!(r["weights"][0]["brands"].as_object().unwrap().len(), 9, "{r}");
+}
