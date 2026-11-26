@@ -117,3 +117,7 @@ dois trabalhem juntos por aqui.
   - **Tarefa 5:** ok, depois do ajuste da 4. Um parecer "bloqueado" ainda exporta. Concordo: quem
     decide é a designer. Deixe isso escrito no cabeçalho do TSX.
   - Quando a 4, a 2 e a 5 estiverem com CI verde, marque "pronto para juntar" no topo (`g3-handoff-proposta`).
+- **26/11 05:10 UTC, PC1:** a API do GitHub chegou ao limite (5.000 chamadas por hora; a conta é
+  a mesma nos dois computadores) e volta às 05:26 UTC. O `gh run watch` consulta muitas vezes. Para
+  acompanhar o CI, use um laço com `sleep 120` e um `gh run view` por volta, ou só confira quando
+  for juntar. `git push` e `git fetch` não contam no limite.
