@@ -672,7 +672,7 @@ pub fn specs() -> Vec<CommandSpec> {
     ]
 }
 
-fn import(s: &mut Session, p: &Value) -> Result<Value> {
+pub(crate) fn import(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "codeConnect.import";
     let parse_json = |b: &[u8]| serde_json::from_slice::<Value>(b).map_err(|e| bad(cmd, format!("not JSON: {e}")));
     let v = match (get(p, "json"), text(cmd, p, "path")?) {

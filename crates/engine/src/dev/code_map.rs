@@ -47,7 +47,7 @@ pub fn specs() -> Vec<CommandSpec> {
     )]
 }
 
-fn code_map(s: &mut Session, p: &Value) -> Result<Value> {
+pub(crate) fn code_map(s: &mut Session, p: &Value) -> Result<Value> {
     let cmd = "export.codeMap";
     let parse_json = |b: &[u8]| serde_json::from_slice::<Value>(b).map_err(|e| bad(cmd, format!("not JSON: {e}")));
     let path = match get(p, "path") {
@@ -84,7 +84,7 @@ fn code_map(s: &mut Session, p: &Value) -> Result<Value> {
 
 /// The design system's components in `doc` by name (or every component with `all`): link owners
 /// (sets, and components outside a set) with the library an import recorded on them.
-fn ds_components(doc: &Document, all: bool) -> BTreeMap<String, Vec<(NodeId, Value)>> {
+pub(crate) fn ds_components(doc: &Document, all: bool) -> BTreeMap<String, Vec<(NodeId, Value)>> {
     let mut out: BTreeMap<String, Vec<(NodeId, Value)>> = BTreeMap::new();
     for n in doc.nodes().filter(|n| owner(doc, n.id) == Some(n.id)) {
         let library = main_of(doc, n.id).map_or(Value::Null, |m| crate::cmd::eureka::library_of(doc, m));
