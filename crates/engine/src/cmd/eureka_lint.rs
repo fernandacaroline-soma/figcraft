@@ -6,7 +6,8 @@
 //! the proposals' [`ds_warnings`]), `escopo` (a variable bound outside its declared scope),
 //! `marca-nao-escolhida` (a screen using the brand
 //! collection without choosing its mode) and `marca-no-componente` (a brand mode set on a main
-//! component, which every instance inherits).
+//! component, which every instance inherits) and `override-token` (inside an instance of a
+//! component from a design-system library, a layer whose token differs from the main component's).
 //!
 //! Inside an instance, a raw value the main component has too is the component's own (the DS
 //! team's to fix), not the screen's: it is counted as `inherited` and not reported. Only what the
@@ -51,13 +52,14 @@ const OFFICIAL_WEB: &[&str] = &["Tokens WEB", "Layout"];
 /// Most names `officialCollections` takes.
 const MAX_OFFICIAL: usize = 32;
 const SRC_BRAND_SCREEN: &str = "docs/eureka/E05-arquitetura-adrs.md §7 D3 (\"a marca deve ser escolhida na tela, nunca deixada ao padrão\"); https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (\"conferir modos de marca\")";
+const SRC_OVERRIDE: &str = "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial, Tokens — bloqueio crítico: \"não trocar nem sobrescrever token de qualquer instância de componente oficial\"); https://app.notion.com/p/39f690e9a7e281c0bfd9dd5e7d006510 (Critérios de Escalonamento); componente oficial = vindo de biblioteca do DS (docs/eureka/G2-F-regras.md, resposta 3 de 24/11)";
 const SRC_BRAND_COMPONENT: &str = "https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (DS N Marcas — Web §3: \"nunca deixando um modo específico preso ao componente original\")";
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![spec!(
         CMD,
         "Lint the design system",
-        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), officialCollections? (collection names or ids counted as official; default [\"Tokens APP\"] when the document has it, else [\"Tokens WEB\", \"Layout\"]), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, variable of a non-official collection, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
+        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), officialCollections? (collection names or ids counted as official; default [\"Tokens APP\"] when the document has it, else [\"Tokens WEB\", \"Layout\"]), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, variable of a non-official collection, screen without a brand mode, brand mode on a main component, token swapped or lost inside an instance of a component from a design-system library). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
         false,
         run
     )]
@@ -235,6 +237,65 @@ impl Lint<'_> {
         self.scopes(node);
         self.collections(node);
         self.brand_mode(node);
+        self.token_overrides(node);
+    }
+
+    /// `override-token`: inside an instance of an official component (one an import recorded as
+    /// coming from a design-system library), a layer bound to another variable than the main
+    /// component's layer, or that lost the main's binding. A binding the main does not have (a raw
+    /// value tokenised on the screen) is not an override of a token and is left alone. In the
+    /// written rule this is a block; the lint only warns.
+    fn token_overrides(&mut self, node: &figcraft_doc::Node) {
+        // Compared with the layer it mirrors in the enclosing main component (`source`) first: what
+        // a DS component does to the instances inside it (a nested instance's background, say) is
+        // the DS's own, not the screen's. A top-level instance has no source: its component then.
+        let main = match (node.source, &node.kind) {
+            (Some(src), _) => Some(src),
+            (None, NodeKind::Instance { component, .. }) => Some(*component),
+            _ => None,
+        };
+        let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return };
+        let Some(component) = self.official_component(node.id) else { return };
+        for (field, theirs) in &m.bound {
+            let var_name = |id: &str| self.doc.variables.get_by_id(id).map_or_else(|| id.to_string(), |v| v.name.clone());
+            let (message, value) = match node.bound.get(field) {
+                Some(ours) if ours == theirs => continue,
+                Some(ours) => (
+                    format!(
+                        "{}: {} usa {} no lugar de {} do componente oficial {component}; não troque token de instância de componente oficial.",
+                        node.name,
+                        field_label(field),
+                        var_name(ours),
+                        var_name(theirs)
+                    ),
+                    json!(var_name(ours)),
+                ),
+                None => (
+                    format!(
+                        "{}: {} perdeu o token {} do componente oficial {component} (valor fixo no lugar); não sobrescreva token de instância de componente oficial.",
+                        node.name,
+                        field_label(field),
+                        var_name(theirs)
+                    ),
+                    Value::Null,
+                ),
+            };
+            self.push(node, "override-token", message, SRC_OVERRIDE, Some(field), Some(value));
+        }
+    }
+
+    /// The name of the official component the layer is part of: the nearest instance (the layer or
+    /// above it) whose main component an import recorded as coming from a design-system library.
+    fn official_component(&self, id: NodeId) -> Option<String> {
+        std::iter::once(id).chain(self.doc.ancestors(id).into_iter().take(MAX_DEPTH)).find_map(|i| {
+            let NodeKind::Instance { component, .. } = self.doc.node(i)?.kind else { return None };
+            if super::eureka::library_of(self.doc, component).is_null() {
+                return None;
+            }
+            let main = self.doc.node(component)?;
+            let set = main.parent.and_then(|p| self.doc.node(p)).filter(|p| matches!(p.kind, NodeKind::ComponentSet { .. }));
+            Some(set.map_or_else(|| main.name.clone(), |s| s.name.clone()))
+        })
     }
 
     /// `valor-solto`: [`ds_warnings`] on the whole layer, kept where the document has a variable

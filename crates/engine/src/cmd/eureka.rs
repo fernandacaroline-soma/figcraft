@@ -662,7 +662,7 @@ pub const LIBRARY_KEY: &str = "eureka.library";
 
 /// Where a main component came from: `eureka.library` on it or on its component set (JSON when it
 /// parses, else the text), or null.
-fn library_of(doc: &Document, main: NodeId) -> Value {
+pub(crate) fn library_of(doc: &Document, main: NodeId) -> Value {
     let set =
         doc.node(main).and_then(|n| n.parent).filter(|p| doc.node(*p).is_some_and(|n| matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })));
     std::iter::once(main)
