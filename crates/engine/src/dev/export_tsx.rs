@@ -105,7 +105,7 @@ pub fn specs() -> Vec<CommandSpec> {
 }
 
 /// `export.tokensCss` with its parameters `collections` and `textStyles` read from `p`.
-fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
+pub(crate) fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
     let colls: Vec<&Collection> = match get(p, "collections") {
         None | Some(Value::Null) => crate::library::local_collections(doc).collect(),
         Some(Value::Array(a)) => {
@@ -135,7 +135,7 @@ fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
 
 /// `export.code`'s result from `export.tsx`'s (`tsx`) and `export.tokensCss`'s (`sheet`): the two
 /// files (`<name>.tsx`, `tokens.css`), written into `dir` when given, and the tokens the TSX reads.
-fn code_files(tsx: &Value, sheet: &Value, name: &str, dir: Option<&str>) -> crate::Result<Value> {
+pub(crate) fn code_files(tsx: &Value, sheet: &Value, name: &str, dir: Option<&str>) -> crate::Result<Value> {
     let code = tsx["code"].as_str().unwrap_or_default();
     let css = sheet["css"].as_str().unwrap_or_default();
     let mut tokens: Vec<Value> = Vec::new();

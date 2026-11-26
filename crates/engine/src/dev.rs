@@ -7,5 +7,6 @@ pub mod dev_measurements;
 pub mod dev_resources;
 pub mod devcompare;
 pub mod devinspect;
+pub mod export_handoff;
 pub mod export_tsx;
 pub mod tailwind;
