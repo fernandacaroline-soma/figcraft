@@ -169,12 +169,14 @@ fn a_token_name_in_two_collections_means_the_official_one() {
     // A library's own copy of the tokens, with the same names.
     ex(&mut s, "variable.createCollection", json!({"name": "Tokens", "modes": ["Default"]}));
     ex(&mut s, "variable.create", json!({"collection": "Tokens", "name": "Colors/Surface", "type": "color", "value": "#000000"}));
-    let out = board(&mut s, vec![json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Surface", "children": []})]).unwrap();
+    let sc = json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Surface", "children": []});
+    let out = board(&mut s, vec![sc.clone(), sc]).unwrap();
     let screen = idv(&out["proposals"][0]);
     let doc = s.doc().unwrap();
-    let bound = doc.node(screen).unwrap().bound.get("fills/0/color").cloned().unwrap();
+    let bound = doc.node(screen).unwrap().bound.get("fill").cloned().unwrap();
     let var = doc.variables.get_by_id(&bound).unwrap();
     assert_eq!(doc.variables.collection(&var.collection).unwrap().name, "Tokens APP");
-    // A name only the other collection has still resolves there; an unknown one is still refused.
-    assert!(board(&mut s, vec![json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Nope", "children": []})]).is_err());
+    // An unknown name is still refused.
+    let nope = json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Nope", "children": []});
+    assert!(board(&mut s, vec![nope.clone(), nope]).is_err());
 }
