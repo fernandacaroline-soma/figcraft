@@ -1052,3 +1052,44 @@ fn the_review_context_leaves_hidden_layers_out_and_carries_the_texts() {
     assert_eq!(layers[1]["text"], json!("Adicionar à sacola"));
     assert_eq!(layers[1]["parent"], json!(screen.0));
 }
+
+#[test]
+fn the_lint_flags_a_token_swapped_inside_an_official_component_instance() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    let brand = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Brand", "type": "color", "value": "#111111"}));
+    let other = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Other", "type": "color", "value": "#222222"}));
+    let surface = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface", "type": "color", "value": "#EEEEEE"}));
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 120, "height": 40, "name": "Button"}))["id"]).unwrap();
+    let label = id_of(
+        &run(&mut s, "shape.rectangle", json!({"x": 4, "y": 4, "width": 40, "height": 10, "parent": frame.0, "props": {"name": "Fundo"}}))["id"],
+    )
+    .unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [label.0], "field": "fill", "variable": brand["id"]}));
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 300, "y": 0}))["id"]).unwrap();
+    let inner = s.doc().unwrap().node(inst).unwrap().children[0];
+    let rule = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("override-token")).cloned().collect::<Vec<_>>();
+    let lint = |s: &mut Session| run(s, "ds.lint", json!({"ids": [inst.0]}));
+    // An untouched instance keeps the component's token: nothing to say.
+    assert!(rule(&lint(&mut s)).is_empty());
+    // Swapped token, but the component is not known to be official (no library recorded): left out.
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": other["id"]}));
+    assert!(rule(&lint(&mut s)).is_empty(), "only official components");
+    // Recorded as coming from the DS library: the swap is reported, naming both tokens.
+    run(&mut s, "node.set", json!({"id": main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let found = rule(&lint(&mut s));
+    assert_eq!(found.len(), 1, "{found:?}");
+    let msg = found[0]["message"].as_str().unwrap();
+    assert!(msg.contains("Colors/Other") && msg.contains("Colors/Brand") && msg.contains("Button"), "{msg}");
+    assert_eq!(found[0]["id"], json!(inner.0));
+    // A raw colour in place of the token: the binding was lost.
+    run(&mut s, "node.set", json!({"id": inner.0, "props": {"fill": "#FF0000"}}));
+    let found = rule(&lint(&mut s));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0]["message"].as_str().unwrap().contains("perdeu o token Colors/Brand"), "{found:?}");
+    // A token on a layer the component left raw is not an override of a token.
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": brand["id"]}));
+    run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": surface["id"]}));
+    assert!(rule(&lint(&mut s)).is_empty(), "{:?}", rule(&lint(&mut s)));
+}
