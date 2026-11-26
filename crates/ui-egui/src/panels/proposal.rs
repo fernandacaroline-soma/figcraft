@@ -14,6 +14,7 @@ use crate::FigApp;
 use crate::i18n::{tr, trf, trn};
 use crate::theme::{Tokens, regular, semibold};
 use crate::widgets;
+use figcraft_doc::NodeId;
 
 /// Layers listed per summary section; the rest is counted.
 const MAX_LISTED: usize = 40;
@@ -449,6 +450,8 @@ enum CardAction {
     Reviewed,
     /// The designer approves the refined layout (`explore.approve`).
     Approve,
+    /// Export the chosen proposal as code for the developers (`explore.exportCode`).
+    ExportCode,
 }
 
 /// While one proposal of an exploration board is selected (and no proposal preview shows): a card
@@ -499,8 +502,38 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         CardAction::Approve => {
             app.run("explore.approve", json!({"id": id.0}));
         }
+        CardAction::ExportCode => export_chosen(app, id),
         CardAction::None => {}
     }
+}
+
+/// `explore.exportCode` for the chosen proposal: into a folder the designer picks, or as downloads
+/// in the browser; a toast says how many values have no token.
+fn export_chosen(app: &mut FigApp, id: NodeId) {
+    let finish = |app: &mut FigApp, r: Value| {
+        let loose = r["warnings"].as_array().map_or(0, Vec::len);
+        app.toast(if loose == 0 {
+            tr("Code exported: every value is a token").to_string()
+        } else {
+            trn("Code exported; {n} values have no token", loose, &[])
+        });
+    };
+    if app.services.downloads() {
+        let Some(r) = app.run("explore.exportCode", json!({"id": id.0})) else { return };
+        use base64::Engine as _;
+        for f in r["files"].as_array().cloned().unwrap_or_default() {
+            let name = f["name"].as_str().unwrap_or("export.txt");
+            let data = base64::engine::general_purpose::STANDARD.encode(f["text"].as_str().unwrap_or_default());
+            app.download(name, &json!({"data": data}));
+        }
+        finish(app, r);
+        return;
+    }
+    app.pick_folder(tr("Export the proposal as code"), move |app, dir| {
+        if let Some(r) = app.run("explore.exportCode", json!({"id": id.0, "dir": dir.to_string_lossy()})) {
+            finish(app, r);
+        }
+    });
 }
 
 /// The card's content and what the designer did on it.
@@ -559,6 +592,11 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
                 line(ui, tr("You approved this layout."), t.success);
             } else if ui.button(tr("Approve the layout")).clicked() {
                 action = CardAction::Approve;
+            }
+            // The code for the developers, with the proposal, the verdict and the open findings
+            // at the top of the TSX.
+            if ui.button(tr("Export the proposal as code")).clicked() {
+                action = CardAction::ExportCode;
             }
         }
         None if reviewed => {
