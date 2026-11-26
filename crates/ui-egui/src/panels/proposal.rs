@@ -426,6 +426,8 @@ pub struct BoardProposal {
     pub critique: Option<Value>,
     pub review: Option<Value>,
     pub approval: Option<Value>,
+    /// The design system's code map the file linked (`explore.codeMap`): `{name, linked, missing}`.
+    pub code_map: Option<Value>,
 }
 
 pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
@@ -437,7 +439,14 @@ pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
     let n = ds.doc.node(*id)?;
     let info: Value = serde_json::from_str(n.plugin_data.get(PROPOSAL_KEY)?).ok()?;
     let kept = |k: &str| n.plugin_data.get(k).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
-    Some(BoardProposal { name: n.name.clone(), info, critique: kept(CRITIQUE_KEY), review: kept(REVIEW_KEY), approval: kept(APPROVAL_KEY) })
+    Some(BoardProposal {
+        name: n.name.clone(),
+        info,
+        critique: kept(CRITIQUE_KEY),
+        review: kept(REVIEW_KEY),
+        approval: kept(APPROVAL_KEY),
+        code_map: figcraft_engine::export_handoff::linked_code_map(&ds.doc),
+    })
 }
 
 /// What the designer did on the board card.
@@ -452,6 +461,8 @@ enum CardAction {
     Approve,
     /// Export the chosen proposal as code for the developers (`explore.exportCode`).
     ExportCode,
+    /// Pick the design system's code map and link it (`explore.codeMap`).
+    LinkCodeMap,
 }
 
 /// While one proposal of an exploration board is selected (and no proposal preview shows): a card
@@ -503,20 +514,38 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
             app.run("explore.approve", json!({"id": id.0}));
         }
         CardAction::ExportCode => export_chosen(app, id),
+        CardAction::LinkCodeMap => link_code_map(app),
         CardAction::None => {}
     }
 }
 
+/// Pick the design system's code map (a code connect file) and link it with `explore.codeMap`; a
+/// toast says how many of the file's design-system components it covers.
+fn link_code_map(app: &mut FigApp) {
+    app.pick_file(tr("Link a code map"), &["json"], true, |app, file| {
+        if let Some(r) = app.run("explore.codeMap", file) {
+            let (linked, total) = (r["linked"].as_u64().unwrap_or(0), r["designSystem"].as_u64().unwrap_or(0));
+            app.toast(trf("Code map linked: {linked} of {total} DS components", &[("linked", &linked), ("total", &total)]));
+        }
+    });
+}
+
 /// `explore.exportCode` for the chosen proposal: into a folder the designer picks, or as downloads
-/// in the browser; a toast says how many values have no token.
+/// in the browser; a toast says how many values have no token, and how many design-system
+/// components had no code component and went out drawn as layers.
 fn export_chosen(app: &mut FigApp, id: NodeId) {
     let finish = |app: &mut FigApp, r: Value| {
         let loose = r["warnings"].as_array().map_or(0, Vec::len);
-        app.toast(if loose == 0 {
+        let drawn = r["notes"].as_array().map_or(0, |n| n.iter().filter(|x| x.as_str().is_some_and(|t| t.contains("no code component"))).count());
+        let mut said = if loose == 0 {
             tr("Code exported: every value is a token").to_string()
         } else {
             trn("Code exported; {n} values have no token", loose, &[])
-        });
+        };
+        if drawn > 0 {
+            said = format!("{said} {}", trn("{n} DS components have no code component and went out drawn.", drawn, &[]));
+        }
+        app.toast(said);
     };
     if app.services.downloads() {
         let Some(r) = app.run("explore.exportCode", json!({"id": id.0})) else { return };
@@ -597,6 +626,27 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
             // at the top of the TSX.
             if ui.button(tr("Export the proposal as code")).clicked() {
                 action = CardAction::ExportCode;
+            }
+            // Which code components the export calls: the design system's map, once linked.
+            match &bp.code_map {
+                Some(m) => {
+                    let name = m.get("name").and_then(Value::as_str).unwrap_or_default();
+                    let linked = m.get("linked").and_then(Value::as_u64).unwrap_or(0);
+                    line(ui, &trf("Code map: {name} · {linked} DS components linked", &[("name", &name), ("linked", &linked)]), t.text_secondary);
+                    let missing = m.get("missing").and_then(Value::as_u64).unwrap_or(0);
+                    if missing > 0 {
+                        line(ui, &trn("{n} DS components have no entry: they go out drawn.", missing as usize, &[]), t.warning);
+                    }
+                    if ui.small_button(tr("Link another code map…")).clicked() {
+                        action = CardAction::LinkCodeMap;
+                    }
+                }
+                None => {
+                    line(ui, tr("No code map: the DS components go out drawn as layers."), t.text_tertiary);
+                    if ui.button(tr("Link a code map…")).clicked() {
+                        action = CardAction::LinkCodeMap;
+                    }
+                }
             }
         }
         None if reviewed => {

@@ -103,3 +103,57 @@ fn a_blocked_verdict_still_exports_and_says_the_designer_decides() {
     assert!(tsx[..header_end].contains("Exported although the verdict is \"bloqueado\""), "{tsx}");
     assert!(tsx[..header_end].contains("the designer chose this proposal and decides"), "{tsx}");
 }
+
+/// A design-system "Button" (a component an import marked as from DS Apps) on a screen.
+fn ds_button(s: &mut Session) -> NodeId {
+    let f = idv(&ex(s, "frame.create", json!({"x": 800, "y": 0, "width": 120, "height": 40, "name": "Button"})));
+    let c = idv(&ex(s, "component.create", json!({"ids": [f.0]})));
+    ex(s, "node.set", json!({"id": c.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let screen = idv(&ex(s, "frame.create", json!({"x": 0, "y": 0, "width": 375, "height": 200, "name": "PDP"})));
+    ex(s, "instance.create", json!({"component": c.0, "x": 0, "y": 0, "parent": screen.0}));
+    screen
+}
+
+fn button_map() -> Value {
+    json!({"version": 1, "links": [{"component": "Button", "language": "react", "importPath": "@acme/ds-apps", "name": "Button", "template": "<Button />"}]})
+}
+
+#[test]
+fn the_code_map_is_linked_once_and_the_file_remembers_it() {
+    // Before: the card says no map, and which DS components would come out drawn.
+    let mut s = Session::new();
+    let screen = ds_button(&mut s);
+    let r = ex(&mut s, "explore.codeMap", json!({}));
+    assert_eq!(r["map"], Value::Null, "{r}");
+    assert_eq!((r["designSystem"].clone(), r["linked"].clone(), r["unlinked"].clone()), (json!(1), json!(0), json!(["Button"])), "{r}");
+    let code = ex(&mut s, "export.tsx", json!({"ids": [screen.0]}))["code"].as_str().unwrap().to_string();
+    assert!(!code.contains("import { Button }"), "{code}");
+
+    // The picked file (the browser hands its contents): checked, linked, remembered.
+    use base64::Engine as _;
+    let data = base64::engine::general_purpose::STANDARD.encode(button_map().to_string());
+    let r = ex(&mut s, "explore.codeMap", json!({"data": data, "name": "ds-apps.connect.json"}));
+    assert_eq!(r["map"], json!({"name": "ds-apps.connect.json", "linked": 1, "missing": 0}), "{r}");
+    assert_eq!((r["linked"].clone(), r["unlinked"].clone()), (json!(1), json!([])), "{r}");
+    assert_eq!(r["check"]["mapped"], 1, "{r}");
+    let code = ex(&mut s, "export.tsx", json!({"ids": [screen.0]}))["code"].as_str().unwrap().to_string();
+    assert!(code.contains("import { Button } from \"@acme/ds-apps\";"), "the export uses it with no other step: {code}");
+    assert_eq!(ex(&mut s, "explore.codeMap", json!({}))["map"]["name"], "ds-apps.connect.json");
+
+    // One undo step takes back the links and the remembered map.
+    ex(&mut s, "edit.undo", json!({}));
+    let r = ex(&mut s, "explore.codeMap", json!({}));
+    assert_eq!((r["map"].clone(), r["unlinked"].clone()), (Value::Null, json!(["Button"])), "{r}");
+}
+
+#[test]
+fn a_bad_code_map_is_refused_and_nothing_is_kept() {
+    let mut s = Session::new();
+    ds_button(&mut s);
+    for bad in
+        [json!({"json": "not json"}), json!({"data": "%%%"}), json!({"json": {"version": 2, "links": []}}), json!({"json": 3}), json!({"path": 3})]
+    {
+        assert!(s.execute("explore.codeMap", &bad).is_err(), "{bad}");
+    }
+    assert_eq!(ex(&mut s, "explore.codeMap", json!({}))["map"], Value::Null);
+}
