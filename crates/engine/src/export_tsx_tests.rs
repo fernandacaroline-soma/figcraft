@@ -322,3 +322,167 @@ fn text_styles_can_be_left_out_and_clashes_are_warnings() {
     assert_eq!(r["weights"][0]["brands"]["nv"], 300, "{r}");
     assert_eq!(r["weights"][0]["brands"].as_object().unwrap().len(), 9, "{r}");
 }
+
+// ------------------------------------------------------------ review fixes (G3)
+
+/// A button set with two variants: the default's fill is a token, the other's a loose colour.
+#[test]
+fn the_other_variants_loose_values_are_warnings_too() {
+    let (mut s, ..) = screen();
+    let bg = s.doc().unwrap().variables.get("Colors/Surface/Brand/Background").unwrap().id.clone();
+    let mut variants = Vec::new();
+    for (k, state) in ["Default", "Hover"].iter().enumerate() {
+        let f = id_of(
+            &run(
+                &mut s,
+                "frame.create",
+                json!({"x": 500.0 + k as f64 * 150.0, "y": 0, "width": 100, "height": 40, "name": format!("State={state}")}),
+            )["id"],
+        )
+        .unwrap();
+        variants.push(id_of(&run(&mut s, "component.create", json!({"ids": [f.0]}))["id"]).unwrap());
+    }
+    run(&mut s, "variable.bind", json!({"ids": [variants[0].0], "field": "fill", "variable": bg}));
+    run(&mut s, "node.set", json!({"id": variants[1].0, "props": {"fill": "#7A4B2A"}}));
+    let set = id_of(&run(&mut s, "component.combineVariants", json!({"ids": [variants[0].0, variants[1].0]}))["id"]).unwrap();
+    let r = run(&mut s, "export.tsx", json!({"ids": [set.0]}));
+    let w = r["warnings"].as_array().unwrap();
+    assert!(w.iter().any(|w| w["id"] == json!(variants[1].0) && w["field"] == "fill" && w["value"].as_str().unwrap().contains("#7A4B2A")), "{r}");
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("State=Hover · fill"), "the header lists it: {code}");
+    // Once each, even when the same variant is passed again.
+    let n = w.iter().filter(|w| w["id"] == json!(variants[1].0)).count();
+    assert_eq!(n, 1, "{r}");
+}
+
+/// A screen with modes set in two collections: the brand comes from the file's brand collection
+/// (the one with a mode per brand), not from whichever collection sorts first.
+#[test]
+fn the_brand_comes_from_the_brand_collection() {
+    let (mut s, screen, ..) = screen();
+    // "A Theme" sorts before "Tokens APP" by name and by id order of creation does not matter.
+    run(&mut s, "variable.createCollection", json!({"name": "A Theme", "modes": ["Light"]}));
+    run(&mut s, "variable.create", json!({"collection": "A Theme", "name": "ink", "type": "color", "value": "#000000"}));
+    run(&mut s, "variable.setMode", json!({"ids": [screen.0], "collection": "A Theme", "mode": "Light"}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    assert_eq!(r["brand"]["collection"], "Tokens APP", "{r}");
+    assert_eq!(r["brand"]["brand"], "animale", "{r}");
+    assert!(r["notes"].to_string().contains("A Theme is also set (Light)"), "{r}");
+    // Asked for by name, the other collection is the brand.
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0], "collection": "A Theme"}));
+    assert_eq!(r["brand"]["brand"], "light", "{r}");
+    assert!(s.execute("export.tsx", &json!({"ids": [screen.0], "collection": "Nope"})).is_err());
+    assert!(s.execute("export.tsx", &json!({"ids": [screen.0], "collection": 3})).is_err());
+}
+
+#[test]
+fn a_brand_from_a_library_collection_is_a_note() {
+    let d = std::env::temp_dir().join(format!("figcraft-g3-brandlib-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    let lib_path = d.join("ds.figcraft").to_string_lossy().into_owned();
+    let mut lib = Session::new();
+    run(&mut lib, "variable.createCollection", json!({"name": "Brands", "modes": ["Farm", "NV"]}));
+    run(
+        &mut lib,
+        "variable.create",
+        json!({"collection": "Brands", "name": "Colors/Brand", "type": "color", "values": {"Farm": "#111111", "NV": "#222222"}}),
+    );
+    let lid = run(&mut lib, "library.publish", json!({}))["id"].as_str().unwrap().to_string();
+    run(&mut lib, "file.saveAs", json!({"path": lib_path}));
+
+    let mut s = Session::new();
+    run(&mut s, "library.add", json!({"path": lib_path}));
+    let f = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 100, "height": 100, "name": "Screen"}))["id"]).unwrap();
+    run(&mut s, "library.bindVariable", json!({"library": lid, "variable": "Colors/Brand", "field": "fill", "ids": [f.0]}));
+    run(&mut s, "variable.setMode", json!({"ids": [f.0], "collection": "Brands", "mode": "NV"}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [f.0]}));
+    assert_eq!(r["brand"]["brand"], "nv", "{r}");
+    assert!(r["notes"].to_string().contains("a library collection"), "{r}");
+    assert!(r["code"].as_str().unwrap().contains(" * Note: the brand comes from Brands"), "{r}");
+    // The file's own token stylesheet indeed has no block for it.
+    let css = run(&mut s, "export.tokensCss", json!({}));
+    assert!(!css["css"].as_str().unwrap().contains("data-brand=\"nv\""), "{css}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_radius_token_on_one_corner_is_not_lost() {
+    let (mut s, screen, card, _) = screen();
+    let r =
+        run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Border/Radius/Components/br-card", "type": "float", "value": 0}));
+    let br = r["id"].as_str().unwrap().to_string();
+    // All four corners 0 in this brand, only the top left one bound.
+    run(&mut s, "variable.bind", json!({"ids": [card.0], "field": "topLeftRadius", "variable": br}));
+    let code = run(&mut s, "export.tsx", json!({"ids": [screen.0]}))["code"].as_str().unwrap().to_string();
+    assert!(code.contains("border-radius: var(--border-radius-components-br-card) 0px 0px 0px"), "{code}");
+    // Not 0 here either: still the corner's own token.
+    run(&mut s, "node.set", json!({"id": card.0, "props": {"cornerRadius": 8}}));
+    run(&mut s, "variable.bind", json!({"ids": [card.0], "field": "topLeftRadius", "variable": br}));
+    let code = run(&mut s, "export.tsx", json!({"ids": [screen.0]}))["code"].as_str().unwrap().to_string();
+    assert!(code.contains("border-radius: var(--border-radius-components-br-card)"), "{code}");
+}
+
+#[test]
+fn layers_with_one_name_get_numbered_names() {
+    let (mut s, screen, ..) = screen();
+    let other = id_of(&run(&mut s, "frame.create", json!({"x": 600, "y": 0, "width": 375, "height": 600, "name": "PDP Mobile"}))["id"]).unwrap();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0, other.0, screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert_eq!(code.matches("export function PDPMobile()").count(), 1, "{code}");
+    assert_eq!(code.matches("export function PDPMobile2()").count(), 1, "{code}");
+    assert_eq!(code.matches("import \"./pdp-mobile.css\";").count(), 1, "{code}");
+    assert_eq!(code.matches("import \"./pdp-mobile-2.css\";").count(), 1, "{code}");
+    assert!(r["notes"].to_string().contains("two layers are named PDPMobile"), "{r}");
+    assert_eq!(r["brand"].as_array().map(Vec::len), Some(2), "the repeated id is exported once: {r}");
+}
+
+#[test]
+fn a_collection_named_twice_is_one_block() {
+    let mut s = nine_brands();
+    let id = s.doc().unwrap().variables.collection("Tokens APP").unwrap().id.clone();
+    let once = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens APP"]}));
+    let twice = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens APP", id]}));
+    assert_eq!(once["css"], twice["css"]);
+    assert_eq!(once["brands"], twice["brands"]);
+    assert!(twice["warnings"].as_array().unwrap().iter().all(|w| !w.as_str().unwrap().contains("are both")), "{twice}");
+}
+
+#[test]
+fn export_code_writes_both_files_and_says_what_is_a_token() {
+    let (mut s, screen, _card, price) = screen();
+    // As text: the same TSX as export.tsx and the same stylesheet as export.tokensCss.
+    let r = run(&mut s, "export.code", json!({"ids": [screen.0]}));
+    let tsx = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let css = run(&mut s, "export.tokensCss", json!({}));
+    assert_eq!(r["files"][0]["name"], "PDPMobile.tsx", "{r}");
+    assert_eq!(r["files"][0]["text"], tsx["code"]);
+    assert_eq!(r["files"][1]["name"], "tokens.css");
+    assert_eq!(r["files"][1]["text"], css["css"]);
+    let tokens: Vec<&str> = r["tokens"].as_array().unwrap().iter().map(|t| t["token"].as_str().unwrap()).collect();
+    assert!(tokens.contains(&"--colors-surface-brand-background") && tokens.contains(&"--spacing-sp-md"), "{r}");
+    assert_eq!(tokens.iter().filter(|t| **t == "--spacing-sp-md").count(), 1, "once each: {r}");
+    assert!(r["tokens"].as_array().unwrap().iter().all(|t| t["defined"] == true), "the file's stylesheet declares them: {r}");
+    assert!(r["warnings"].as_array().unwrap().iter().any(|w| w["id"] == json!(price.0) && w["field"] == "fontSize"), "{r}");
+    assert_eq!(r["brand"]["brand"], "animale");
+    // Into a folder: two files on disk.
+    let d = std::env::temp_dir().join(format!("figcraft-g3-code-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    let r = run(&mut s, "export.code", json!({"ids": [screen.0], "dir": d.to_string_lossy()}));
+    assert_eq!(std::fs::read_to_string(d.join("PDPMobile.tsx")).unwrap(), tsx["code"].as_str().unwrap());
+    assert_eq!(std::fs::read_to_string(d.join("tokens.css")).unwrap(), css["css"].as_str().unwrap());
+    assert!(r["files"][0]["path"].as_str().unwrap().ends_with("PDPMobile.tsx"), "{r}");
+    let _ = std::fs::remove_dir_all(&d);
+    // Read only, and refuses nothing or junk.
+    run(&mut s, "select.none", json!({}));
+    assert!(s.execute("export.code", &json!({})).is_err());
+    assert!(s.execute("export.code", &json!({"ids": [screen.0], "dir": 5})).is_err());
+    assert!(s.execute("export.code", &json!({"ids": [screen.0], "textStyles": "yes"})).is_err());
+}
+
+#[test]
+fn a_token_the_stylesheet_does_not_declare_is_flagged() {
+    let (mut s, screen, ..) = screen();
+    // Only the text styles (an empty collection list): the TSX's tokens are not in this tokens.css.
+    let r = run(&mut s, "export.code", json!({"ids": [screen.0], "collections": []}));
+    assert!(r["tokens"].as_array().unwrap().iter().all(|t| t["defined"] == false), "{r}");
+}

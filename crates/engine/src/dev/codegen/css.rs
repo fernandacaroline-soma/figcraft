@@ -215,10 +215,15 @@ pub(crate) fn css_decls(doc: &Document, n: &Node, t: &mut Tokens, hug: (bool, bo
     // brand's value of the same token may not be (`br-card` is 0 on one brand, 8 on another).
     let corner_fields = ["cornerRadius", "topLeftRadius", "topRightRadius", "bottomRightRadius", "bottomLeftRadius"];
     let bound_radius = t.ds && corner_fields.iter().any(|f| crate::devinspect::bound_variable(doc, n, f).is_some());
+    // One value for all four corners only when they are bound alike: a variable on one corner
+    // alone (0 on this brand, say) would be lost in a single `border-radius`.
+    let corner_vars: Vec<Option<String>> =
+        corner_fields[1..].iter().map(|f| crate::devinspect::bound_variable(doc, n, f).map(|v| v.id.clone())).collect();
+    let corners_alike = corner_vars.windows(2).all(|w| w.first() == w.get(1));
     if matches!(n.kind, NodeKind::Ellipse { .. }) {
         put("border-radius", "50%".into());
-    } else if let Some(r) = n.corners.uniform().filter(|r| *r > 0.0 || bound_radius) {
-        put("border-radius", tok(doc, n, &["cornerRadius"], px(r), t));
+    } else if let Some(r) = n.corners.uniform().filter(|r| corners_alike && (*r > 0.0 || bound_radius)) {
+        put("border-radius", tok(doc, n, &["cornerRadius", "topLeftRadius"], px(r), t));
     } else if bound_radius || n.corners.radii.iter().any(|r| *r > 0.0) {
         let fields = ["topLeftRadius", "topRightRadius", "bottomRightRadius", "bottomLeftRadius"];
         let corners: Vec<String> = n.corners.radii.iter().zip(fields).map(|(r, f)| tok(doc, n, &[f, "cornerRadius"], px(*r), t)).collect();

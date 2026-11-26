@@ -836,13 +836,15 @@ fn web(doc: &Document, c: &Component, lang: CodeLang) -> (String, String, String
     (root_class, markup, css)
 }
 
-/// [`web`], and with `ds` (extra attributes for the root element) in design-system token mode
-/// (see [`crate::codegen::Tokens`]): instances inlined, variables by token name with no
-/// fallback, and the values left unbound listed.
-fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> (String, String, String, Vec<Loose>) {
+/// [`web`], and with `ds` (extra attributes for the root element, and a suffix for the root class
+/// that keeps two exports of one name apart) in design-system token mode (see
+/// [`crate::codegen::Tokens`]): instances inlined, variables by token name with no fallback, and
+/// the values left unbound listed, the other variants' included.
+fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<(&str, &str)>) -> (String, String, String, Vec<Loose>) {
     let ctx = Ctx { doc, root: c.comp, comp: Some(c), base: 2 };
     let root_name = c.set.and_then(|s| doc.node(s)).or_else(|| doc.node(c.comp)).map(|n| n.name.clone()).unwrap_or_default();
-    let root_class = class_name(&root_name, "component", &mut Names::default());
+    let suffix = ds.map_or("", |(_, s)| s);
+    let root_class = format!("{}{suffix}", class_name(&root_name, "component", &mut Names::default()));
     let variants: Vec<&Param> = c.params.iter().filter(|p| matches!(p.kind, ParamKind::Variant(_))).collect();
     let attr_names = data_attrs(&variants);
     let pass = |root: NodeId| {
@@ -852,7 +854,7 @@ fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> 
         m.tokens.ds = ds.is_some();
         m.inline = ds.is_some();
         m.node(root, None, 2, "");
-        m.rules
+        (m.rules, std::mem::take(&mut m.tokens.loose))
     };
     let mut m = Markup::new(&ctx, lang);
     m.root_class = Some(root_class.clone());
@@ -867,10 +869,11 @@ fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> 
             _ => format!(" {attr}={{{}}}", p.ident),
         })
         .collect();
-    m.root_attrs.push_str(ds.unwrap_or(""));
+    m.root_attrs.push_str(ds.map_or("", |(a, _)| a));
     m.node(c.comp, None, 2, "");
     // Other variants: what differs from this one, layer by layer.
     let mut variant_rules = String::new();
+    let mut variant_loose: Vec<Loose> = Vec::new();
     let others: Vec<NodeId> = c.set.and_then(|s| doc.node(s)).map(|s| s.children.clone()).unwrap_or_default();
     for v in others.into_iter().filter(|v| *v != c.comp && is_component(doc, *v)).take(64) {
         let Some(vn) = doc.node(v) else { continue };
@@ -880,7 +883,9 @@ fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> 
             .zip(&attr_names)
             .filter_map(|(p, attr)| pairs.get(&p.prop).map(|val| format!("[{attr}=\"{}\"]", val.replace(['"', '\\'], ""))))
             .collect();
-        for (path, _, decls) in pass(v) {
+        let (rules, loose) = pass(v);
+        variant_loose.extend(loose);
+        for (path, _, decls) in rules {
             let Some((_, class, base)) = m.rules.iter().find(|(p, _, _)| *p == path) else { continue };
             let base_lines: Vec<&str> = base.lines().collect();
             let diff: Vec<&str> = decls.lines().filter(|l| !base_lines.contains(l)).collect();
@@ -892,7 +897,13 @@ fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> 
         }
     }
     let css = format!("{}{}{variant_rules}", m.tokens.root_rule(), m.styles);
-    let loose = std::mem::take(&mut m.tokens.loose);
+    let mut loose = std::mem::take(&mut m.tokens.loose);
+    // The other variants' loose values are debt too, once each.
+    for l in variant_loose {
+        if !loose.contains(&l) {
+            loose.push(l);
+        }
+    }
     (root_class, m.markup, css, loose)
 }
 
@@ -901,19 +912,34 @@ fn react(doc: &Document, c: &Component) -> String {
     react_with(doc, c, None).0
 }
 
-/// Layer `id` as a TSX function component in design-system token mode (`export.tsx`), with
-/// `attrs` on its root element (`data-brand`), and the values left unbound. A component takes its
-/// properties as parameters; any other layer is a component of its own.
-pub(crate) fn react_ds(doc: &Document, id: NodeId, attrs: &str) -> Option<(String, Vec<Loose>)> {
-    let n = doc.node(id)?;
-    let c = match n.kind {
-        NodeKind::Component { .. } | NodeKind::ComponentSet { .. } => describe(doc, id)?,
-        _ => Component { comp: id, set: None, type_name: component_type_name(&n.name), params: Vec::new() },
-    };
-    Some(react_with(doc, &c, Some(attrs)))
+/// The TSX function name [`react_ds`] gives layer `id` (with no suffix).
+pub(crate) fn ds_type_name(doc: &Document, id: NodeId) -> Option<String> {
+    ds_component(doc, id).map(|c| c.type_name)
 }
 
-fn react_with(doc: &Document, c: &Component, ds: Option<&str>) -> (String, Vec<Loose>) {
+fn ds_component(doc: &Document, id: NodeId) -> Option<Component> {
+    let n = doc.node(id)?;
+    match n.kind {
+        NodeKind::Component { .. } => describe(doc, id),
+        // A variant set is its first variant (the default), with the others as `data-*` rules.
+        NodeKind::ComponentSet { .. } => n.children.iter().copied().find(|c| is_component(doc, *c)).and_then(|c| describe(doc, c)),
+        _ => Some(Component { comp: id, set: None, type_name: component_type_name(&n.name), params: Vec::new() }),
+    }
+}
+
+/// Layer `id` as a TSX function component in design-system token mode (`export.tsx`), with
+/// `attrs` on its root element (`data-brand`), and the values left unbound. A component takes its
+/// properties as parameters; any other layer is a component of its own. `suffix` (`2`) goes on the
+/// function name and, as `-2`, on the root class and stylesheet, to keep two layers of one name
+/// apart in one export.
+pub(crate) fn react_ds(doc: &Document, id: NodeId, attrs: &str, suffix: &str) -> Option<(String, Vec<Loose>)> {
+    let mut c = ds_component(doc, id)?;
+    c.type_name.push_str(suffix);
+    let class_suffix = if suffix.is_empty() { String::new() } else { format!("-{suffix}") };
+    Some(react_with(doc, &c, Some((attrs, &class_suffix))))
+}
+
+fn react_with(doc: &Document, c: &Component, ds: Option<(&str, &str)>) -> (String, Vec<Loose>) {
     let (root_class, markup, css, loose) = web_with(doc, c, CodeLang::React, ds);
     let t = &c.type_name;
     let mut out = format!("import \"./{root_class}.css\";\n\n");
