@@ -14,7 +14,8 @@ the official flow.
 
   export-choice WORKDIR SCREEN_ID
                    the same request for the proposal the designer CHOSE on an exploration board
-                   (`explore.choose`): the proposal's description, the DS lint of its screen, the
+                   (read with `explore.context` as the agent "DS Gatekeeper"; it never chooses):
+                   the proposal's description, the DS lint of its screen, the
                    context and the design critique the designer reviewed (Frente O; the Gatekeeper
                    is asked only after that review). Writes WORKDIR/gk-request.json.
   post-choice WORKDIR SCREEN_ID VERDICT_JSON
@@ -28,6 +29,9 @@ import socket
 import sys
 
 cmd, S = sys.argv[1], sys.argv[2]
+# The agent's name on the control channel (E15 contract): what it does is marked as this agent's,
+# and the designer's decisions (choose, review the critique, approve) refuse it.
+GATEKEEPER = "DS Gatekeeper"
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=60).makefile("rw")
 __import__("eureka_control").auth(f, PORT)
@@ -80,12 +84,12 @@ elif cmd == "post":
     print(json.dumps(r, ensure_ascii=False)[:600])
 elif cmd == "export-choice":
     sid = int(sys.argv[3])
-    # Read what the proposal keeps before re-choosing (which keeps the chosen one's critique).
-    kept = call("engine.execute", {"command": "node.get", "params": {"id": sid, "fields": ["pluginData"]}})["pluginData"]
-    critique = json.loads(kept["eureka.critique"]) if "eureka.critique" in kept else None
+    # The Gatekeeper is an agent (E15): it reads the chosen proposal's context (explore.context,
+    # read only) and never chooses it; the designer did, on the card.
+    c = call("engine.execute", {"command": "explore.context", "params": {"id": sid}, "agent": GATEKEEPER})
+    critique = c.get("critique")
     if not (critique or {}).get("reviewed"):
         raise SystemExit("the design critique comes first: keep it (explore.critique) and let the designer review it")
-    c = call("engine.execute", {"command": "explore.choose", "params": {"id": sid}})
     info = c["chosen"]["proposal"] or {}
     modes = [sc.get("modes", {}) for sc in c["context"].get("screens", [])]
     req = {
@@ -94,7 +98,7 @@ elif cmd == "export-choice":
         "brand_modes": modes,
         "board": info.get("board"), "problem": (info.get("context") or {}).get("problem"),
         "proposal": {k: info.get(k) for k in ("letter", "name", "type", "mechanism", "summary", "confidence")},
-        "not_chosen": [o["name"] for o in c["others"]],
+        "brand": c.get("brand"),
         "ds_lint": c["lint"],
         "context": c["context"],
         "design_critique": critique,
@@ -107,7 +111,7 @@ elif cmd == "export-choice":
 elif cmd == "post-choice":
     sid, v = int(sys.argv[3]), json.load(open(sys.argv[4]))
     r = call("engine.execute", {"command": "explore.review", "params": {
-        "id": sid, "verdict": v["verdict"], "reviewer": "DS Gatekeeper", "summary": v.get("summary"), "items": v.get("items", [])}})
+        "id": sid, "verdict": v["verdict"], "reviewer": GATEKEEPER, "summary": v.get("summary"), "items": v.get("items", [])}, "agent": GATEKEEPER})
     print(json.dumps(r, ensure_ascii=False)[:600])
 else:
     raise SystemExit(__doc__)

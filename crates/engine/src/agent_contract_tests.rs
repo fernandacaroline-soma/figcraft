@@ -41,3 +41,19 @@ fn an_agent_cannot_make_the_designers_decisions() {
     // The person picks (the card's button runs it with no agent).
     assert!(s.execute_as(None, "explore.choose", &json!({"id": a.0})).is_ok());
 }
+
+#[test]
+fn a_reviewer_agent_reads_the_chosen_proposals_context_without_choosing() {
+    // The DS Gatekeeper is an agent: it may not run explore.choose (the designer's decision), so it
+    // reads what it reviews with explore.context, only once the designer has chosen.
+    let mut s = Session::new();
+    let a = board(&mut s);
+    let e = s.execute_as(Some("DS Gatekeeper"), "explore.context", &json!({"id": a.0})).unwrap_err().to_string();
+    assert!(e.contains("hasn't chosen"), "{e}");
+    s.execute_as(None, "explore.choose", &json!({"id": a.0})).unwrap();
+    let before = s.doc().unwrap().node(a).unwrap().plugin_data.clone();
+    let r = s.execute_as(Some("DS Gatekeeper"), "explore.context", &json!({"id": a.0})).unwrap();
+    assert_eq!(r["chosen"]["id"], json!(a.0));
+    assert!(r.get("lint").is_some() && r.get("context").is_some(), "{r}");
+    assert_eq!(s.doc().unwrap().node(a).unwrap().plugin_data, before, "read only");
+}

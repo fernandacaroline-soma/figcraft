@@ -1,0 +1,30 @@
+{
+ "verdict": "com-ressalvas",
+ "summary": "Na prévia, a tela G está conforme no que dá para conferir: as instâncias vêm do DS Apps, a marca NV está escolhida explicitamente na tela, o lint voltou vazio e a área de ação com dois botões usa o Action Button oficial. Ainda há incoerências de tela e estados sem desenho, e o uso do Action Button para compra direta depende de decisão da designer e da liderança de DS. Esta revisão não comparou com uma base (branch × main) e não serve como pré-aprovação de handoff.",
+ "items": [
+  {
+   "message": "Há dois botões primários na tela: o \"Eu quero\" (Button Primário, id 2265) na galeria e o \"Comprar agora · M\" (id 2370) na área fixa. Isso concorre com a hierarquia proposta. Avaliar ocultar ou trocar o CTA da galeria pelas propriedades da própria instância, sem desanexar. Não conferi uma regra do Notion sobre hierarquia de botões; o apontamento vem do parecer anterior.",
+   "source": "docs/eureka/G3-frente-T-parecer-template.md, item 'A galeria do template mostra um Eu quero sobre a foto'; Fluxo Oficial de Criação e Alteração no DS §4 (não fazer detach)"
+  },
+  {
+   "message": "Tamanho incoerente: a grade do template é numérica (34 a 44, ids 2310 a 2332), com nenhum tamanho selecionado, mas o CTA e o Snackbar dizem \"M\". Mostrar o tamanho de sempre selecionado no Selector Size (Selecionado=On), na mesma nomenclatura da grade, para a cliente ver qual tamanho será comprado.",
+   "source": "docs/eureka/G3-frente-T-parecer-template.md, item 'A grade de tamanhos do template é numérica (34 a 44)'; procedures/gatekeeper.md, critério de conteúdo e interação (ux-acceptance)"
+  },
+  {
+   "message": "Faltam estados da jornada: (a) cliente sem tamanho conhecido ou sem login (crítica nº 2, em aberto) e (b) tamanho de sempre sem estoque (crítica nº 1, crítica, marcada como decisão da designer). O caminho desses estados fica com a designer; para handoff, cada estado precisa estar desenhado como configuração de instância (por exemplo, Action Button com botão único, ou Selector Size com Desabilitado=On), sem variante nova.",
+   "source": "procedures/gatekeeper.md: 'Não deixar passar CTA sem destino/erro sem recuperação' e cobertura de estados (references/flow-coverage.md)"
+  },
+  {
+   "message": "O destino de \"Comprar agora · M\" não está na tela: a crítica refinada diz que ele abre o checkout com resumo antes de cobrar, mas esse passo não foi desenhado. A única confirmação é o Snackbar Status=Sucesso com \"Adicionado à sacola · M\", que combina com o botão secundário e não com a compra direta. Faltam também a falha (Snackbar Status=Erro) e o carregamento (Loading=True no Button). A viabilidade da compra direta no checkout do app (crítica nº 11) não foi verificada.",
+   "source": "procedures/gatekeeper.md, 'Quando o diff afeta jornada/acionáveis' (destinos válidos e nenhuma ponta solta)"
+  },
+  {
+   "message": "As peças \"Galeria (template)\", \"Informações (template)\" e \"Tamanhos (template)\" estão soltas no frame 2200, e não dentro de uma instância do template PDP. Na exploração isso não é problema. Para handoff, a tela deve partir de uma instância do template PDP com a opção Action Button ligada, sem desanexar. Não verifiquei se essas instâncias são o template oficial ou nested exclusivos dele. Usar o Action Button do template para compra direta é decisão da liderança de DS e não foi tomada aqui.",
+   "source": "Fluxo Oficial de Criação e Alteração no DS §4 ('não faça detach; não reconstrua componentes oficiais'); docs/eureka/G3-frente-T-parecer-template.md, 'Consequências', item 1"
+  },
+  {
+   "message": "O contraste de 3.6:1 em \"10x R$ 159,90 sem juros\" (id 2289) e em \"Ref 25.34.2741_11063\" (id 2303) vem do componente .Nested / pdp-main-info do DS, então não deve ser corrigido trocando o token na instância. O caminho é encaminhar à liderança de DS Apps como ajuste na origem. Ficou também sem verificar a camada \"farm\" (id 2219) dentro de Image no modo NV: pode ser só um nome interno.",
+   "source": "Fluxo Oficial, 'Tokens — bloqueio crítico' ('não trocar nem sobrescrever token de qualquer instância de componente oficial'); Critérios de Escalonamento (20/10)"
+  }
+ ]
+}
