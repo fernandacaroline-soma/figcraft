@@ -251,8 +251,31 @@ pub fn describe(doc: &Document, comp: NodeId) -> Option<Component> {
 // ------------------------------------------------------------------ names
 
 /// ASCII words of a name ("Show icon?" → ["Show", "icon"]).
-fn words(s: &str) -> Vec<&str> {
-    s.split(|c: char| !c.is_ascii_alphanumeric()).filter(|w| !w.is_empty()).take(12).collect()
+/// The ASCII words of a layer or property name. Accented letters keep their base letter
+/// ("Indisponível" → `Indisponivel`, "Ícone" → `Icone`, as names in Portuguese need), while emoji
+/// and other symbols split words ("👁️ Tag" → `Tag`). A component property's id suffix
+/// ("Texto#7:26") is not part of its name.
+fn words(s: &str) -> Vec<String> {
+    let name = match s.rsplit_once('#') {
+        Some((head, id)) if !head.is_empty() && id.split_once(':').is_some_and(|(a, b)| digits(a) && digits(b)) => head,
+        _ => s,
+    };
+    let mut ascii = String::with_capacity(name.len());
+    for c in name.chars() {
+        if c.is_ascii_alphanumeric() {
+            ascii.push(c);
+        } else if c.is_alphanumeric() {
+            // One letter in, its base letters out: "é" → "e", "ß" → "ss"; never a word break.
+            ascii.extend(deunicode::deunicode_char(c).unwrap_or_default().chars().filter(char::is_ascii_alphanumeric));
+        } else {
+            ascii.push(' ');
+        }
+    }
+    ascii.split(' ').filter(|w| !w.is_empty()).take(12).map(str::to_string).collect()
+}
+
+fn digits(s: &str) -> bool {
+    !s.is_empty() && s.chars().all(|c| c.is_ascii_digit())
 }
 
 fn capitalized(w: &str) -> String {
@@ -262,7 +285,7 @@ fn capitalized(w: &str) -> String {
 
 /// A type name: "Button / Primary" → `ButtonPrimary`.
 pub fn type_name(name: &str) -> String {
-    let t: String = words(name).into_iter().map(capitalized).collect::<String>().chars().take(60).collect();
+    let t: String = words(name).iter().map(|w| capitalized(w)).collect::<String>().chars().take(60).collect();
     match t.chars().next() {
         None => "Component".into(),
         Some(c) if c.is_ascii_digit() => format!("Component{t}"),
@@ -427,7 +450,7 @@ fn enum_ident(prop: &str, used: &mut Vec<String>) -> String {
 fn ident(name: &str, used: &mut Vec<String>) -> String {
     let mut base = String::new();
     for (i, w) in words(name).into_iter().enumerate() {
-        base.push_str(&if i == 0 { w.to_ascii_lowercase() } else { capitalized(w) });
+        base.push_str(&if i == 0 { w.to_ascii_lowercase() } else { capitalized(&w) });
     }
     let mut base: String = base.chars().take(40).collect();
     if base.is_empty() {
