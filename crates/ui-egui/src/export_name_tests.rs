@@ -40,7 +40,9 @@ fn export_label(name: &str, width: f32) -> (String, Rect, Rect) {
     let texts = painted(&mut u);
     let panel = u.app.ui.right_panel_rect.expect("the right panel shows");
     assert!((panel.width() - width).abs() <= 1.0, "a {width} px panel (less its edge), not {panel:?}");
-    let buttons: Vec<(String, Rect)> = texts.into_iter().filter(|(t, r)| t.starts_with("Export ") && r.min.x >= panel.min.x).collect();
+    // The layer export's button, not "Export code" (the developers' handoff) under it.
+    let buttons: Vec<(String, Rect)> =
+        texts.into_iter().filter(|(t, r)| t.starts_with("Export ") && t != "Export code" && r.min.x >= panel.min.x).collect();
     let [(text, rect)] = buttons.as_slice() else { panic!("one export button: {buttons:?}") };
     assert_eq!(u.app.session.doc().unwrap().node(f).unwrap().name, name, "the name itself stays whole");
     (text.clone(), *rect, panel)

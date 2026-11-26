@@ -43,32 +43,45 @@ pub fn specs() -> Vec<CommandSpec> {
             "{collections? [ids or names; default every collection of this file, not library copies], textStyles? (default true)}  the stylesheet export.tsx's names read: each variable as `--token-name` (the same rule), every mode of each collection on `[data-brand=\"<mode name without notes in brackets>\"]` and the default mode also on `:root`; aliases as `var(--name)`, colour calculations as the colour they show in that mode, numbers in px unless used as opacity or font weight. Then (unless `textStyles` is false) each text style of this file (not library copies) as `--text-<style name, same rule>-<font-family|font-weight|font-size|line-height|letter-spacing>`, on `:root` and every `[data-brand]`: a field bound to a variable is `var(--token-name)` and follows the brand; a weight from a bound style name (a string variable such as \"Semi bold\") is `var(--<variable>-weight)`, a number per brand from the name it holds there; a field with no variable is the style's own value and a warning. Read only: the variables and styles are not changed. No dialog → {css, brands: [{collection, mode, brand}], textStyles: [{style, prefix, fields: {fontFamily|fontWeight|fontSize|lineHeight|letterSpacing: {value, variable?, from? (fontStyle)}}}], weights: [{variable, token, brands: {brand: weight}}], warnings: [text] (two variables, two modes or two text styles with the same CSS name; a text style field with no variable)}",
             false,
             |s, p| {
-                let cmd = "export.tokensCss";
                 let doc = s.doc()?;
-                let colls: Vec<&Collection> = match get(p, "collections") {
-                    None | Some(Value::Null) => crate::library::local_collections(doc).collect(),
-                    Some(Value::Array(a)) => a
-                        .iter()
-                        .map(|x| x.as_str().and_then(|k| doc.variables.collection(k)).ok_or_else(|| bad(cmd, format!("no collection {x}"))))
-                        .collect::<crate::Result<_>>()?,
-                    Some(_) => return Err(bad(cmd, "collections: [collection ids or names]")),
-                };
-                let with_styles = match get(p, "textStyles") {
-                    None | Some(Value::Null) => true,
-                    Some(Value::Bool(b)) => *b,
-                    Some(_) => return Err(bad(cmd, "textStyles: true|false")),
-                };
-                let mut out = tokens_css(doc, &colls);
-                if with_styles {
-                    add_text_styles(doc, &mut out);
+                stylesheet(doc, p, "export.tokensCss")
+            }
+        ),
+        spec!(
+            "export.code",
+            "Export code",
+            "{ids? (default: the selection), dir? (folder to write the files into; else they come back as text), collection? (as export.tsx), collections?, textStyles? (as export.tokensCss)}  what the developers receive, for the designer: export.tsx of the layers and export.tokensCss of this file, as `<first layer's component name>.tsx` and `tokens.css` (written again on each export; the TSX is generated, not edited). Read only. No dialog → {files: [{name, path?, text?}], brand, tokens: [{token, defined (the token stylesheet declares it)}] (the variables the TSX reads, in first-use order), warnings (export.tsx's values with no token), notes (export.tsx's), cssWarnings (export.tokensCss's)}",
+            false,
+            |s, p| {
+                let cmd = "export.code";
+                let ids = targets(s, p);
+                if ids.is_empty() {
+                    return Err(bad(cmd, "select a layer or pass `ids`"));
                 }
-                Ok(out)
+                let dir = match get(p, "dir") {
+                    None | Some(Value::Null) => None,
+                    Some(Value::String(d)) if !d.trim().is_empty() => Some(d.clone()),
+                    Some(_) => return Err(bad(cmd, "dir: a folder path")),
+                };
+                let doc = s.doc()?;
+                if let Some(id) = ids.iter().find(|id| !doc.contains(**id)) {
+                    return Err(bad(cmd, format!("no such layer: {}", id.0)));
+                }
+                let brand = match get(p, "collection") {
+                    None | Some(Value::Null) => None,
+                    Some(Value::String(k)) => Some(doc.variables.collection(k).ok_or_else(|| bad(cmd, format!("no collection {k}")))?.id.clone()),
+                    Some(_) => return Err(bad(cmd, "collection: a collection id or name")),
+                };
+                let sheet = stylesheet(doc, p, cmd)?;
+                let tsx = export_with(doc, &ids, brand.as_deref());
+                let name = ids.first().and_then(|id| crate::component_codegen::ds_type_name(doc, *id)).unwrap_or_else(|| "Screen".into());
+                code_files(&tsx, &sheet, &name, dir.as_deref())
             }
         ),
         spec!(
             "export.tsx",
             "Export TSX with design-system tokens",
-            "{ids? (default: the selection)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand mode set on the layer or above it as `data-brand` on the root element, instances inlined; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). No dialog → {code, warnings: [{id, layer, field, value}], brand}",
+            "{ids? (default: the selection), collection? (the brand collection, id or name; default: of the collections with a mode set on the layer or above it, this file's own with the most modes, the kind export.tokensCss writes)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element, instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. No dialog → {code, warnings: [{id, layer, field, value}], brand, notes: [text] (the brand from a library collection this file's export.tokensCss has no block for; other collections with a mode set; renamed duplicates)}",
             false,
             |s, p| {
                 let cmd = "export.tsx";
@@ -80,10 +93,88 @@ pub fn specs() -> Vec<CommandSpec> {
                 if let Some(id) = ids.iter().find(|id| !doc.contains(**id)) {
                     return Err(bad(cmd, format!("no such layer: {}", id.0)));
                 }
-                Ok(export(doc, &ids))
+                let brand = match get(p, "collection") {
+                    None | Some(Value::Null) => None,
+                    Some(Value::String(k)) => Some(doc.variables.collection(k).ok_or_else(|| bad(cmd, format!("no collection {k}")))?.id.clone()),
+                    Some(_) => return Err(bad(cmd, "collection: a collection id or name")),
+                };
+                Ok(export_with(doc, &ids, brand.as_deref()))
             }
         ),
     ]
+}
+
+/// `export.tokensCss` with its parameters `collections` and `textStyles` read from `p`.
+fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
+    let colls: Vec<&Collection> = match get(p, "collections") {
+        None | Some(Value::Null) => crate::library::local_collections(doc).collect(),
+        Some(Value::Array(a)) => {
+            let mut out: Vec<&Collection> = Vec::new();
+            for x in a.iter().take(256) {
+                let c = x.as_str().and_then(|k| doc.variables.collection(k)).ok_or_else(|| bad(cmd, format!("no collection {x}")))?;
+                // One collection named twice (by id and by name, say) is one block.
+                if !out.iter().any(|o| o.id == c.id) {
+                    out.push(c);
+                }
+            }
+            out
+        }
+        Some(_) => return Err(bad(cmd, "collections: [collection ids or names]")),
+    };
+    let with_styles = match get(p, "textStyles") {
+        None | Some(Value::Null) => true,
+        Some(Value::Bool(b)) => *b,
+        Some(_) => return Err(bad(cmd, "textStyles: true|false")),
+    };
+    let mut out = tokens_css(doc, &colls);
+    if with_styles {
+        add_text_styles(doc, &mut out);
+    }
+    Ok(out)
+}
+
+/// `export.code`'s result from `export.tsx`'s (`tsx`) and `export.tokensCss`'s (`sheet`): the two
+/// files (`<name>.tsx`, `tokens.css`), written into `dir` when given, and the tokens the TSX reads.
+fn code_files(tsx: &Value, sheet: &Value, name: &str, dir: Option<&str>) -> crate::Result<Value> {
+    let code = tsx["code"].as_str().unwrap_or_default();
+    let css = sheet["css"].as_str().unwrap_or_default();
+    let mut tokens: Vec<Value> = Vec::new();
+    let mut seen: Vec<&str> = Vec::new();
+    // Only the code: the comments (the header explains `var(--token)`) are not reads.
+    let mut bare = String::new();
+    let mut rest = code;
+    while let Some(i) = rest.find("/*") {
+        bare.push_str(rest.get(..i).unwrap_or_default());
+        rest = rest.get(i..).and_then(|r| r.find("*/").and_then(|j| r.get(j + 2..))).unwrap_or_default();
+    }
+    bare.push_str(rest);
+    for part in bare.split("var(").skip(1) {
+        let token = part.split([')', ',']).next().unwrap_or("").trim();
+        if !token.starts_with("--") || seen.contains(&token) || seen.len() >= 4096 {
+            continue;
+        }
+        seen.push(token);
+        tokens.push(json!({"token": token, "defined": css.contains(&format!("{token}:"))}));
+    }
+    let mut files = Vec::new();
+    for (file, text) in [(format!("{name}.tsx"), code), ("tokens.css".to_string(), css)] {
+        match dir {
+            Some(d) => {
+                let path = std::path::Path::new(d).join(&file);
+                crate::file_access::write(&path, text.as_bytes())?;
+                files.push(json!({"name": file, "path": path.to_string_lossy()}));
+            }
+            None => files.push(json!({"name": file, "text": text})),
+        }
+    }
+    Ok(json!({
+        "files": files,
+        "brand": tsx["brand"],
+        "tokens": tokens,
+        "warnings": tsx["warnings"],
+        "notes": tsx["notes"],
+        "cssWarnings": sheet["warnings"],
+    }))
 }
 
 /// The token stylesheet of `colls`: `{css, brands, warnings}` (see `export.tokensCss`).
@@ -247,32 +338,99 @@ fn add_text_styles(doc: &Document, out: &mut Value) {
     }
 }
 
-/// The TSX for `ids` (up to [`MAX_ROOTS`]): `{code, warnings, brand}`.
+/// The TSX for `ids` (up to [`MAX_ROOTS`]), the brand from the default brand collection:
+/// `{code, warnings, brand, notes}`.
 pub fn export(doc: &Document, ids: &[NodeId]) -> Value {
-    let (mut parts, mut warnings, mut brands) = (Vec::new(), Vec::new(), Vec::new());
-    for id in ids.iter().copied().take(MAX_ROOTS) {
-        let (attr, brand) = brand_attr(doc, id);
-        let Some((code, loose)) = crate::component_codegen::react_ds(doc, id, &attr) else { continue };
-        parts.push(format!("{}{code}", header(&loose, brand.as_ref())));
-        warnings.extend(loose.iter().map(|l| json!({"id": l.id.0, "layer": l.layer, "field": l.field, "value": l.value})));
-        brands.push(brand.map_or(Value::Null, |(b, coll, mode)| json!({"brand": b, "collection": coll, "mode": mode})));
-    }
-    let brand = if brands.len() == 1 { brands.pop().unwrap_or(Value::Null) } else { Value::Array(brands) };
-    json!({"code": parts.join("\n"), "warnings": warnings, "brand": brand})
+    export_with(doc, ids, None)
 }
 
-/// The brand mode the variables of `id` resolve in: the first variable collection with a mode set
-/// on the layer or above it (an instance also takes its main component's). `data-brand` is the
-/// mode's name without parenthesised notes, as [`slug`]: `Animale (CERTO)` → `animale`.
-/// Returns the root attribute (empty without a mode) and (brand, collection, mode).
-pub fn brand_attr(doc: &Document, id: NodeId) -> (String, Option<(String, String, String)>) {
-    for (coll, mode) in doc.modes_for(id) {
-        let Some(c) = doc.variables.collection(&coll) else { continue };
-        let Some(m) = c.modes.iter().find(|m| m.id == mode) else { continue };
-        let brand = brand_slug(&m.name);
-        return (format!(" data-brand=\"{brand}\""), Some((brand, c.name.clone(), m.name.clone())));
+/// [`export`], the brand from collection `brand_coll` (an id) when given.
+pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> Value {
+    let (mut parts, mut warnings, mut brands, mut notes) = (Vec::new(), Vec::new(), Vec::new(), Vec::<String>::new());
+    let mut done: Vec<NodeId> = Vec::new();
+    let mut names: BTreeMap<String, usize> = BTreeMap::new();
+    for id in ids.iter().copied() {
+        if done.contains(&id) {
+            continue;
+        }
+        if done.len() >= MAX_ROOTS {
+            break;
+        }
+        done.push(id);
+        let Some(name) = crate::component_codegen::ds_type_name(doc, id) else { continue };
+        // Two layers of one name would be two functions and two stylesheets of one name.
+        let count = names.entry(name.clone()).or_insert(0);
+        *count += 1;
+        let suffix = if *count == 1 { String::new() } else { count.to_string() };
+        let mut own = Vec::new();
+        if !suffix.is_empty() {
+            own.push(format!("two layers are named {name}: this one ({}) is {name}{suffix}", id.0));
+        }
+        let (attr, brand, brand_notes) = brand_attr_in(doc, id, brand_coll);
+        own.extend(brand_notes);
+        let Some((code, loose)) = crate::component_codegen::react_ds(doc, id, &attr, &suffix) else { continue };
+        parts.push(format!("{}{code}", header(&loose, brand.as_ref(), &own)));
+        warnings.extend(loose.iter().map(|l| json!({"id": l.id.0, "layer": l.layer, "field": l.field, "value": l.value})));
+        brands.push(brand.map_or(Value::Null, |(b, coll, mode)| json!({"brand": b, "collection": coll, "mode": mode})));
+        for n in own {
+            if !notes.contains(&n) {
+                notes.push(n);
+            }
+        }
     }
-    (String::new(), None)
+    let brand = if brands.len() == 1 { brands.pop().unwrap_or(Value::Null) } else { Value::Array(brands) };
+    json!({"code": parts.join("\n"), "warnings": warnings, "brand": brand, "notes": notes})
+}
+
+/// The brand mode the variables of `id` resolve in, from the default brand collection (see
+/// [`brand_attr_in`]): the root attribute (empty without a mode) and (brand, collection, mode).
+pub fn brand_attr(doc: &Document, id: NodeId) -> (String, Option<(String, String, String)>) {
+    let (attr, brand, _) = brand_attr_in(doc, id, None);
+    (attr, brand)
+}
+
+/// The brand mode of `id`: the mode set on the layer or above it (an instance also takes its main
+/// component's) in collection `prefer` (an id) when given, else in the brand collection: of the
+/// collections with a mode set, this file's own (the ones `export.tokensCss` writes) before library
+/// copies, then the one with the most modes (a brand collection has one per brand). `data-brand` is
+/// the mode's name without parenthesised notes, as [`slug`]: `Animale (CERTO)` → `animale`. Also
+/// returns notes: a brand from a library copy (this file's token stylesheet has no block for it),
+/// other collections with a mode set, a preferred collection with no mode set.
+pub fn brand_attr_in(doc: &Document, id: NodeId, prefer: Option<&str>) -> (String, Option<(String, String, String)>, Vec<String>) {
+    let mut set: Vec<(&Collection, String, bool)> = doc
+        .modes_for(id)
+        .into_iter()
+        .filter_map(|(coll, mode)| {
+            let c = doc.variables.collections.iter().find(|c| c.id == coll)?;
+            let m = c.modes.iter().find(|m| m.id == mode)?;
+            Some((c, m.name.clone(), crate::library::is_remote_collection(doc, &c.id)))
+        })
+        .collect();
+    set.sort_by_key(|(c, _, remote)| (*remote, std::cmp::Reverse(c.modes.len())));
+    let mut notes = Vec::new();
+    let pick = match prefer {
+        Some(p) => {
+            let i = set.iter().position(|(c, _, _)| c.id == p);
+            if i.is_none() {
+                let name = doc.variables.collections.iter().find(|c| c.id == p).map_or(p, |c| c.name.as_str());
+                notes.push(format!("no mode of {name} is set on the layer or above it: no data-brand"));
+            }
+            i
+        }
+        None => (!set.is_empty()).then_some(0),
+    };
+    let Some((c, mode, remote)) = pick.and_then(|i| set.get(i)).cloned() else { return (String::new(), None, notes) };
+    if remote {
+        notes.push(format!(
+            "the brand comes from {}, a library collection: this file's export.tokensCss has no [data-brand] block for it (export the library file's tokens)",
+            c.name
+        ));
+    }
+    for (other, m, _) in set.iter().filter(|(o, _, _)| o.id != c.id) {
+        notes.push(format!("{} is also set ({m}): data-brand comes from {} only", other.name, c.name));
+    }
+    let brand = brand_slug(&mode);
+    (format!(" data-brand=\"{brand}\""), Some((brand, c.name.clone(), mode)), notes)
 }
 
 /// A mode's `data-brand` value: its name without parenthesised notes, as [`slug`]
@@ -297,7 +455,7 @@ fn strip_notes(name: &str) -> String {
 
 /// The comment at the top of an exported file: where it comes from, the brand and the values
 /// with no token.
-fn header(loose: &[Loose], brand: Option<&(String, String, String)>) -> String {
+fn header(loose: &[Loose], brand: Option<&(String, String, String)>, notes: &[String]) -> String {
     let clean = |s: &str| s.replace("*/", "* /").replace(['\n', '\r'], " ");
     let mut out = String::from(
         "/*\n * Generated by Eureka Design from the design document: do not edit by hand, export again.\n * Design-system tokens are CSS variables (var(--token)); their values come from the design system's stylesheet.\n",
@@ -305,6 +463,9 @@ fn header(loose: &[Loose], brand: Option<&(String, String, String)>) -> String {
     match brand {
         Some((b, coll, mode)) => out.push_str(&format!(" * Brand: data-brand=\"{b}\" ({}: {})\n", clean(coll), clean(mode))),
         None => out.push_str(" * Brand: no mode set on the screen (the design system's default applies)\n"),
+    }
+    for n in notes {
+        out.push_str(&format!(" * Note: {}\n", clean(n)));
     }
     if loose.is_empty() {
         out.push_str(" * Warnings: none (every colour, spacing, radius and font is a token)\n");

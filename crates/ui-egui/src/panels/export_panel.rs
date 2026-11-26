@@ -72,15 +72,19 @@ pub fn section(app: &mut FigApp, ui: &mut Ui, doc: &Arc<Document>, sel: &[NodeId
     for (i, e) in list.iter().enumerate() {
         setting_row(app, ui, &ids, i, e, text, doc.color_profile);
     }
-    let Some(first) = first else { return };
-    preview(app, ui, doc, first);
-    let label = match (layers.len(), name) {
-        (1, Some(name)) => trf("Export {name}", &[("name", &name)]),
-        (k, _) => trn("Export {n} layers", k, &[]),
-    };
-    if wide_button(ui, &label) {
-        export_layers(app, sel, false);
+    if let Some(first) = first {
+        preview(app, ui, doc, first);
+        let label = match (layers.len(), name) {
+            (1, Some(name)) => trf("Export {name}", &[("name", &name)]),
+            (k, _) => trn("Export {n} layers", k, &[]),
+        };
+        if wide_button(ui, &label) {
+            export_layers(app, sel, false);
+        }
     }
+    // The developers' handoff: TSX with the design system's tokens, whether or not the layer has
+    // export settings.
+    crate::panels::code_export::section(app, ui, sel);
 }
 
 /// One export setting: size (typed or picked; images only, SVG and PDF are vector), suffix,

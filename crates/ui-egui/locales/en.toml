@@ -2081,3 +2081,14 @@ name = "English"
 "Design system notes" = "Design system notes"
 "{name}: {prop} {value} has no variable" = "{name}: {prop} {value} has no variable"
 "Apply waits for a choice on every conflict." = "Apply waits for a choice on every conflict."
+"Export code" = "Export code"
+"Code exported: every value is a token" = "Code exported: every value is a token"
+"Code exported; {n} values have no token" = { one = "Code exported; {n} value has no token", other = "Code exported; {n} values have no token" }
+"Files: {files}" = "Files: {files}"
+"Brand: {brand} ({mode})" = "Brand: {brand} ({mode})"
+"As tokens ({n})" = { one = "As a token ({n})", other = "As tokens ({n})" }
+"{token} (not in tokens.css)" = "{token} (not in tokens.css)"
+"No values left without a token" = "No values left without a token"
+"Without a token ({n})" = { one = "Without a token ({n})", other = "Without a token ({n})" }
+"The files have the full lists." = "The files have the full lists."
+"In {dir}" = "In {dir}"

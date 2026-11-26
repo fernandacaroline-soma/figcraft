@@ -337,6 +337,7 @@ pub use dialogs::variables_panel;
 pub use home::home_recents;
 pub use home::online;
 pub use panels::assets_panel;
+pub use panels::code_export;
 pub use panels::component_panel;
 pub use panels::dev_compare;
 pub use panels::dev_mode;
@@ -595,6 +596,8 @@ pub struct UiState {
     pub versions: versions::VersionUi,
     /// Claude's proposal card, while its preview (or a stale apply) is shown.
     pub proposal: Option<proposal::Card>,
+    /// The last "Export code" of the selection: what went out as tokens and what didn't.
+    pub code_export: Option<code_export::Report>,
     /// The branch review dialog, while open.
     pub branch_review: Option<branch_ui::ReviewView>,
     /// Dev Mode: annotations on the canvas and the ready-for-dev list.
@@ -752,6 +755,7 @@ impl Default for UiState {
             comments: comments::CommentUi::default(),
             versions: versions::VersionUi::default(),
             proposal: None,
+            code_export: None,
             branch_review: None,
             dev: dev_mode::DevUi::default(),
 
