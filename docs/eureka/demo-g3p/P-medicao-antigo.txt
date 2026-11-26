@@ -1,0 +1,17 @@
+A · Incremental · Tamanho na hora de escolher: 2 achado(s) medido(s)
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+B · Incremental · Como veste: 4 achado(s) medido(s)
+  [média] estados: Choice Tag (Chips) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Choice Tag (Chips) mede 35 × 24 pt, 46 × 24 pt, 60 × 24 pt (3 na tela).
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+C · Incremental · Concierge NV para tamanho e styling: 2 achado(s) medido(s)
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+D · Incremental · Galeria editorial com look comprável: 2 achado(s) medido(s)
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+E · Incremental · Botão fixo que resolve o tamanho: 1 achado(s) medido(s)
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+Total por área: acessibilidade 5, estados 6

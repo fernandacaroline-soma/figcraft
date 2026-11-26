@@ -1,0 +1,47 @@
+{
+  "note": "Frente P: three disruptive proposals for the NV PDP round, written to test the format and the bigger DS Apps snapshot (Action Button, Snackbar, Section Heading). A test of the Eureka, not the generator's output: the round's real proposals come from the skill and the designer chooses. Content is example content.",
+  "proposals": [
+    {
+      "name": "Tamanho resolvido antes da galeria", "type": "disruptiva", "mechanism": "personalização", "confidence": "baixa",
+      "summary": "Ao abrir a PDP, uma folha pergunta o tamanho que a cliente costuma usar na NV e devolve a recomendação para esta peça, antes de ela rolar a página.",
+      "screen": {"$base": "pdp", "overlay": [
+        {"component": "Bottom Sheet", "variant": {"Modal Sheet": "On"}, "name": "Bottom Sheet · qual o seu tamanho", "dock": "bottom",
+         "props": {"Título": "Qual tamanho você usa na NV?", "Subtítulo": "Assim indicamos o tamanho desta peça.", "Voltar": false},
+         "layers": {"Botão Primário": {"Texto": "Ver meu tamanho"}},
+         "slot": [
+           {"frame": "Tamanhos que usa", "layout": "horizontal", "gap": "Spacing/sp-xs", "children": [
+             {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "PP"}},
+             {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "P"}},
+             {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "On", "Desabilitado": "Off"}, "props": {"Texto": "M"}},
+             {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "G"}},
+             {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "GG"}}
+           ]},
+           {"component": "Snackbar", "variant": {"Status": "Informação", "Loading": "Off"}, "width": "fill",
+            "props": {"Texto": "Para esta peça, quem usa M costuma levar M (conteúdo de exemplo).", "Botão": false}}
+         ]}
+      ]}
+    },
+    {
+      "name": "Comprar agora no tamanho de sempre", "type": "disruptiva", "mechanism": "reduzir passos", "confidence": "baixa",
+      "summary": "A área de ação fixa troca o botão único por dois: comprar agora no tamanho que a cliente já comprou e adicionar à sacola. A confirmação aparece na própria tela.",
+      "screen": {"$base": "pdp", "no_button": true, "after_sizes": [
+        {"component": "Snackbar", "variant": {"Status": "Sucesso", "Loading": "Off"}, "width": "fill",
+         "props": {"Texto": "Adicionado à sacola · M", "Botão": true}}
+      ], "overlay": [
+        {"component": "Action Button", "variant": {"Vertical": "Off", "Fixed": "On"}, "name": "Action Button · comprar", "dock": "bottom",
+         "layers": {"Botão Primário": {"Texto": "Comprar agora · M"}, "Botão Secundário": {"Texto": "Adicionar à sacola"}}}
+      ]}
+    },
+    {
+      "name": "Provar na loja antes de comprar", "type": "disruptiva", "mechanism": "reduzir risco percebido", "confidence": "baixa",
+      "summary": "A PDP oferece reservar a peça para provar numa loja NV, ao lado de adicionar à sacola, para quem não quer arriscar o tamanho.",
+      "screen": {"$base": "pdp", "no_button": true, "after_sizes": [
+        {"component": "Section Heading", "variant": {"Reduzir": "On"}, "width": "fill", "props": {"Título": "Prove antes de comprar", "Ação": false}},
+        {"text": "Disponível para provar em 2 lojas perto de você (conteúdo de exemplo)", "size": "Font/Size/fs-xxxs", "color": "Colors/Content/01", "wrap": true}
+      ], "overlay": [
+        {"component": "Action Button", "variant": {"Vertical": "On", "Fixed": "On"}, "name": "Action Button · provar ou comprar", "dock": "bottom",
+         "layers": {"Botão Primário": {"Texto": "Reservar para provar na loja"}, "Botão Secundário": {"Texto": "Adicionar à sacola"}}}
+      ]}
+    }
+  ]
+}

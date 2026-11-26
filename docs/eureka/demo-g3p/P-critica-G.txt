@@ -1,0 +1,16 @@
+Crítica da proposta 921: 11 achado(s) — 1 crítica, 1 alta, 7 média, 2 baixa
+  medidos pelo Eureka: 6; do roteiro (revisor): 5
+  1. [crítica] falhas: O tamanho de sempre (M) está sem estoque nesta peça. (inferência)
+  2. [alta] fluxo: Cliente sem compra anterior ou sem login. (inferência)
+  3. [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On. (Eureka (medido): variantes de Button no DS)
+  4. [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True. (Eureka (medido): variantes de Button no DS)
+  5. [média] estados: Snackbar aparece só com Loading=Off; a tela não mostra Loading=On. (Eureka (medido): variantes de Snackbar no DS)
+  6. [média] estados: Snackbar aparece só com Status=Sucesso; a tela não mostra Status=Erro. (Eureka (medido): variantes de Snackbar no DS)
+  7. [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On. (Eureka (medido): variantes de Selector Size (Selector Button) no DS)
+  8. [média] conteúdo e interação: Dois botões lado a lado com ações parecidas (comprar agora e adicionar à sacola). (inferência)
+  9. [média] viabilidade: Compra direta a partir da PDP no app NV. (inferência)
+  10. [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela). (Eureka (medido); referência: Apple Human Interface Guidelines, 44 × 44 pt)
+  11. [baixa] medição: Saber se a compra direta aumenta a conversão sem aumentar trocas. (Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e)
+Gatekeeper antes da revisão da crítica: recusado — "invalid parameters for `explore.review`: the design critique comes first: keep it with `explore.critique` and let the designer review it (`explore.critiqueReviewed`)"
+Status e "Revisei a crítica" foram um teste do cartão; a revisão real é da designer.
+Nada gravado no Notion nem no Figma; nenhum componente, token ou regra do DS foi alterado.

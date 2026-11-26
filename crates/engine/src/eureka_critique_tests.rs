@@ -31,6 +31,33 @@ fn library(s: &mut Session) {
         .collect();
     let set = idv(&ex(s, "component.combineVariants", json!({"ids": variants})));
     ex(s, "node.set", json!({"id": set, "props": {"name": "Button"}}));
+    // An icon set: "error-circle" is an icon's name, not an error state of the screen.
+    let icons: Vec<NodeId> = ["close", "error-circle"]
+        .iter()
+        .enumerate()
+        .map(|(k, v)| {
+            let f =
+                idv(&ex(s, "frame.create", json!({"x": 400.0 + k as f64 * 40.0, "y": 600, "width": 48, "height": 48, "name": format!("Icon={v}")})));
+            idv(&ex(s, "component.create", json!({"ids": [f]})))
+        })
+        .collect();
+    let set = idv(&ex(s, "component.combineVariants", json!({"ids": icons})));
+    ex(s, "node.set", json!({"id": set, "props": {"name": "Icon"}}));
+    // A message whose "Status" is a kind (Brand) or a state (Erro): only Erro is a state to show.
+    let notes: Vec<NodeId> = ["Brand", "Erro"]
+        .iter()
+        .enumerate()
+        .map(|(k, v)| {
+            let f = idv(&ex(
+                s,
+                "frame.create",
+                json!({"x": 600.0 + k as f64 * 200.0, "y": 600, "width": 160, "height": 48, "name": format!("Status={v}")}),
+            ));
+            idv(&ex(s, "component.create", json!({"ids": [f]})))
+        })
+        .collect();
+    let set = idv(&ex(s, "component.combineVariants", json!({"ids": notes})));
+    ex(s, "node.set", json!({"id": set, "props": {"name": "Aviso"}}));
     let tf = idv(&ex(s, "frame.create", json!({"x": 0, "y": 800, "width": 80, "height": 24, "name": "Tag"})));
     ex(s, "component.create", json!({"ids": [tf]}));
 }
@@ -39,6 +66,9 @@ fn screen(name: &str) -> Value {
     json!({"name": name, "type": "incremental", "screen": {"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Bg", "children": [
         {"text": "Vestido midi", "size": "Font/Size/fs-xs", "color": "Colors/Text"},
         {"component": "Tag"},
+        {"component": "Tag"},
+        {"component": "Icon", "variant": {"Icon": "close"}},
+        {"component": "Aviso", "variant": {"Status": "Brand"}},
         {"component": "Button", "variant": {"Tipo": "Primário", "Desabilitado": "Off"}}
     ]}})
 }
@@ -65,15 +95,19 @@ fn the_eureka_measures_missing_states_contrast_in_the_brand_and_small_touch_targ
     let text = serde_json::to_string(f).unwrap();
     assert!(f.iter().all(|x| x["evidence"].as_str().unwrap().starts_with("Eureka (medido)")), "{text}");
     // The Button's disabled state is in the DS but not on the screen.
-    let state = f.iter().find(|x| x["area"] == "estados").expect(&text);
-    assert!(state["scenario"].as_str().unwrap().contains("Desabilitado=On"), "{state}");
+    let states: Vec<&str> = f.iter().filter(|x| x["area"] == "estados").map(|x| x["scenario"].as_str().unwrap()).collect();
+    assert_eq!(states.len(), 2, "the Button's and the message's, not the icon named error-circle: {text}");
+    assert!(states.iter().any(|s| s.contains("não mostra Desabilitado=On")), "{text}");
+    // Status: only Erro is asked for; Brand, shown, is a kind of message.
+    assert!(states.iter().any(|s| s.ends_with("não mostra Status=Erro.")), "{text}");
     // The NV grey (#bbbbbb on white, about 1.9:1) fails AA with the colour the brand's token resolves to.
     let low = f.iter().find(|x| x["scenario"].as_str().unwrap().contains("contraste")).expect(&text);
     assert_eq!(low["severity"], json!("alta"));
-    // The 80 × 24 Tag is under 44 pt; the 160 × 48 Button is not.
-    let small: Vec<&Value> = f.iter().filter(|x| x["scenario"].as_str().unwrap().contains(" pt (")).collect();
+    // The two 80 × 24 Tags are under 44 pt, in one finding; the 160 × 48 Button and the 48 × 48 icon
+    // are not.
+    let small: Vec<&Value> = f.iter().filter(|x| x["scenario"].as_str().unwrap().contains(" pt")).collect();
     assert_eq!(small.len(), 1, "{text}");
-    assert!(small[0]["scenario"].as_str().unwrap().starts_with("Tag"));
+    assert!(small[0]["scenario"].as_str().unwrap().starts_with("Tag mede 80 × 24 pt (2 na tela)"), "{text}");
 
     // On Farm the same token is black: no contrast finding.
     let mut s = Session::new();
