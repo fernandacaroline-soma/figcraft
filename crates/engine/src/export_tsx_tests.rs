@@ -611,3 +611,73 @@ fn app_and_web_name_a_token_the_same() {
     assert!(web["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
     assert!(app["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
 }
+
+// ------------------------------------------------------------ design-system components (task 2)
+
+/// A screen with a design-system "Button" (a set, linked to code through the map) and a
+/// design-system "Chip" with no code component, both instances; the Button's own fill is a
+/// loose colour (the component's, not the screen's).
+fn screen_with_ds_components() -> (Session, NodeId) {
+    let (mut s, screen, card, _) = screen();
+    let mut variants = Vec::new();
+    for (k, h) in ["Primário", "Secundário"].iter().enumerate() {
+        let f = id_of(
+            &run(
+                &mut s,
+                "frame.create",
+                json!({"x": 800.0 + k as f64 * 150.0, "y": 0, "width": 120, "height": 40, "name": format!("Hierarquia={h}")}),
+            )["id"],
+        )
+        .unwrap();
+        run(&mut s, "node.set", json!({"id": f.0, "props": {"fill": "#7A4B2A"}}));
+        variants.push(id_of(&run(&mut s, "component.create", json!({"ids": [f.0]}))["id"]).unwrap().0);
+    }
+    let set = id_of(&run(&mut s, "component.combineVariants", json!({"ids": variants}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": set.0, "props": {"name": "Button", "pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let chip = id_of(&run(&mut s, "frame.create", json!({"x": 800, "y": 200, "width": 60, "height": 24, "name": "Chip"}))["id"]).unwrap();
+    let chip = id_of(&run(&mut s, "component.create", json!({"ids": [chip.0]}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": chip.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let b = id_of(&run(&mut s, "instance.create", json!({"component": set.0, "x": 0, "y": 0, "parent": card.0}))["id"]).unwrap();
+    run(&mut s, "instance.setProperties", json!({"ids": [b.0], "properties": {"Hierarquia": "Secundário"}}));
+    run(&mut s, "instance.create", json!({"component": chip.0, "x": 0, "y": 0, "parent": card.0}));
+    let map = json!({"version": 1, "links": [
+        {"component": "Button", "language": "react", "importPath": "@acme/ds-apps", "name": "Button", "template": "<Button variant={Hierarquia} />"}
+    ]});
+    let r = run(&mut s, "codeConnect.import", json!({"json": map}));
+    assert_eq!(r["linked"], 1, "{r}");
+    (s, screen)
+}
+
+#[test]
+fn a_design_system_component_in_the_map_is_a_call_to_its_code_component() {
+    let (mut s, screen) = screen_with_ds_components();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(
+        code.contains(
+            "import { Button } from \"@acme/ds-apps\";
+import \"./pdp-mobile.css\";"
+        ),
+        "{code}"
+    );
+    assert!(code.contains("<Button variant=\"Secundário\" />"), "the instance's own value: {code}");
+    assert!(!code.contains("#7A4B2A"), "the component's insides are the code component's: {code}");
+    assert!(r["warnings"].as_array().unwrap().iter().all(|w| w["value"] != "#7A4B2A"), "{r}");
+    assert_eq!(r["components"][0]["name"], "Button", "{r}");
+    assert_eq!(r["components"][0]["importPath"], "@acme/ds-apps", "{r}");
+    // The Chip has no code component: drawn, and said.
+    assert!(r["notes"].to_string().contains("Chip is a design-system component with no code component in the map"), "{r}");
+    assert!(code.contains(" * Note: Chip: Chip is a design-system component"), "{code}");
+}
+
+#[test]
+fn without_a_map_the_design_systems_instances_are_drawn_and_noted() {
+    let (mut s, screen) = screen_with_ds_components();
+    let set = s.doc().unwrap().nodes().find(|n| n.name == "Button" && matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })).unwrap().id;
+    run(&mut s, "codeConnect.remove", json!({"id": set.0}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(!code.contains("import { Button }"), "{code}");
+    assert_eq!(r["components"], json!([]), "{r}");
+    assert!(r["notes"].to_string().contains("Button is a design-system component with no code component in the map"), "{r}");
+}

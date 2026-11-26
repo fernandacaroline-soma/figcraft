@@ -81,7 +81,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "export.tsx",
             "Export TSX with design-system tokens",
-            "{ids? (default: the selection), collection? (the brand collection, id or name; default: this file's collection with the most modes, the one export.tokensCss keys on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. No dialog → {code, warnings: [{id, layer, field, value}], brand, notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates)}",
+            "{ids? (default: the selection), collection? (the brand collection, id or name; default: this file's collection with the most modes, the one export.tokensCss keys on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. An instance connected to code in React (codeConnect, e.g. from the design system's code map: codeConnect.import) is a call to its code component, imported from its package at the top; another design-system instance (`eureka.library`) is drawn as layers and noted. No dialog → {code, warnings: [{id, layer, field, value}], brand, components: [{id, layer, component, name, importPath}] (the calls), notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates; a design-system instance with no code component)}",
             false,
             |s, p| {
                 let cmd = "export.tsx";
@@ -371,6 +371,7 @@ pub fn export(doc: &Document, ids: &[NodeId]) -> Value {
 /// [`export`], the brand from collection `brand_coll` (an id) when given.
 pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> Value {
     let (mut parts, mut warnings, mut brands, mut notes) = (Vec::new(), Vec::new(), Vec::new(), Vec::<String>::new());
+    let mut calls: Vec<Value> = Vec::new();
     let mut done: Vec<NodeId> = Vec::new();
     let mut names: BTreeMap<String, usize> = BTreeMap::new();
     for id in ids.iter().copied() {
@@ -393,6 +394,16 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
         let (attr, brand, brand_notes) = brand_attr_in(doc, id, brand_coll);
         own.extend(brand_notes);
         let Some((code, loose)) = crate::component_codegen::react_ds(doc, id, &attr, &suffix) else { continue };
+        // Instances connected to code (codeConnect, from the design system's code map) are calls
+        // to the code component, imported from its package; the design system's other instances
+        // are drawn, and said.
+        let ds = ds_calls(doc, id);
+        for (layer, component) in &ds.drawn {
+            own.push(format!("{layer}: {component} is a design-system component with no code component in the map (drawn as layers)"));
+        }
+        let imports = ds.imports.join("\n");
+        let code = if imports.is_empty() { code } else { format!("{imports}\n{code}") };
+        calls.extend(ds.calls);
         parts.push(format!("{}{code}", header(&loose, brand.as_ref(), &own)));
         warnings.extend(loose.iter().map(|l| json!({"id": l.id.0, "layer": l.layer, "field": l.field, "value": l.value})));
         brands.push(brand.map_or(Value::Null, |(b, coll, mode)| json!({"brand": b, "collection": coll, "mode": mode})));
@@ -403,7 +414,57 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
         }
     }
     let brand = if brands.len() == 1 { brands.pop().unwrap_or(Value::Null) } else { Value::Array(brands) };
-    json!({"code": parts.join("\n"), "warnings": warnings, "brand": brand, "notes": notes})
+    json!({"code": parts.join("\n"), "warnings": warnings, "brand": brand, "notes": notes, "components": calls})
+}
+
+/// Most layers [`ds_calls`] walks.
+const MAX_WALK: usize = 20_000;
+
+/// What the design system's components become in the export of `root`.
+#[derive(Default)]
+struct DsCalls {
+    /// Import lines of the code components called, once each in tree order.
+    imports: Vec<String>,
+    /// `{id, layer, component, name, importPath}` of each instance written as a call.
+    calls: Vec<Value>,
+    /// (layer, component) of the design system's instances with no code component: drawn.
+    drawn: Vec<(String, String)>,
+}
+
+/// The visible instances under `root` (itself included only when it is not the root): one
+/// connected to code in React is a call (its import, not its layers); another from a
+/// design-system library (`eureka.library`) is drawn and listed; any other instance is drawn and
+/// walked into, as the export inlines it.
+fn ds_calls(doc: &Document, root: NodeId) -> DsCalls {
+    use crate::codegen::CodeLang;
+    let mut out = DsCalls::default();
+    let mut stack: Vec<NodeId> = doc.node(root).map(|n| n.children.iter().rev().copied().collect()).unwrap_or_default();
+    let mut seen = 0usize;
+    while let Some(id) = stack.pop() {
+        seen += 1;
+        if seen > MAX_WALK {
+            break;
+        }
+        let Some(n) = doc.node(id).filter(|n| n.visible) else { continue };
+        if let figcraft_doc::NodeKind::Instance { component, .. } = n.kind {
+            if let Some(link) = crate::code_connect::link(doc, id, CodeLang::React) {
+                let line = crate::code_connect::import_line(link, CodeLang::React);
+                if !line.is_empty() && !out.imports.contains(&line) {
+                    out.imports.push(line);
+                }
+                out.calls.push(json!({"id": id.0, "layer": n.name, "component": doc.node(component).map(|m| m.name.clone()), "name": link.name, "importPath": link.import_path}));
+                continue;
+            }
+            if !crate::cmd::eureka::library_of(doc, component).is_null() {
+                let set = crate::code_connect::owner(doc, component).and_then(|o| doc.node(o)).map_or_else(String::new, |o| o.name.clone());
+                if !out.drawn.iter().any(|(l, c)| *l == n.name && *c == set) {
+                    out.drawn.push((n.name.clone(), set));
+                }
+            }
+        }
+        stack.extend(n.children.iter().rev().copied());
+    }
+    out
 }
 
 /// The brand mode the variables of `id` resolve in, from the default brand collection (see
