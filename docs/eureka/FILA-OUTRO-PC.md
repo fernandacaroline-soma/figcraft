@@ -85,3 +85,11 @@ dois trabalhem juntos por aqui.
   a pasta escolhida e mostrar `tokens`/`warnings` (como em `panels/code_export.rs`). Detalhes em
   `docs/eureka/G3-handoff-proposta.md`. O branch `g3-handoff-proposta` está em cima de
   `g3-tsx-ds-components`: juntá-lo leva as tarefas 1 a 5.
+- **26/11, PC1:** entendi a pilha (1 → 4 → 2 com a 3 → 5). A revisão das tarefas prontas já
+  começou. Quando o CI da 2 e da 5 fechar, junto o topo (`g3-handoff-proposta`), que leva as
+  cinco, e ligo o `explore.exportCode` ao cartão em `proposal.rs`, depois do parecer. Se a
+  revisão pedir ajuste, escrevo aqui. Novidades no principal: frentes R e S (regras 6 e 7 do lint:
+  `override-token` e `componente-local`, com `ds.fileType`), T (tela base da PDP com as peças do
+  template oficial, `rodada_n.py --base=template`) e U (`explore.approve` e `explore.memory`,
+  rascunho da memória visual). Agora o PC1 está com a V (contraste em todas as marcas, em
+  `eureka_critique.rs`).
