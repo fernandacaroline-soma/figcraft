@@ -599,3 +599,17 @@ fn the_proposal_card_shows_each_step_and_only_the_next_action() {
     assert!(has(&mut u, Role::Label, "You approved this layout."));
     assert!(!has(&mut u, Role::Button, "Approve the layout"));
 }
+
+#[test]
+fn the_proposal_card_says_which_brand_and_profile_it_was_designed_with() {
+    let (mut u, a) = board();
+    assert!(!tree(&mut u).iter().any(|n| n.value().is_some_and(|v| v.starts_with("Brand:"))), "no brand line before brand.apply");
+    // A brand with no profile: only usability and the design system.
+    u.app.run("brand.apply", json!({"ids": [a.0], "brand": "NV"}));
+    assert!(has(&mut u, Role::Label, "Brand: NV · no profile: usability and the DS only"));
+    assert!(has(&mut u, Role::Label, "1 gap in what the brand has"));
+    // With a profile: its owner and review, as written.
+    let profile = "# Perfil — NV\n\n**Dona:** Ana · **Última revisão:** 10/11/2026 (parcial)\n\n## Concorrentes\nComparar padrões.\n\n## O que não fazer\n[a preencher]\n";
+    u.app.run("brand.apply", json!({"ids": [a.0], "brand": "NV", "text": profile}));
+    assert!(has(&mut u, Role::Label, "Brand: NV · profile by Ana, reviewed 10/11/2026 (parcial)"));
+}
