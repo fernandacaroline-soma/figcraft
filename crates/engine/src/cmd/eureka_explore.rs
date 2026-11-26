@@ -47,6 +47,13 @@ pub fn specs() -> Vec<CommandSpec> {
             choose
         ),
         spec!(
+            "explore.context",
+            "Context of the chosen proposal",
+            "{id (the chosen proposal's screen)}  what a reviewer (the DS Gatekeeper, an agent) needs about the proposal the designer chose, without choosing anything: the DS lint of the screen and everything in it, its context (kind of each layer, component of each instance, brand mode of the screen) and the proposal, critique and brand it carries. Read only; refused for a proposal not chosen → {chosen: {id, name, proposal}, lint, context, critique, brand}",
+            false,
+            context_of_chosen
+        ),
+        spec!(
             "explore.review",
             "Review the chosen proposal",
             "{id (the chosen proposal's screen), verdict (\"aprovado\" | \"com-ressalvas\" | \"bloqueado\"), reviewer?, summary?, items?: [{message, source?, ids?}]}  keep a reviewer's verdict (such as the DS Gatekeeper's, in preview mode) on the chosen proposal, once the designer has reviewed its design critique (`explore.critique`); it only advises: the designer decides → {review}",
@@ -219,6 +226,30 @@ fn choose(s: &mut Session, p: &Value) -> Result<Value> {
     let lint = super::eureka_lint::lint_layers(doc, &layers, MAX_FINDINGS);
     let context = super::eureka::review_context(doc, &layers);
     Ok(json!({"chosen": {"id": id.0, "name": name, "proposal": info_of(s, id)}, "others": others, "lint": lint, "context": context}))
+}
+
+/// `explore.context`: the reviewer's package for the chosen proposal, read only (an agent may not
+/// run `explore.choose`, which is the designer's decision).
+fn context_of_chosen(s: &mut Session, p: &Value) -> Result<Value> {
+    const CMD: &str = "explore.context";
+    let id = get(p, "id").and_then(id_of).ok_or_else(|| bad(CMD, "`id` is required (the chosen proposal's screen)"))?;
+    let Some(info) = info_of(s, id) else { return Err(bad(CMD, "that layer is not a proposal on an exploration board")) };
+    if info.get("status").and_then(Value::as_str) != Some("escolhida") {
+        return Err(bad(CMD, "the designer hasn't chosen this proposal: its context is given once she has"));
+    }
+    let doc = s.doc()?;
+    let name = doc.node(id).map(|n| n.name.clone()).unwrap_or_default();
+    let layers = doc.subtree(id);
+    let lint = super::eureka_lint::lint_layers(doc, &layers, MAX_FINDINGS);
+    let context = super::eureka::review_context(doc, &layers);
+    let kept = |k: &str| doc.node(id).and_then(|n| n.plugin_data.get(k)).and_then(|t| serde_json::from_str::<Value>(t).ok()).unwrap_or(Value::Null);
+    Ok(json!({
+        "chosen": {"id": id.0, "name": name, "proposal": info},
+        "lint": lint,
+        "context": context,
+        "critique": kept(super::eureka_critique::CRITIQUE_KEY),
+        "brand": kept(super::eureka_brand::BRAND_KEY),
+    }))
 }
 
 /// `explore.review`: keep a reviewer's verdict on the proposal the designer chose.
