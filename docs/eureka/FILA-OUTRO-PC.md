@@ -38,11 +38,11 @@ dois trabalhem juntos por aqui.
 | # | Tarefa | Status |
 |---|---|---|
 | 1 | **Correções da revisão do export, depois o botão "Exportar código".** Detalhes em **Tarefa 1** abaixo. | juntada no principal (26/11) |
-| 2 | **TSX com os componentes do DS.** Quando a instância vem de uma biblioteca do DS (`eureka.library` no componente principal), o `export.tsx` gera `<Button variant="primario">…`, importando de um pacote configurável, em vez de recriar o componente com `div` e CSS. Sem mapa de nome para código conhecido, cai no comportamento de hoje e avisa. | PC2 · eureka/g3-tsx-ds-components · 26/11 · CI rodando |
+| 2 | **TSX com os componentes do DS.** Quando a instância vem de uma biblioteca do DS (`eureka.library` no componente principal), o `export.tsx` gera `<Button variant="primario">…`, importando de um pacote configurável, em vez de recriar o componente com `div` e CSS. Sem mapa de nome para código conhecido, cai no comportamento de hoje e avisa. | ajustada (imports no topo) · eureka/g3-tsx-ds-components · CI rodando |
 | 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | juntada no principal (26/11) |
-| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | ajuste pedido (ver Recados) · eureka/g3-tokens-web |
-| 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | PC2 · eureka/g3-handoff-proposta · 26/11 · CI rodando |
-| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | PC2 · eureka/g3-spike-tsx-volta · 26/11 |
+| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | ajustada · eureka/g3-tokens-web · CI verde |
+| 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | ajustada (linha do "bloqueado") · eureka/g3-handoff-proposta · CI rodando |
+| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | juntada no principal (26/11) |
 
 ### Tarefa 1: detalhes
 
@@ -117,3 +117,25 @@ dois trabalhem juntos por aqui.
   - **Tarefa 5:** ok, depois do ajuste da 4. Um parecer "bloqueado" ainda exporta. Concordo: quem
     decide é a designer. Deixe isso escrito no cabeçalho do TSX.
   - Quando a 4, a 2 e a 5 estiverem com CI verde, marque "pronto para juntar" no topo (`g3-handoff-proposta`).
+- **26/11 05:10 UTC, PC1:** a API do GitHub chegou ao limite (5.000 chamadas por hora; a conta é
+  a mesma nos dois computadores) e volta às 05:26 UTC. O `gh run watch` consulta muitas vezes. Para
+  acompanhar o CI, use um laço com `sleep 120` e um `gh run view` por volta, ou só confira quando
+  for juntar. `git push` e `git fetch` não contam no limite.
+- **26/11, PC2 (ajustes da revisão):**
+  - **Tarefa 4** (`0e48c6d2`, CI verde): a marca é a coleção chamada Tokens APP/WEB, local antes da
+    de biblioteca; só na falta delas, a de mais modos (local no empate). `collection` vale para o
+    TSX e o tokensCss juntos. Riscos menores: numeração contra todos os nomes já dados (Card, Card2,
+    Card22); `code_map` com teto de 20 000 checagens (`truncated`) e entrada duplicada em `invalid`.
+  - **Tarefa 2** (`73c6f183`): os `import` de todas as telas sobem para o topo, sem repetição
+    (teste de duas telas). Uma raiz com nome de componente importado vira `Button2`, com nota. O
+    merge da 4 tinha perdido um `}` nos testes; corrigido.
+  - **Tarefa 5** (`56170de9`): com parecer "bloqueado", o cabeçalho diz que exportou mesmo assim e
+    que a designer decide. Já tem o merge da 2.
+  - **Tarefa 6:** pronta, CI verde (76/77 linhas voltam iguais; detalhes em
+    `docs/eureka/G3-spike-tsx-volta.md`).
+  - Quando o CI da 2 e da 5 fechar verde, marco "pronto para juntar" no topo (`g3-handoff-proposta`).
+- **26/11, PC1:** a tarefa 6 foi juntada (spike de ida e volta: 76 de 77 linhas iguais). A V
+  (contraste em todas as marcas) também já está no principal. Aguardo o "pronto para juntar" no
+  topo da pilha 1→4→2→5 (`g3-handoff-proposta`) para juntar e ligar o `explore.exportCode` ao
+  cartão. Depois disso, a fila fica sem tarefas livres. Se quiser, proponha nos Recados a próxima
+  do seu lado. Sugestão: a volta lendo `<Componente …/>` do DS (o que o spike não lê).

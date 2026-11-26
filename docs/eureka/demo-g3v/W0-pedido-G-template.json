@@ -1,0 +1,1232 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+ "brand_modes": [
+  {
+   "Tokens APP": "NV"
+  }
+ ],
+ "board": "NV App · PDP · Rodada 01 (13/11) · gerada pela skill + 3 de teste do Eureka · base: template oficial da PDP",
+ "problem": "Na PDP do app NV, baixa adição à sacola, dúvida de tamanho e pouca inspiração. Registro: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+ "proposal": {
+  "letter": "G",
+  "name": "Comprar agora no tamanho de sempre",
+  "type": "Disruptiva",
+  "mechanism": "reduzir passos",
+  "summary": "A área de ação fixa troca o botão único por dois: comprar agora no tamanho que a cliente já comprou e adicionar à sacola. A confirmação aparece na própria tela.",
+  "confidence": "baixa"
+ },
+ "not_chosen": [
+  "A · Incremental · Tamanho na hora de escolher",
+  "B · Incremental · Como veste",
+  "C · Incremental · Concierge NV para tamanho e styling",
+  "D · Incremental · Galeria editorial com look comprável",
+  "E · Incremental · Botão fixo que resolve o tamanho",
+  "F · Disruptiva · Tamanho resolvido antes da galeria",
+  "H · Disruptiva · Provar na loja antes de comprar"
+ ],
+ "ds_lint": [],
+ "context": {
+  "layers": [
+   {
+    "id": 2200,
+    "kind": "FRAME",
+    "name": "G · Disruptiva · Comprar agora no tamanho de sempre",
+    "parent": 2553
+   },
+   {
+    "id": 2201,
+    "instanceOf": "Complete o look=False",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Galeria (template)",
+    "parent": 2200
+   },
+   {
+    "id": 2202,
+    "kind": "FRAME",
+    "name": "Product Image",
+    "parent": 2201
+   },
+   {
+    "id": 2203,
+    "kind": "FRAME",
+    "name": "Items",
+    "parent": 2202
+   },
+   {
+    "id": 2204,
+    "kind": "FRAME",
+    "name": "slots-localization",
+    "parent": 2203
+   },
+   {
+    "id": 2205,
+    "kind": "FRAME",
+    "name": "container-top",
+    "parent": 2204
+   },
+   {
+    "id": 2206,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Médio, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=Off, ↔️ Padding=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Button Icon",
+    "parent": 2205
+   },
+   {
+    "id": 2207,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=arrow-left",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2206
+   },
+   {
+    "id": 2208,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2207,
+    "text": "arrow-left"
+   },
+   {
+    "id": 2209,
+    "instanceOf": "🖊️ Tipo=Ícone, ⭕ Arredondar=On, 🤏 Tamanho=Medium (40px)",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Avatar",
+    "parent": 2205
+   },
+   {
+    "id": 2210,
+    "instanceOf": "↕ Size=large, 🖼️ Icon=bag",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2209
+   },
+   {
+    "id": 2211,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2210,
+    "text": "bag"
+   },
+   {
+    "id": 2212,
+    "kind": "FRAME",
+    "name": "badge",
+    "parent": 2209
+   },
+   {
+    "id": 2213,
+    "instanceOf": "🤏 Reduzir=False, 🎨 Inverso=False, 👁️ Texto=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Badge",
+    "parent": 2212
+   },
+   {
+    "id": 2214,
+    "kind": "TEXT",
+    "name": "9+",
+    "parent": 2213,
+    "text": "2"
+   },
+   {
+    "id": 2218,
+    "instanceOf": "🧩 Tipo=Produto, 🔄 Variação=2",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Image",
+    "parent": 2202
+   },
+   {
+    "id": 2219,
+    "kind": "FRAME",
+    "name": "farm",
+    "parent": 2218
+   },
+   {
+    "id": 2229,
+    "kind": "FRAME",
+    "name": "Card Content",
+    "parent": 2201
+   },
+   {
+    "id": 2230,
+    "instanceOf": "🎨 Modo=Dark",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": ".nested/Gradient",
+    "parent": 2229
+   },
+   {
+    "id": 2231,
+    "kind": "RECTANGLE",
+    "name": "Gradient",
+    "parent": 2230
+   },
+   {
+    "id": 2232,
+    "instanceOf": "🖊️ Nº de Etapas=4, 🖊️ Seleção=Primeiro, 🎨 Inverso=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Carousel Control (Page-Control)",
+    "parent": 2229
+   },
+   {
+    "id": 2240,
+    "kind": "FRAME",
+    "name": "Dots",
+    "parent": 2232
+   },
+   {
+    "id": 2241,
+    "kind": "RECTANGLE",
+    "name": "Dot",
+    "parent": 2240
+   },
+   {
+    "id": 2242,
+    "kind": "RECTANGLE",
+    "name": "Dot",
+    "parent": 2240
+   },
+   {
+    "id": 2243,
+    "kind": "RECTANGLE",
+    "name": "Dot",
+    "parent": 2240
+   },
+   {
+    "id": 2244,
+    "kind": "RECTANGLE",
+    "name": "Dot",
+    "parent": 2240
+   },
+   {
+    "id": 2245,
+    "kind": "FRAME",
+    "name": "product-info",
+    "parent": 2229
+   },
+   {
+    "id": 2246,
+    "kind": "FRAME",
+    "name": "info",
+    "parent": 2245
+   },
+   {
+    "id": 2247,
+    "instanceOf": ".Nested / tags-list",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": ".Nested / tags-list",
+    "parent": 2246
+   },
+   {
+    "id": 2248,
+    "instanceOf": "🤏 Tamanho=Pequeno, 🚦 Status=Neutro, 🖊️ Outline=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Tag 1",
+    "parent": 2247
+   },
+   {
+    "id": 2251,
+    "kind": "TEXT",
+    "name": "Destaque",
+    "parent": 2248,
+    "text": "Tag opcional"
+   },
+   {
+    "id": 2252,
+    "instanceOf": "🤏 Tamanho=Pequeno, 🚦 Status=Neutro, 🖊️ Outline=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Tag 2",
+    "parent": 2247
+   },
+   {
+    "id": 2255,
+    "kind": "TEXT",
+    "name": "Destaque",
+    "parent": 2252,
+    "text": "Tag 2"
+   },
+   {
+    "id": 2256,
+    "instanceOf": "🤏 Tamanho=Pequeno, 🚦 Status=Neutro, 🖊️ Outline=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Tag 3",
+    "parent": 2247
+   },
+   {
+    "id": 2259,
+    "kind": "TEXT",
+    "name": "Destaque",
+    "parent": 2256,
+    "text": "Tag 3"
+   },
+   {
+    "id": 2260,
+    "kind": "TEXT",
+    "name": "Nome do produto",
+    "parent": 2246,
+    "text": "Nome do produto"
+   },
+   {
+    "id": 2261,
+    "instanceOf": "↔️ Tamanho=Padrão, 👁️ Preço cortado=Off, 🔴 Desconto destacado=False",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": ".Nested / Preco",
+    "parent": 2246
+   },
+   {
+    "id": 2262,
+    "kind": "FRAME",
+    "name": "Price",
+    "parent": 2261
+   },
+   {
+    "id": 2263,
+    "kind": "TEXT",
+    "name": "R$",
+    "parent": 2262,
+    "text": "R$"
+   },
+   {
+    "id": 2264,
+    "kind": "TEXT",
+    "name": "999,99",
+    "parent": 2262,
+    "text": "999,99"
+   },
+   {
+    "id": 2265,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Primário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "image-slot-2",
+    "parent": 2245
+   },
+   {
+    "id": 2268,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 2265,
+    "text": "Eu quero"
+   },
+   {
+    "id": 2276,
+    "instanceOf": "Sale=False, Indisponível=false",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Informações (template)",
+    "parent": 2200
+   },
+   {
+    "id": 2277,
+    "kind": "FRAME",
+    "name": "info-container",
+    "parent": 2276
+   },
+   {
+    "id": 2278,
+    "instanceOf": "🤏 Tamanho=Médio, 🚦 Status=Brand, 🖊️ Outline=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Highlight Tag (Chips)",
+    "parent": 2277
+   },
+   {
+    "id": 2281,
+    "kind": "TEXT",
+    "name": "Destaque",
+    "parent": 2278,
+    "text": "New"
+   },
+   {
+    "id": 2282,
+    "kind": "FRAME",
+    "name": "product-information",
+    "parent": 2277
+   },
+   {
+    "id": 2283,
+    "kind": "FRAME",
+    "name": "container",
+    "parent": 2282
+   },
+   {
+    "id": 2284,
+    "kind": "TEXT",
+    "name": "product-name",
+    "parent": 2283,
+    "text": "Vestido De Tricot Midi Com Decote Cruzado"
+   },
+   {
+    "id": 2285,
+    "kind": "FRAME",
+    "name": "product-price",
+    "parent": 2283
+   },
+   {
+    "id": 2286,
+    "kind": "FRAME",
+    "name": "price",
+    "parent": 2285
+   },
+   {
+    "id": 2288,
+    "kind": "TEXT",
+    "name": "price new",
+    "parent": 2286,
+    "text": "R$ 1.599"
+   },
+   {
+    "id": 2289,
+    "kind": "TEXT",
+    "name": "installment",
+    "parent": 2285,
+    "text": "10x R$ 159,90 sem juros"
+   },
+   {
+    "id": 2290,
+    "kind": "FRAME",
+    "name": "icons",
+    "parent": 2282
+   },
+   {
+    "id": 2291,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Médio, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=Off, ↔️ Padding=False",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Button Icon",
+    "parent": 2290
+   },
+   {
+    "id": 2292,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=heart",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2291
+   },
+   {
+    "id": 2293,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2292,
+    "text": "heart"
+   },
+   {
+    "id": 2294,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Médio, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=Off, ↔️ Padding=False",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Button Icon",
+    "parent": 2290
+   },
+   {
+    "id": 2295,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=share",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2294
+   },
+   {
+    "id": 2296,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2295,
+    "text": "share"
+   },
+   {
+    "id": 2297,
+    "kind": "FRAME",
+    "name": "Colors",
+    "parent": 2276
+   },
+   {
+    "id": 2298,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↔️ Padding=Pequeno",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Color",
+    "parent": 2297
+   },
+   {
+    "id": 2299,
+    "kind": "FRAME",
+    "name": "color",
+    "parent": 2298
+   },
+   {
+    "id": 2300,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↔️ Padding=Pequeno",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Color",
+    "parent": 2297
+   },
+   {
+    "id": 2301,
+    "kind": "FRAME",
+    "name": "color",
+    "parent": 2300
+   },
+   {
+    "id": 2302,
+    "kind": "FRAME",
+    "name": "Ref",
+    "parent": 2276
+   },
+   {
+    "id": 2303,
+    "kind": "TEXT",
+    "name": "ref-code",
+    "parent": 2302,
+    "text": "Ref 25.34.2741_11063"
+   },
+   {
+    "id": 2304,
+    "instanceOf": "🤏 Tamanho=Pequeno",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Divider",
+    "parent": 2302
+   },
+   {
+    "id": 2305,
+    "instanceOf": "Sem estoque=False",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Tamanhos (template)",
+    "parent": 2200
+   },
+   {
+    "id": 2306,
+    "kind": "TEXT",
+    "name": "Tamanhos",
+    "parent": 2305,
+    "text": "Tamanhos"
+   },
+   {
+    "id": 2307,
+    "kind": "FRAME",
+    "name": "sizes",
+    "parent": 2305
+   },
+   {
+    "id": 2308,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2309,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2308
+   },
+   {
+    "id": 2310,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2309,
+    "text": "34"
+   },
+   {
+    "id": 2312,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=On, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2313,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2312
+   },
+   {
+    "id": 2314,
+    "instanceOf": "🤏 Tamanho=Pequeno",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Divider",
+    "parent": 2313
+   },
+   {
+    "id": 2315,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2313,
+    "text": "36"
+   },
+   {
+    "id": 2316,
+    "kind": "TEXT",
+    "name": "text",
+    "parent": 2312,
+    "text": "Avise-me"
+   },
+   {
+    "id": 2317,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=On, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2318,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2317
+   },
+   {
+    "id": 2319,
+    "instanceOf": "🤏 Tamanho=Pequeno",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Divider",
+    "parent": 2318
+   },
+   {
+    "id": 2320,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2318,
+    "text": "38"
+   },
+   {
+    "id": 2321,
+    "kind": "TEXT",
+    "name": "text",
+    "parent": 2317,
+    "text": "Avise-me"
+   },
+   {
+    "id": 2322,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2323,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2322
+   },
+   {
+    "id": 2324,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2323,
+    "text": "40"
+   },
+   {
+    "id": 2326,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2327,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2326
+   },
+   {
+    "id": 2328,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2327,
+    "text": "42"
+   },
+   {
+    "id": 2330,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Selector Size (Selector Button)",
+    "parent": 2307
+   },
+   {
+    "id": 2331,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 2330
+   },
+   {
+    "id": 2332,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 2331,
+    "text": "44"
+   },
+   {
+    "id": 2334,
+    "kind": "FRAME",
+    "name": "container-buttons",
+    "parent": 2305
+   },
+   {
+    "id": 2335,
+    "instanceOf": "🤏 Tamanho=Pequeno, 🖊️ Tipo=Terciário, ↔️ Ícone=On, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Button",
+    "parent": 2334
+   },
+   {
+    "id": 2336,
+    "kind": "FRAME",
+    "name": "Botão",
+    "parent": 2335
+   },
+   {
+    "id": 2337,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 2336,
+    "text": "Guia de medidas"
+   },
+   {
+    "id": 2341,
+    "instanceOf": "🤏 Tamanho=Pequeno, 🖊️ Tipo=Terciário, ↔️ Ícone=On, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Button",
+    "parent": 2334
+   },
+   {
+    "id": 2342,
+    "kind": "FRAME",
+    "name": "Botão",
+    "parent": 2341
+   },
+   {
+    "id": 2343,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 2342,
+    "text": "Meu tamanho acabou"
+   },
+   {
+    "id": 2353,
+    "kind": "FRAME",
+    "name": "Módulos da proposta",
+    "parent": 2200
+   },
+   {
+    "id": 2354,
+    "instanceOf": "🚦 Status=Sucesso, ↩️ Loading=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Snackbar",
+    "parent": 2353
+   },
+   {
+    "id": 2355,
+    "kind": "FRAME",
+    "name": "Left Content",
+    "parent": 2354
+   },
+   {
+    "id": 2356,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=check-circle",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2355
+   },
+   {
+    "id": 2357,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2356,
+    "text": "check-circle"
+   },
+   {
+    "id": 2358,
+    "kind": "TEXT",
+    "name": "Texto que pode conter até 3 linhas.",
+    "parent": 2355,
+    "text": "Adicionado à sacola · M"
+   },
+   {
+    "id": 2359,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Pequeno, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=On, ↔️ Padding=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Botão",
+    "parent": 2354
+   },
+   {
+    "id": 2360,
+    "instanceOf": "↕ Size=small, 🖼️ Icon=close",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Icon",
+    "parent": 2359
+   },
+   {
+    "id": 2361,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 2360,
+    "text": "close"
+   },
+   {
+    "id": 2362,
+    "instanceOf": "↕️ Vertical=Off, 📍 Fixed=On",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "Action Button · comprar",
+    "parent": 2200
+   },
+   {
+    "id": 2363,
+    "instanceOf": "🤏 Tamanho=Large, ✅ Agree=Off, ☑️ Agree Disabled=Off, ⌨️ Keyboard=Off, 🎒 Mochila=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "▶️ Action",
+    "parent": 2362
+   },
+   {
+    "id": 2364,
+    "kind": "RECTANGLE",
+    "name": "BG",
+    "parent": 2363
+   },
+   {
+    "id": 2365,
+    "kind": "FRAME",
+    "name": "Buttons",
+    "parent": 2363
+   },
+   {
+    "id": 2366,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Secundário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "🖊️ Botão Secundário",
+    "parent": 2365
+   },
+   {
+    "id": 2369,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 2366,
+    "text": "Adicionar à sacola"
+   },
+   {
+    "id": 2370,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Primário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": "🖊️ Botão Primário",
+    "parent": 2365
+   },
+   {
+    "id": 2373,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 2370,
+    "text": "Comprar agora · M"
+   },
+   {
+    "id": 2374,
+    "instanceOf": ".HomeIndicator",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-t-da860ee1caab.json"
+    },
+    "name": ".HomeIndicator",
+    "parent": 2363
+   },
+   {
+    "id": 2375,
+    "kind": "RECTANGLE",
+    "name": "Home Indicator",
+    "parent": 2374
+   }
+  ],
+  "screens": [
+   {
+    "brandChosen": true,
+    "id": 2200,
+    "modes": {
+     "Tokens APP": "NV"
+    },
+    "name": "G · Disruptiva · Comprar agora no tamanho de sempre"
+   }
+  ]
+ },
+ "design_critique": {
+  "advisory": true,
+  "findings": [
+   {
+    "area": "falhas",
+    "consequence": "O botão promete comprar no M e a cliente só descobre a falta depois do toque.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 1,
+    "recommendation": "Mostrar \"Comprar agora\" só com o tamanho disponível; sem estoque, trocar pelo seletor com o aviso de indisponível.",
+    "scenario": "O tamanho de sempre (M) está sem estoque nesta peça.",
+    "severity": "crítica",
+    "status": "decisão da designer"
+   },
+   {
+    "area": "fluxo",
+    "consequence": "Não existe \"tamanho de sempre\" e a área de ação fica sem sentido.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 2,
+    "recommendation": "Desenhar a variação sem tamanho conhecido: botão único \"Adicionar à sacola\", como hoje.",
+    "scenario": "Cliente sem compra anterior ou sem login.",
+    "severity": "alta",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Selector Color no DS",
+    "ids": [
+     2298,
+     2300
+    ],
+    "n": 3,
+    "recommendation": "Mostrar quando a tela fica em Desabilitado=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Selector Color aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Button no DS",
+    "ids": [
+     2265,
+     2335,
+     2341,
+     2366,
+     2370
+    ],
+    "n": 4,
+    "recommendation": "Mostrar quando a tela fica em Desabilitado=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Button no DS",
+    "ids": [
+     2265,
+     2335,
+     2341,
+     2366,
+     2370
+    ],
+    "n": 5,
+    "recommendation": "Mostrar quando a tela fica em Loading=True (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Button aparece só com Loading=False; a tela não mostra Loading=True.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Snackbar no DS",
+    "ids": [
+     2354
+    ],
+    "n": 6,
+    "recommendation": "Mostrar quando a tela fica em Loading=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Snackbar aparece só com Loading=Off; a tela não mostra Loading=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Snackbar no DS",
+    "ids": [
+     2354
+    ],
+    "n": 7,
+    "recommendation": "Mostrar quando a tela fica em Status=Erro (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Snackbar aparece só com Status=Sucesso; a tela não mostra Status=Erro.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "acessibilidade",
+    "consequence": "Quem tem baixa visão, ou usa o app no sol, pode não conseguir ler.",
+    "evidence": "Eureka (medido): cores dos tokens na marca da tela; WCAG 2.1 AA 1.4.3",
+    "ids": [
+     2289
+    ],
+    "n": 8,
+    "recommendation": "Usar uma cor de conteúdo do DS com contraste suficiente sobre esse fundo em todas as marcas.",
+    "scenario": "Texto \"10x R$ 159,90 sem juros\" com contraste 3.6:1 sobre o fundo (pede 4.5:1). Vem do componente .Nested / pdp-main-info do DS.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "acessibilidade",
+    "consequence": "Quem tem baixa visão, ou usa o app no sol, pode não conseguir ler.",
+    "evidence": "Eureka (medido): cores dos tokens na marca da tela; WCAG 2.1 AA 1.4.3",
+    "ids": [
+     2303
+    ],
+    "n": 9,
+    "recommendation": "Usar uma cor de conteúdo do DS com contraste suficiente sobre esse fundo em todas as marcas.",
+    "scenario": "Texto \"Ref 25.34.2741_11063\" com contraste 3.6:1 sobre o fundo (pede 4.5:1). Vem do componente .Nested / pdp-main-info do DS.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "conteúdo e interação",
+    "consequence": "Toque no botão errado e compra sem revisão, o que gera troca ou cancelamento.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 10,
+    "recommendation": "\"Comprar agora\" leva ao resumo do checkout antes de cobrar; testar a ordem e o rótulo dos botões com usuárias.",
+    "scenario": "Dois botões lado a lado com ações parecidas (comprar agora e adicionar à sacola).",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "viabilidade",
+    "consequence": "Se o checkout não aceita entrar direto com um item, a proposta depende de uma mudança maior.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 11,
+    "recommendation": "Perguntar à engenharia se o checkout do app aceita compra direta de um item, sem passar pela sacola.",
+    "scenario": "Compra direta a partir da PDP no app NV.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "medição",
+    "consequence": "Sem as duas métricas juntas, um ganho de conversão pode esconder mais devoluções.",
+    "evidence": "Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+    "ids": [],
+    "n": 12,
+    "recommendation": "Métrica principal: conversão da PDP; de controle: taxa de troca por tamanho. Teste A/B com e sem a área de dois botões.",
+    "scenario": "Saber se a compra direta aumenta a conversão sem aumentar trocas.",
+    "severity": "baixa",
+    "status": "aberto"
+   }
+  ],
+  "open": [
+   "De onde vem o tamanho de sempre: última compra, perfil ou escolha nesta sessão?",
+   "\"Comprar agora\" pula a sacola só desta peça ou leva o que já está nela?"
+  ],
+  "refined": "Área de ação fixa com \"Comprar agora · M\" só quando há tamanho conhecido da cliente e estoque desse tamanho; sem isso, volta o botão único \"Adicionar à sacola\". A confirmação usa o Snackbar de sucesso, e a compra direta abre o checkout com o resumo antes de cobrar.",
+  "reviewed": true,
+  "reviewer": "Claude (roteiro de crítica do gerador-propostas)"
+ },
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}
