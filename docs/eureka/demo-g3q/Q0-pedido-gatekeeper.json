@@ -1,0 +1,539 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+ "brand_modes": [
+  {
+   "Tokens APP": "NV"
+  }
+ ],
+ "board": "NV App · PDP · Rodada 01 (13/11) · gerada pela skill + 3 de teste do Eureka",
+ "problem": "Na PDP do app NV, baixa adição à sacola, dúvida de tamanho e pouca inspiração. Registro: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+ "proposal": {
+  "letter": "G",
+  "name": "Comprar agora no tamanho de sempre",
+  "type": "Disruptiva",
+  "mechanism": "reduzir passos",
+  "summary": "A área de ação fixa troca o botão único por dois: comprar agora no tamanho que a cliente já comprou e adicionar à sacola. A confirmação aparece na própria tela.",
+  "confidence": "baixa"
+ },
+ "not_chosen": [
+  "A · Incremental · Tamanho na hora de escolher",
+  "B · Incremental · Como veste",
+  "C · Incremental · Concierge NV para tamanho e styling",
+  "D · Incremental · Galeria editorial com look comprável",
+  "E · Incremental · Botão fixo que resolve o tamanho",
+  "F · Disruptiva · Tamanho resolvido antes da galeria",
+  "H · Disruptiva · Provar na loja antes de comprar"
+ ],
+ "ds_lint": [],
+ "context": {
+  "layers": [
+   {
+    "id": 921,
+    "kind": "FRAME",
+    "name": "G · Disruptiva · Comprar agora no tamanho de sempre",
+    "parent": 1018
+   },
+   {
+    "id": 922,
+    "kind": "RECTANGLE",
+    "name": "Galeria (imagem de exemplo)",
+    "parent": 921
+   },
+   {
+    "id": 923,
+    "kind": "FRAME",
+    "name": "Conteúdo",
+    "parent": 921
+   },
+   {
+    "id": 924,
+    "kind": "TEXT",
+    "name": "Vestido midi de alça",
+    "parent": 923,
+    "text": "Vestido midi de alça"
+   },
+   {
+    "id": 925,
+    "kind": "TEXT",
+    "name": "R$ 1.290,00",
+    "parent": 923,
+    "text": "R$ 1.290,00"
+   },
+   {
+    "id": 926,
+    "kind": "FRAME",
+    "name": "Tamanhos",
+    "parent": 923
+   },
+   {
+    "id": 927,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Tamanho PP",
+    "parent": 926
+   },
+   {
+    "id": 928,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 927
+   },
+   {
+    "id": 929,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 928,
+    "text": "PP"
+   },
+   {
+    "id": 931,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Tamanho P",
+    "parent": 926
+   },
+   {
+    "id": 932,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 931
+   },
+   {
+    "id": 933,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 932,
+    "text": "P"
+   },
+   {
+    "id": 935,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Tamanho M",
+    "parent": 926
+   },
+   {
+    "id": 936,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 935
+   },
+   {
+    "id": 937,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 936,
+    "text": "M"
+   },
+   {
+    "id": 939,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Tamanho G",
+    "parent": 926
+   },
+   {
+    "id": 940,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 939
+   },
+   {
+    "id": 941,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 940,
+    "text": "G"
+   },
+   {
+    "id": 943,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Tamanho GG",
+    "parent": 926
+   },
+   {
+    "id": 944,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 943
+   },
+   {
+    "id": 945,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 944,
+    "text": "GG"
+   },
+   {
+    "id": 947,
+    "instanceOf": "🚦 Status=Sucesso, ↩️ Loading=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Snackbar",
+    "parent": 923
+   },
+   {
+    "id": 948,
+    "kind": "FRAME",
+    "name": "Left Content",
+    "parent": 947
+   },
+   {
+    "id": 949,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=check-circle",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Icon",
+    "parent": 948
+   },
+   {
+    "id": 950,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 949,
+    "text": "check-circle"
+   },
+   {
+    "id": 951,
+    "kind": "TEXT",
+    "name": "Texto que pode conter até 3 linhas.",
+    "parent": 948,
+    "text": "Adicionado à sacola · M"
+   },
+   {
+    "id": 952,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Pequeno, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=On, ↔️ Padding=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Botão",
+    "parent": 947
+   },
+   {
+    "id": 953,
+    "instanceOf": "↕ Size=small, 🖼️ Icon=close",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Icon",
+    "parent": 952
+   },
+   {
+    "id": 954,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 953,
+    "text": "close"
+   },
+   {
+    "id": 955,
+    "instanceOf": "↕️ Vertical=Off, 📍 Fixed=On",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "Action Button · comprar",
+    "parent": 921
+   },
+   {
+    "id": 956,
+    "instanceOf": "🤏 Tamanho=Large, ✅ Agree=Off, ☑️ Agree Disabled=Off, ⌨️ Keyboard=Off, 🎒 Mochila=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "▶️ Action",
+    "parent": 955
+   },
+   {
+    "id": 957,
+    "kind": "RECTANGLE",
+    "name": "BG",
+    "parent": 956
+   },
+   {
+    "id": 958,
+    "kind": "FRAME",
+    "name": "Buttons",
+    "parent": 956
+   },
+   {
+    "id": 959,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Secundário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "🖊️ Botão Secundário",
+    "parent": 958
+   },
+   {
+    "id": 962,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 959,
+    "text": "Adicionar à sacola"
+   },
+   {
+    "id": 963,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Primário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": "🖊️ Botão Primário",
+    "parent": 958
+   },
+   {
+    "id": 966,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 963,
+    "text": "Comprar agora · M"
+   },
+   {
+    "id": 967,
+    "instanceOf": ".HomeIndicator",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-frente-p-295d7a197126.json"
+    },
+    "name": ".HomeIndicator",
+    "parent": 956
+   },
+   {
+    "id": 968,
+    "kind": "RECTANGLE",
+    "name": "Home Indicator",
+    "parent": 967
+   }
+  ],
+  "screens": [
+   {
+    "brandChosen": true,
+    "id": 921,
+    "modes": {
+     "Tokens APP": "NV"
+    },
+    "name": "G · Disruptiva · Comprar agora no tamanho de sempre"
+   }
+  ]
+ },
+ "design_critique": {
+  "advisory": true,
+  "findings": [
+   {
+    "area": "falhas",
+    "consequence": "O botão promete comprar no M e a cliente só descobre a falta depois do toque.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 1,
+    "recommendation": "Mostrar \"Comprar agora\" só com o tamanho disponível; sem estoque, trocar pelo seletor com o aviso de indisponível.",
+    "scenario": "O tamanho de sempre (M) está sem estoque nesta peça.",
+    "severity": "crítica",
+    "status": "decisão da designer"
+   },
+   {
+    "area": "fluxo",
+    "consequence": "Não existe \"tamanho de sempre\" e a área de ação fica sem sentido.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 2,
+    "recommendation": "Desenhar a variação sem tamanho conhecido: botão único \"Adicionar à sacola\", como hoje.",
+    "scenario": "Cliente sem compra anterior ou sem login.",
+    "severity": "alta",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Button no DS",
+    "ids": [
+     959,
+     963
+    ],
+    "n": 3,
+    "recommendation": "Mostrar quando a tela fica em Desabilitado=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Button no DS",
+    "ids": [
+     959,
+     963
+    ],
+    "n": 4,
+    "recommendation": "Mostrar quando a tela fica em Loading=True (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Button aparece só com Loading=False; a tela não mostra Loading=True.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Snackbar no DS",
+    "ids": [
+     947
+    ],
+    "n": 5,
+    "recommendation": "Mostrar quando a tela fica em Loading=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Snackbar aparece só com Loading=Off; a tela não mostra Loading=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Snackbar no DS",
+    "ids": [
+     947
+    ],
+    "n": 6,
+    "recommendation": "Mostrar quando a tela fica em Status=Erro (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Snackbar aparece só com Status=Sucesso; a tela não mostra Status=Erro.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "estados",
+    "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+    "evidence": "Eureka (medido): variantes de Selector Size (Selector Button) no DS",
+    "ids": [
+     927,
+     931,
+     935,
+     939,
+     943
+    ],
+    "n": 7,
+    "recommendation": "Mostrar quando a tela fica em Desabilitado=On (num fluxo com o estado), ou registrar por que não se aplica.",
+    "scenario": "Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "conteúdo e interação",
+    "consequence": "Toque no botão errado e compra sem revisão, o que gera troca ou cancelamento.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 8,
+    "recommendation": "\"Comprar agora\" leva ao resumo do checkout antes de cobrar; testar a ordem e o rótulo dos botões com usuárias.",
+    "scenario": "Dois botões lado a lado com ações parecidas (comprar agora e adicionar à sacola).",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "viabilidade",
+    "consequence": "Se o checkout não aceita entrar direto com um item, a proposta depende de uma mudança maior.",
+    "evidence": "inferência",
+    "ids": [],
+    "n": 9,
+    "recommendation": "Perguntar à engenharia se o checkout do app aceita compra direta de um item, sem passar pela sacola.",
+    "scenario": "Compra direta a partir da PDP no app NV.",
+    "severity": "média",
+    "status": "aberto"
+   },
+   {
+    "area": "acessibilidade",
+    "consequence": "Se for tocável, um alvo pequeno gera toques errados.",
+    "evidence": "Eureka (medido); referência: Apple Human Interface Guidelines, 44 × 44 pt",
+    "ids": [
+     927,
+     931,
+     935,
+     939,
+     943
+    ],
+    "n": 10,
+    "recommendation": "Se for tocável, garantir área de toque de 44 × 44 pt (a área pode ser maior que o desenho).",
+    "scenario": "Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).",
+    "severity": "baixa",
+    "status": "aberto"
+   },
+   {
+    "area": "medição",
+    "consequence": "Sem as duas métricas juntas, um ganho de conversão pode esconder mais devoluções.",
+    "evidence": "Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+    "ids": [],
+    "n": 11,
+    "recommendation": "Métrica principal: conversão da PDP; de controle: taxa de troca por tamanho. Teste A/B com e sem a área de dois botões.",
+    "scenario": "Saber se a compra direta aumenta a conversão sem aumentar trocas.",
+    "severity": "baixa",
+    "status": "aberto"
+   }
+  ],
+  "open": [
+   "De onde vem o tamanho de sempre: última compra, perfil ou escolha nesta sessão?",
+   "\"Comprar agora\" pula a sacola só desta peça ou leva o que já está nela?"
+  ],
+  "refined": "Área de ação fixa com \"Comprar agora · M\" só quando há tamanho conhecido da cliente e estoque desse tamanho; sem isso, volta o botão único \"Adicionar à sacola\". A confirmação usa o Snackbar de sucesso, e a compra direta abre o checkout com o resumo antes de cobrar.",
+  "reviewed": true,
+  "reviewer": "Claude (roteiro de crítica do gerador-propostas)"
+ },
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}

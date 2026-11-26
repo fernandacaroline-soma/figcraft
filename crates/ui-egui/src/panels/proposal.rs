@@ -561,7 +561,7 @@ const MAX_FINDINGS_LISTED: usize = 40;
 /// The design critique: its findings by severity, each with a status the designer sets, and the
 /// button that tells the Gatekeeper it may look.
 fn critique_block(ui: &mut Ui, c: &Value, t: &Tokens) -> CardAction {
-    use figcraft_engine::cmd::eureka_critique::{SEVERITIES, STATUSES};
+    use figcraft_engine::cmd::eureka_critique::SEVERITIES;
     let mut action = CardAction::None;
     let reviewer = c.get("reviewer").and_then(Value::as_str).unwrap_or_default();
     heading(ui, &trf("Design critique by {reviewer}", &[("reviewer", &reviewer)]), t);
@@ -574,6 +574,26 @@ fn critique_block(ui: &mut Ui, c: &Value, t: &Tokens) -> CardAction {
         })
         .collect();
     line(ui, &if counts.is_empty() { tr("No findings").to_string() } else { counts.join(" · ") }, t.text_secondary);
+    if c.get("reviewed") == Some(&json!(true)) {
+        // Reviewed: the critique folds to its summary so the Gatekeeper's verdict shows below it.
+        line(ui, tr("You reviewed the critique."), t.success);
+        egui::CollapsingHeader::new(tr("Show the findings")).id_salt("critique_findings").default_open(false).show(ui, |ui| {
+            action = critique_details(ui, c, &findings, t);
+        });
+    } else {
+        action = critique_details(ui, c, &findings, t);
+        ui.add_space(8.0);
+        if ui.button(tr("I reviewed the critique")).clicked() {
+            action = CardAction::Reviewed;
+        }
+    }
+    action
+}
+
+/// The critique's findings (each with its status), the refined proposal and the open decisions.
+fn critique_details(ui: &mut Ui, c: &Value, findings: &[&Value], t: &Tokens) -> CardAction {
+    use figcraft_engine::cmd::eureka_critique::STATUSES;
+    let mut action = CardAction::None;
     let get = |f: &Value, k: &str| f.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
     for f in findings.iter().take(MAX_FINDINGS_LISTED) {
         ui.add_space(6.0);
@@ -616,12 +636,6 @@ fn critique_block(ui: &mut Ui, c: &Value, t: &Tokens) -> CardAction {
         for o in open {
             line(ui, &format!("· {o}"), t.text_secondary);
         }
-    }
-    ui.add_space(8.0);
-    if c.get("reviewed") == Some(&json!(true)) {
-        line(ui, tr("You reviewed the critique."), t.success);
-    } else if ui.button(tr("I reviewed the critique")).clicked() {
-        action = CardAction::Reviewed;
     }
     action
 }
