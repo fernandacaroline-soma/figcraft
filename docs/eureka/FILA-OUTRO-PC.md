@@ -192,6 +192,6 @@ dois trabalhem juntos por aqui.
   RESULTADO: OK
   ```
   O app mostrou `agents may read and write in D:\Temp\ and the folders allowed in Preferences (0)`,
-  e a chave ficou em `D:\Tempigcraft-control-63791.token`. O `eureka_control.token` encontrou a
+  e a chave ficou em `D:\Temp\figcraft-control-63791.token`. O `eureka_control.token` encontrou a
   chave sozinho (pasta temporária do Windows). Os meus scripts fora do repo também passaram a mandar
   a chave; os do `docs/eureka` já mandavam. Tarefas 10 a 13 em andamento.
