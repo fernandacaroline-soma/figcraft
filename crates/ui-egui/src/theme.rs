@@ -41,6 +41,12 @@ pub struct Tokens {
     pub danger: Color32,
     pub success: Color32,
     pub warning: Color32,
+    /// Status colours for words (a verdict, a warning line): `danger`, `success` and `warning` are
+    /// fills and icons, too light or too dark for text on panels; these read at 4.5:1 (WCAG AA) on
+    /// `bg`, `panel`, `field` and `hover`.
+    pub danger_text: Color32,
+    pub success_text: Color32,
+    pub warning_text: Color32,
     pub guide: Color32,
     pub tab_bar: Color32,
     pub tab_active: Color32,
@@ -132,6 +138,9 @@ impl Tokens {
             danger: Color32::from_rgb(0xF2, 0x48, 0x22),
             success: DEV_READY,
             warning: Color32::from_rgb(0xFF, 0xCD, 0x29),
+            danger_text: Color32::from_rgb(0xC2, 0x29, 0x0A),
+            success_text: DEV_READY,
+            warning_text: DEV_CHANGED,
             guide: Color32::from_rgb(0xF2, 0x48, 0x22),
             tab_bar: Color32::from_rgb(0xE8, 0xE8, 0xE8),
             tab_active: Color32::from_rgb(0xFF, 0xFF, 0xFF),
@@ -175,6 +184,9 @@ impl Tokens {
             danger: Color32::from_rgb(0xF2, 0x48, 0x22),
             success: DEV_READY,
             warning: Color32::from_rgb(0xFF, 0xCD, 0x29),
+            danger_text: Color32::from_rgb(0xFF, 0x8A, 0x70),
+            success_text: Color32::from_rgb(0x3D, 0xD6, 0x8C),
+            warning_text: Color32::from_rgb(0xFF, 0xCD, 0x29),
             guide: Color32::from_rgb(0xF2, 0x48, 0x22),
             tab_bar: Color32::from_rgb(0x1E, 0x1E, 0x1E),
             tab_active: Color32::from_rgb(0x2C, 0x2C, 0x2C),
@@ -501,6 +513,29 @@ mod tests {
         let k = 1.0 - f32::from(fill.a()) / 255.0;
         let mix = |f: u8, b: u8| (f32::from(f) + f32::from(b) * k).round().min(255.0) as u8;
         Color32::from_rgb(mix(fill.r(), bg.r()), mix(fill.g(), bg.g()), mix(fill.b(), bg.b()))
+    }
+
+    #[test]
+    fn words_in_status_and_body_colours_read_at_aa_in_both_themes() {
+        // WCAG AA for text (4.5:1) where words are drawn: the Eureka card's verdict, warnings,
+        // severities and "Chosen" lines among them. The status fills (`warning` is a yellow) are
+        // not text colours: they stay for fills and icons.
+        for t in [Tokens::light(), Tokens::dark()] {
+            let theme = if t.dark { "dark" } else { "light" };
+            for (name, fg) in [
+                ("text", t.text),
+                ("text_secondary", t.text_secondary),
+                ("accent_text", t.accent_text),
+                ("danger_text", t.danger_text),
+                ("success_text", t.success_text),
+                ("warning_text", t.warning_text),
+            ] {
+                for (surface, bg) in [("bg", t.bg), ("panel", t.panel), ("field", t.field), ("hover", t.hover)] {
+                    let ratio = c(fg).contrast(c(bg));
+                    assert!(ratio >= 4.5, "{theme}: {name} on {surface} is {ratio:.2}:1");
+                }
+            }
+        }
     }
 
     #[test]

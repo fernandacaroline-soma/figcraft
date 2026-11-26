@@ -279,7 +279,7 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
 
     if let Some(layers) = &c.stale {
         ui.add_space(8.0);
-        line(ui, &trf("The layer {names} changed since the preview. Nothing was applied.", &[("names", layers)]), t.danger);
+        line(ui, &trf("The layer {names} changed since the preview. Nothing was applied.", &[("names", layers)]), t.danger_text);
         ui.add_space(8.0);
         ui.horizontal(|ui| {
             if widgets::button(ui, tr("Generate again"), true, true).clicked() {
@@ -295,7 +295,7 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
     let r = &c.result;
     if result_blocked(r) {
         ui.add_space(10.0);
-        line(ui, tr("Apply waits for a choice on every conflict."), t.warning);
+        line(ui, tr("Apply waits for a choice on every conflict."), t.warning_text);
     }
     // A reviewer's pre-approval (the DS Gatekeeper's): shown, never acted on.
     if let Some(rv) = &c.review {
@@ -334,9 +334,9 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
                 }
             });
             match (k.kept.as_str(), choice) {
-                ("needs-choice", None) => line(ui, tr("Choose before applying."), t.warning),
+                ("needs-choice", None) => line(ui, tr("Choose before applying."), t.warning_text),
                 ("needs-choice", Some(_)) => {
-                    line(ui, tr("To keep your layer, discard the proposal or ask Claude for another one."), t.warning);
+                    line(ui, tr("To keep your layer, discard the proposal or ask Claude for another one."), t.warning_text);
                 }
                 _ => {}
             }
@@ -349,7 +349,7 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
     if !lint.is_empty() {
         heading(ui, tr("Design system notes"), t);
         for f in lint.iter().take(MAX_LISTED) {
-            line(ui, f.get("message").and_then(Value::as_str).unwrap_or_default(), t.warning);
+            line(ui, f.get("message").and_then(Value::as_str).unwrap_or_default(), t.warning_text);
             if let Some(src) = f.get("source").and_then(Value::as_str) {
                 line(ui, &source_label(src), t.text_tertiary);
             }
@@ -367,7 +367,7 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
                 Some(v) => v.to_string(),
                 None => String::new(),
             };
-            line(ui, &trf("{name}: {prop} {value} has no variable", &[("name", &name), ("prop", &prop), ("value", &value)]), t.warning);
+            line(ui, &trf("{name}: {prop} {value} has no variable", &[("name", &name), ("prop", &prop), ("value", &value)]), t.warning_text);
         }
     }
 
@@ -400,9 +400,9 @@ fn body(ui: &mut Ui, c: &Card, t: &Tokens) -> Option<Action> {
 fn review_block(ui: &mut Ui, rv: &Value, t: &Tokens) {
     let verdict = rv.get("verdict").and_then(Value::as_str).unwrap_or_default();
     let (label, color) = match verdict {
-        "aprovado" => (tr("Pre-approved"), t.success),
-        "com-ressalvas" => (tr("Pre-approved with notes"), t.warning),
-        _ => (tr("Not pre-approved"), t.danger),
+        "aprovado" => (tr("Pre-approved"), t.success_text),
+        "com-ressalvas" => (tr("Pre-approved with notes"), t.warning_text),
+        _ => (tr("Not pre-approved"), t.danger_text),
     };
     let reviewer = rv.get("reviewer").and_then(Value::as_str).unwrap_or_default();
     heading(ui, &trf("Review by {reviewer}", &[("reviewer", &reviewer)]), t);
@@ -477,7 +477,7 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
     let t = Tokens::get(ctx);
     let x = (canvas.max.x - CARD_W - 12.0).max(canvas.min.x + 12.0);
     let max_h = (canvas.height() - 160.0).max(120.0);
-    egui::Area::new(Id::unique("board_proposal_card"))
+    let shown = egui::Area::new(crate::a11y::card_area())
         .order(egui::Order::Foreground)
         .fade_in(false)
         .pivot(Align2::LEFT_TOP)
@@ -491,13 +491,14 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
                 .inner_margin(egui::Margin::same(12))
                 .show(ui, |ui| {
                     ui.set_width(CARD_W - 24.0);
-                    egui::ScrollArea::vertical()
-                        .max_height(max_h)
-                        .min_scrolled_height(max_h)
-                        .auto_shrink([false, true])
-                        .show(ui, |ui| action = board_body(ui, &bp, &t));
+                    egui::ScrollArea::vertical().max_height(max_h).min_scrolled_height(max_h).auto_shrink([false, true]).show(ui, |ui| {
+                        crate::a11y::container(ui, egui::accesskit::Role::Pane, tr("Proposal on the board"));
+                        action = board_body(ui, &bp, &t);
+                    });
                 });
         });
+    // F6 reaches the card while it shows (`a11y::Region::Card`).
+    crate::a11y::area(&mut app.ui.nav, crate::a11y::Region::Card, shown.response.rect);
     let Some(id) = selected else { return };
     match action {
         // The designer's pick, the same as `explore.choose`: the others stay on the board, marked.
@@ -565,13 +566,22 @@ fn export_chosen(app: &mut FigApp, id: NodeId) {
     });
 }
 
+/// A card button was clicked or pressed with Enter or Space. The card scrolls, so a button the
+/// keyboard moves to comes into view.
+fn pressed(resp: egui::Response) -> bool {
+    if resp.gained_focus() {
+        resp.scroll_to_me(None);
+    }
+    resp.clicked()
+}
+
 /// The card's content and what the designer did on it.
 fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
     let (name, info) = (bp.name.as_str(), &bp.info);
     ui.spacing_mut().item_spacing.y = 2.0;
     let text = |k: &str| info.get(k).and_then(Value::as_str).filter(|x| !x.is_empty());
     let (status, color) = match text("status") {
-        Some("escolhida") => (tr("Chosen"), t.success),
+        Some("escolhida") => (tr("Chosen"), t.success_text),
         Some("não escolhida") => (tr("Not chosen"), t.text_tertiary),
         _ => (tr("Proposal on the board"), t.text_secondary),
     };
@@ -598,7 +608,7 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
     let chosen = text("status") == Some("escolhida");
     if !chosen {
         ui.add_space(8.0);
-        return if ui.button(tr("Choose this proposal")).clicked() { CardAction::Choose } else { CardAction::None };
+        return if pressed(ui.button(tr("Choose this proposal"))) { CardAction::Choose } else { CardAction::None };
     }
     // The generator's order: the choice, the design critique the designer reviews, the Gatekeeper.
     let mut action = CardAction::None;
@@ -618,13 +628,13 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
             // be drafted (`explore.memory`), and only written with her explicit ok.
             ui.add_space(8.0);
             if bp.approval.is_some() {
-                line(ui, tr("You approved this layout."), t.success);
-            } else if ui.button(tr("Approve the layout")).clicked() {
+                line(ui, tr("You approved this layout."), t.success_text);
+            } else if pressed(ui.button(tr("Approve the layout"))) {
                 action = CardAction::Approve;
             }
             // The code for the developers, with the proposal, the verdict and the open findings
             // at the top of the TSX.
-            if ui.button(tr("Export the proposal as code")).clicked() {
+            if pressed(ui.button(tr("Export the proposal as code"))) {
                 action = CardAction::ExportCode;
             }
             // Which code components the export calls: the design system's map, once linked.
@@ -635,15 +645,15 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
                     line(ui, &trf("Code map: {name} · {linked} DS components linked", &[("name", &name), ("linked", &linked)]), t.text_secondary);
                     let missing = m.get("missing").and_then(Value::as_u64).unwrap_or(0);
                     if missing > 0 {
-                        line(ui, &trn("{n} DS components have no entry: they go out drawn.", missing as usize, &[]), t.warning);
+                        line(ui, &trn("{n} DS components have no entry: they go out drawn.", missing as usize, &[]), t.warning_text);
                     }
-                    if ui.small_button(tr("Link another code map…")).clicked() {
+                    if pressed(ui.small_button(tr("Link another code map…"))) {
                         action = CardAction::LinkCodeMap;
                     }
                 }
                 None => {
                     line(ui, tr("No code map: the DS components go out drawn as layers."), t.text_tertiary);
-                    if ui.button(tr("Link a code map…")).clicked() {
+                    if pressed(ui.button(tr("Link a code map…"))) {
                         action = CardAction::LinkCodeMap;
                     }
                 }
@@ -679,14 +689,14 @@ fn critique_block(ui: &mut Ui, c: &Value, t: &Tokens) -> CardAction {
     line(ui, &if counts.is_empty() { tr("No findings").to_string() } else { counts.join(" · ") }, t.text_secondary);
     if c.get("reviewed") == Some(&json!(true)) {
         // Reviewed: the critique folds to its summary so the Gatekeeper's verdict shows below it.
-        line(ui, tr("You reviewed the critique."), t.success);
+        line(ui, tr("You reviewed the critique."), t.success_text);
         egui::CollapsingHeader::new(tr("Show the findings")).id_salt("critique_findings").default_open(false).show(ui, |ui| {
             action = critique_details(ui, c, &findings, t);
         });
     } else {
         action = critique_details(ui, c, &findings, t);
         ui.add_space(8.0);
-        if ui.button(tr("I reviewed the critique")).clicked() {
+        if pressed(ui.button(tr("I reviewed the critique"))) {
             action = CardAction::Reviewed;
         }
     }
@@ -702,8 +712,8 @@ fn critique_details(ui: &mut Ui, c: &Value, findings: &[&Value], t: &Tokens) -> 
         ui.add_space(6.0);
         let sv = get(f, "severity");
         let color = match sv.as_str() {
-            "crítica" | "alta" => t.danger,
-            "média" => t.warning,
+            "crítica" | "alta" => t.danger_text,
+            "média" => t.warning_text,
             _ => t.text_secondary,
         };
         let n = f.get("n").and_then(Value::as_u64).unwrap_or_default();
