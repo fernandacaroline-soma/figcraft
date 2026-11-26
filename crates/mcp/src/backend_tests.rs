@@ -102,3 +102,33 @@ fn a_reply_that_is_not_utf8_is_an_error() {
     assert!(app.conn.is_none());
     finish(done, fake, 1);
 }
+
+/// The app's control channel wants its session token first: the attached backend reads it from the
+/// token file the app wrote for its port and sends it before any request.
+#[test]
+fn the_session_token_goes_first_from_the_apps_token_file() {
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let path = figcraft_engine::control_token::token_path(port);
+    std::fs::write(&path, "tok-123\n").unwrap();
+    let app = std::thread::spawn(move || {
+        let (stream, _) = listener.accept().unwrap();
+        let mut out = stream.try_clone().unwrap();
+        let mut reader = BufReader::new(stream);
+        let mut lines = Vec::new();
+        for reply in [json!({"id": 0, "ok": true, "result": {"authenticated": true}}), json!({"id": 1, "ok": true, "result": "pong"})] {
+            let mut line = String::new();
+            reader.read_line(&mut line).unwrap();
+            lines.push(serde_json::from_str::<serde_json::Value>(&line).unwrap());
+            writeln!(out, "{reply}").unwrap();
+        }
+        lines
+    });
+    let mut a = Attached::port(port).unwrap();
+    assert_eq!(a.call("ui.inspect", json!({})).unwrap(), json!("pong"));
+    let lines = app.join().unwrap();
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(lines[0]["method"], json!("auth"));
+    assert_eq!(lines[0]["params"]["token"], json!("tok-123"), "trimmed, from the file");
+    assert_eq!(lines[1]["method"], json!("ui.inspect"));
+}

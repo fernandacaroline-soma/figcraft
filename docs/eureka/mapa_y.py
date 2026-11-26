@@ -23,6 +23,7 @@ S, SCREEN, MAP = sys.argv[1:4]
 PACKAGE = sys.argv[4] if len(sys.argv) > 4 else "@azzas/ds-apps"
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 
 

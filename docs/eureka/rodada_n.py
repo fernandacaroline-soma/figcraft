@@ -27,6 +27,7 @@ S, TOK, COMP, PROPS = ARGS[:4]
 MORE = ARGS[4:]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 
 

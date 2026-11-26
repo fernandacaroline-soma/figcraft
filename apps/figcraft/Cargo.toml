@@ -27,6 +27,7 @@ egui = { workspace = true }
 # What's new and Download, About, Credits) with only a log warning.
 eframe = { workspace = true, features = ["default_fonts", "wgpu", "accesskit", "clipboard", "links", "wayland", "x11"] }
 serde_json = { workspace = true }
+getrandom = { workspace = true }
 log = { workspace = true }
 rfd = { workspace = true }
 arboard = { workspace = true, features = ["image-data", "wayland-data-control"] }

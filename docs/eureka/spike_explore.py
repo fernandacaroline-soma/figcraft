@@ -16,6 +16,7 @@ import sys
 S, TOK = sys.argv[1], sys.argv[2]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=120).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 COL = "Tokens APP"
 MODE = "Animale (CERTO)"

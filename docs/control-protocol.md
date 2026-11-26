@@ -16,6 +16,33 @@ reply:    {"id": 1, "ok": true, "result": ...}
           {"id": 1, "ok": false, "error": "message"}
 ```
 
+## Session token
+
+Only the app's own user may drive it: another program on the same machine must not run commands
+(and read or write files) through the port. So each connection starts with the app's session token:
+
+```text
+request:  {"id": 0, "method": "auth", "params": {"token": "…"}}
+reply:    {"id": 0, "ok": true, "result": {"authenticated": true, "protocol": 1, "app": "FigCraft 0.18.1"}}
+```
+
+`protocol` is the control protocol's version (1: JSON lines, `auth` first): a client that needs a
+newer one stops there instead of sending commands the app may not understand.
+
+- **Where the token is.** With `--control PORT` the app makes a random token and writes it to
+  `figcraft-control-<PORT>.token` in the user's temporary folder (the `TMPDIR` of the shell that
+  started it), readable only by that user; it prints the path at start. A token in
+  `FIGCRAFT_CONTROL_TOKEN` is used instead (scripts and CI set one), and no file is written.
+- **Before it.** Any other request gets `{"ok": false, "error": "unauthorized: …"}` and the
+  connection ends. A wrong token gets `"wrong token"` and ends it too: no second guess on one
+  connection.
+- **Clients.** `figcraft-cli mcp --attach` sends it (from `FIGCRAFT_CONTROL_TOKEN`, else the file for
+  that port); the Eureka scripts in `docs/eureka` use `eureka_control.auth`. A client written for an
+  app from before tokens needs that one line added.
+
+The token keeps other programs out; [confining file access](#confining-file-access) also limits
+what the app itself may read and write.
+
 Requests are queued and run on the UI thread at the start of the next frame, so replies reflect the
 real UI state. A request that the UI doesn't answer within 60 s gets a timeout error that says what
 happened to it: one the app never started (it was busy, or its window wasn't drawing) was dropped

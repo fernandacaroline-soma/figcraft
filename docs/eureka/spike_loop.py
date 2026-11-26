@@ -26,6 +26,7 @@ S, TOK = args[0], args[1]
 LIVE = "--live" in sys.argv
 PORT = int(open(f"{S}/port").read())
 sock = socket.create_connection(("127.0.0.1", PORT), timeout=120)
+__import__("eureka_control").auth_socket(sock, PORT)
 f = sock.makefile("rw")
 n = [0]
 LOG = []
@@ -173,7 +174,7 @@ say("Escolha no cartão: cores → fica a do Claude; tamanho do preço → fica 
 p = ex("proposal.preview", {"label": label, "override": take, "commands": cmds})
 card(p)
 shot("L2-preview")
-a = ex("proposal.apply", {})
+a = ex("proposal.apply", {}, agent=None)  # the designer applies (E15: agents may not)
 say()
 say(f"Aplicado: {a.get('applied')} (1 passo de desfazer)")
 after = call("events.poll", {"after": cursor, "topics": ["document"], "timeoutMs": 0})

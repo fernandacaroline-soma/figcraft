@@ -34,6 +34,7 @@ pub use assets::playground;
 pub use assets::style_vars;
 pub use assets::token_roles;
 pub use automation::batch;
+pub use automation::control_token;
 pub use automation::doc_urls;
 pub use automation::file_access;
 pub use automation::inspect;
@@ -178,6 +179,8 @@ impl Default for Session {
 
 #[cfg(test)]
 mod a11y_keys_tests;
+#[cfg(test)]
+mod agent_contract_tests;
 #[cfg(test)]
 mod agent_presence_tests;
 #[cfg(test)]

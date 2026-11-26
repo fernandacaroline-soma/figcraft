@@ -13,6 +13,7 @@ import sys
 S = sys.argv[1]
 PORT = int(open(f"{S}/port").read())
 sock = socket.create_connection(("127.0.0.1", PORT), timeout=60)
+__import__("eureka_control").auth_socket(sock, PORT)
 f = sock.makefile("rw")
 n = [0]
 

@@ -19,6 +19,7 @@ import time
 S, TOK, COMP = sys.argv[1], sys.argv[2], sys.argv[3]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 COL, MODE = "Tokens APP", "NV"
 ROUND = "https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e"

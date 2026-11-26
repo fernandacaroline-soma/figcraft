@@ -13,6 +13,8 @@ rust-version = "1.95"
 repository = "https://github.com/storytold/figcraft"
 
 [workspace.dependencies]
+# The control channel's session token (apps/figcraft): OS randomness, native only.
+getrandom = "0.2"
 # internal
 figcraft-geom = { path = "crates/geom" }
 figcraft-color = { path = "crates/color" }

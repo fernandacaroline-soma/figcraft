@@ -23,6 +23,7 @@ if "--no-setup" not in sys.argv:
 
 PORT = int(open(f"{S}/port").read())
 sock = socket.create_connection(("127.0.0.1", PORT), timeout=120)
+__import__("eureka_control").auth_socket(sock, PORT)
 f = sock.makefile("rw", encoding="utf-8")
 
 

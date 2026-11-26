@@ -24,6 +24,7 @@ for a in sys.argv:
 
 PORT = int(open(f"{S}/port").read())
 sock = socket.create_connection(("127.0.0.1", PORT), timeout=120)
+__import__("eureka_control").auth_socket(sock, PORT)
 f = sock.makefile("rw")
 n = [0]
 # --app: DS Apps (collection "Tokens APP", Animale mode "Animale (CERTO)"); default DS N Marcas Web.

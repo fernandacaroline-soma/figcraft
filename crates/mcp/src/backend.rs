@@ -127,12 +127,27 @@ impl Attached {
                     s.set_read_timeout(Some(self.timeout.unwrap_or(Duration::from_secs(60)).saturating_add(Duration::from_secs(30)))).ok();
                     let read = s.try_clone()?;
                     self.conn = Some((BufReader::new(read), s));
-                    return Ok(());
+                    return self.authenticate();
                 }
                 Err(e) => last = e,
             }
         }
         Err(last)
+    }
+
+    /// Send the app's session token first, when there is one for this port
+    /// (`figcraft_engine::control_token`: `FIGCRAFT_CONTROL_TOKEN`, else the file the app wrote).
+    /// An app from before tokens has no file and needs none.
+    fn authenticate(&mut self) -> std::io::Result<()> {
+        let Some(token) = session_token(&self.addr) else { return Ok(()) };
+        let line = json!({"id": 0, "method": figcraft_engine::control_token::AUTH_METHOD, "params": {"token": token}}).to_string();
+        let reply = self.roundtrip(&line)?;
+        let ok = serde_json::from_str::<Value>(reply.trim()).ok().and_then(|v| v.get("ok").and_then(Value::as_bool)) == Some(true);
+        if ok {
+            return Ok(());
+        }
+        self.conn = None;
+        Err(std::io::Error::new(std::io::ErrorKind::PermissionDenied, "the app refused the control token (it was restarted? its token file changed)"))
     }
 
     /// The app already closed this connection (it drops ones idle past its socket timeout), or
@@ -169,6 +184,20 @@ impl Attached {
         }
         String::from_utf8(reply).map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
     }
+}
+
+/// The control token for `addr`'s port: `FIGCRAFT_CONTROL_TOKEN`, else the app's token file.
+fn session_token(addr: &str) -> Option<String> {
+    use figcraft_engine::control_token::{TOKEN_ENV, token_path};
+    if let Ok(t) = std::env::var(TOKEN_ENV)
+        && !t.trim().is_empty()
+    {
+        return Some(t.trim().to_string());
+    }
+    let port: u16 = addr.rsplit(':').next()?.parse().ok()?;
+    let mut text = String::new();
+    std::fs::File::open(token_path(port)).ok()?.take(1024).read_to_string(&mut text).ok()?;
+    Some(text.trim().to_string()).filter(|t| !t.is_empty())
 }
 
 impl Backend for Attached {

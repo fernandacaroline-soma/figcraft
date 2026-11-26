@@ -18,6 +18,7 @@ S, SCREEN, BRAND, REGISTRY = sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.arg
 PROFILE = sys.argv[5] if len(sys.argv) > 5 else None
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=120).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 
 

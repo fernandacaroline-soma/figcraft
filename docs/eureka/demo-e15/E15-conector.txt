@@ -1,0 +1,9 @@
+1. Sem chave: unauthorized: send {"method": "auth", "p… · conexão encerrada: True
+   Chave errada: wrong token · conexão encerrada: True
+2. Chave certa: FigCraft 0.18.1, protocolo 1 (o conector pede 1: ok)
+3. Contexto: o catálogo lista 1 variável(is) e 0 componente(s)
+4. Trabalho: quadro com 2 propostas, feito como "Mock agent"
+5. Erro: invalid parameters for `explore.board`: a board takes 2 to 12 proposal… · camadas mudadas depois do erro: 0
+6. Progresso: 3 camada(s) criada(s) desde o início do trabalho
+7. O agente tenta escolher: command `explore.choose` is not available right now: this is the designer's decision: an agent can prepare it, not make it
+   A pessoa escolhe (sem agente, como o botão do cartão): ok = True (teste: a escolha real é da designer)

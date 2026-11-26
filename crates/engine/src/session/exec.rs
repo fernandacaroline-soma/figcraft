@@ -114,6 +114,9 @@ impl Session {
     /// [`Session::execute`] for an AI agent named `agent` (the client's name; empty when it gave
     /// none), or for the user (`None`): the comments it makes are signed with the agent's name and
     /// marked as an agent's, and the app shows where it works ([`Session::agent_presence_at`]).
+    ///
+    /// The person's decisions ([`HUMAN_ONLY`]) refuse an agent: an agent prepares and advises, the
+    /// designer picks, reviews, approves and applies (Eureka's agent contract, E15).
     pub fn execute_as(&mut self, agent: Option<&str>, id: &str, params: &Value) -> Result<Value> {
         let was = std::mem::replace(&mut self.agent, agent.map(cmd::comment::agent_author));
         let before = agent.and_then(|_| self.agent_before());
@@ -129,6 +132,10 @@ impl Session {
     /// as it was.
     pub fn execute(&mut self, id: &str, params: &Value) -> Result<Value> {
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
+        // Also inside a batch an agent runs: the agent stays set for the commands it holds.
+        if self.agent.is_some() && HUMAN_ONLY.contains(&id) {
+            return Err(EngineError::Disabled(id.into(), "this is the designer's decision: an agent can prepare it, not make it".into()));
+        }
         crate::cmd::refuse_unknown_params(id, params)?;
         board::refuse_on_board(self, id)?;
         // Revert replaces the document's uid: refuse before ending previews or syncing branches.
@@ -347,3 +354,8 @@ impl Session {
         }
     }
 }
+
+/// The commands that are the person's decision on Eureka's exploration flow: picking a proposal,
+/// marking and closing the review of its critique, approving the layout, applying a proposal. An
+/// agent (`execute_as` with a name) gets an error; the app's own buttons run them for the person.
+pub const HUMAN_ONLY: &[&str] = &["explore.choose", "explore.critiqueStatus", "explore.critiqueReviewed", "explore.approve", "proposal.apply"];

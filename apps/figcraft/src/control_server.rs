@@ -103,7 +103,66 @@ pub fn bind(port: u16, busy: Duration) -> std::io::Result<TcpListener> {
     }
 }
 
+/// The session token: the one `FIGCRAFT_CONTROL_TOKEN` gives, else 32 random bytes (hex), written
+/// to the token file for the clients. `None` when there is no randomness or the file can't be
+/// written: then the server doesn't start (it never serves without a token).
+fn session_token(port: u16) -> Option<String> {
+    use figcraft_engine::control_token::{TOKEN_ENV, token_path};
+    if let Ok(t) = std::env::var(TOKEN_ENV)
+        && !t.trim().is_empty()
+    {
+        return Some(t.trim().to_string());
+    }
+    let mut bytes = [0u8; 32];
+    if let Err(e) = getrandom::getrandom(&mut bytes) {
+        log::error!("control server: no randomness for its token: {e}");
+        return None;
+    }
+    let token: String = bytes.iter().map(|b| format!("{b:02x}")).collect();
+    let path = token_path(port);
+    match write_private(&path, token.as_bytes()) {
+        Ok(()) => {
+            eprintln!("FigCraft control token: {}", path.display());
+            Some(token)
+        }
+        Err(e) => {
+            log::error!("control server: can't write its token to {}: {e}", path.display());
+            eprintln!("FigCraft control server: can't write its token to {}: {e}", path.display());
+            None
+        }
+    }
+}
+
+/// Write `bytes` to a new file at `path` that only this user can read (a file already there, maybe
+/// a link someone else made, is removed first, and the new one is never followed through a link).
+fn write_private(path: &std::path::Path, bytes: &[u8]) -> std::io::Result<()> {
+    match std::fs::remove_file(path) {
+        Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+        _ => {}
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path)?;
+    file.write_all(bytes)
+}
+
+/// The control protocol's version: a client checks it after `auth` and stops if it needs a newer
+/// one. 1: JSON lines, `auth` first (E15).
+pub const PROTOCOL: u32 = 1;
+
+/// What `auth` answers: the protocol and the app's version (`docs/control-protocol.md`).
+fn auth_result() -> Value {
+    json!({"authenticated": true, "protocol": PROTOCOL, "app": format!("FigCraft {}", env!("CARGO_PKG_VERSION"))})
+}
+
 pub fn start(port: u16, busy: Duration, queue: Queue, ctx: CtxSlot, events: Arc<EventLog>) {
+    let Some(token) = session_token(port) else { return };
+    let token = Arc::new(token);
     let listener = match bind(port, busy) {
         Ok(l) => l,
         Err(e) => {
@@ -116,7 +175,7 @@ pub fn start(port: u16, busy: Duration, queue: Queue, ctx: CtxSlot, events: Arc<
     let spawned = std::thread::Builder::new().name("figcraft-control".into()).spawn(move || {
         let mut workers = Vec::new();
         for stream in accepted(listener.incoming(), || std::thread::sleep(ACCEPT_RETRY)) {
-            spawn_connection(stream, queue.clone(), ctx.clone(), events.clone(), &mut workers, TIMEOUT);
+            spawn_connection(stream, queue.clone(), ctx.clone(), events.clone(), Some(token.clone()), &mut workers, TIMEOUT);
         }
     });
     if let Err(e) = spawned {
@@ -134,6 +193,7 @@ fn spawn_connection(
     queue: Queue,
     ctx: CtxSlot,
     events: Arc<EventLog>,
+    token: Option<Arc<String>>,
     workers: &mut Vec<std::thread::JoinHandle<()>>,
     timeout: Duration,
 ) {
@@ -142,7 +202,7 @@ fn spawn_connection(
         return;
     }
     match std::thread::Builder::new().name("figcraft-control-conn".into()).spawn(move || {
-        let _ = serve_with_events(stream, queue, ctx, events, timeout);
+        let _ = serve_with_events(stream, queue, ctx, events, token, timeout);
     }) {
         Ok(worker) => workers.push(worker),
         Err(e) => log::error!("control connection thread: {e}"),
@@ -155,10 +215,20 @@ fn spawn_connection(
 /// Serve a connection with a private event log (the tests; the app shares its session's log).
 #[cfg(test)]
 fn serve(out: TcpStream, queue: Queue, ctx: CtxSlot, timeout: Duration) -> std::io::Result<()> {
-    serve_with_events(out, queue, ctx, Arc::new(EventLog::default()), timeout)
+    serve_with_events(out, queue, ctx, Arc::new(EventLog::default()), None, timeout)
 }
 
-fn serve_with_events(mut out: TcpStream, queue: Queue, ctx: CtxSlot, events: Arc<EventLog>, timeout: Duration) -> std::io::Result<()> {
+/// `token`: the session token a connection must send first (`auth`); `None` only in tests of the
+/// transport itself.
+fn serve_with_events(
+    mut out: TcpStream,
+    queue: Queue,
+    ctx: CtxSlot,
+    events: Arc<EventLog>,
+    token: Option<Arc<String>>,
+    timeout: Duration,
+) -> std::io::Result<()> {
+    let mut authed = token.is_none();
     out.set_read_timeout(Some(timeout))?;
     out.set_write_timeout(Some(timeout))?;
     let mut reader = BufReader::new(out.try_clone()?);
@@ -184,6 +254,24 @@ fn serve_with_events(mut out: TcpStream, queue: Queue, ctx: CtxSlot, events: Arc
                 let id = v.get("id").cloned().unwrap_or(Value::Null);
                 let method = v.get("method").and_then(Value::as_str).unwrap_or("").to_string();
                 let params = v.get("params").cloned().unwrap_or(json!({}));
+                // Nothing runs before the token: a wrong or missing one ends the connection (another
+                // program on this machine must not drive the app). See `control_token`.
+                if method == figcraft_engine::control_token::AUTH_METHOD {
+                    let given = params.get("token").and_then(Value::as_str).unwrap_or_default();
+                    let ok = authed || token.as_deref().is_some_and(|t| figcraft_engine::control_token::matches(given, t));
+                    if !ok {
+                        writeln!(out, "{}", json!({"id": id, "ok": false, "error": "wrong token"}))?;
+                        break;
+                    }
+                    authed = true;
+                    writeln!(out, "{}", json!({"id": id, "ok": true, "result": auth_result()}))?;
+                    continue;
+                }
+                if !authed {
+                    let error = "unauthorized: send {\"method\": \"auth\", \"params\": {\"token\": …}} first (the token is in the file the app printed at start, or FIGCRAFT_CONTROL_TOKEN)";
+                    writeln!(out, "{}", json!({"id": id, "ok": false, "error": error}))?;
+                    break;
+                }
                 // A poll waits on the shared log, not on a frame: it needs no UI thread and no
                 // request slot, and it works while the window is minimised.
                 if method == "events.poll" {
