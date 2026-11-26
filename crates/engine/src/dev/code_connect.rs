@@ -281,6 +281,20 @@ fn expr(doc: &Document, c: &Component, p: &Param, v: &Value, lang: CodeLang) -> 
     }
 }
 
+/// The placeholder names template `t` reads (`{prop}` and `{prop ? "a" : "b"}`), once each in
+/// order; none when it doesn't parse.
+pub fn template_names(t: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for p in pieces(t) {
+        if let Piece::Value { name, .. } | Piece::Pick { name, .. } = p
+            && !out.iter().any(|n| n == name)
+        {
+            out.push(name.to_string());
+        }
+    }
+    out
+}
+
 /// Template `t` as pieces. One that doesn't parse, or that skipped `check` (a hand-edited file)
 /// and is far too long, stays as written: parsing rescans after each literal brace.
 fn pieces(t: &str) -> Vec<Piece<'_>> {

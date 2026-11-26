@@ -1,5 +1,6 @@
 pub mod annotations;
 pub mod code_connect;
+pub mod code_map;
 pub mod codegen;
 pub mod component_codegen;
 pub mod dev_measurements;
