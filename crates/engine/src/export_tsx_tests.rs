@@ -360,14 +360,17 @@ fn the_other_variants_loose_values_are_warnings_too() {
 #[test]
 fn the_brand_comes_from_the_brand_collection() {
     let (mut s, screen, ..) = screen();
-    // "A Theme" sorts before "Tokens APP" by name and by id order of creation does not matter.
+    // "A Theme" sorts before "Tokens APP" by name; the brand collection is the one with the most modes.
     run(&mut s, "variable.createCollection", json!({"name": "A Theme", "modes": ["Light"]}));
     run(&mut s, "variable.create", json!({"collection": "A Theme", "name": "ink", "type": "color", "value": "#000000"}));
     run(&mut s, "variable.setMode", json!({"ids": [screen.0], "collection": "A Theme", "mode": "Light"}));
     let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
     assert_eq!(r["brand"]["collection"], "Tokens APP", "{r}");
     assert_eq!(r["brand"]["brand"], "animale", "{r}");
-    assert!(r["notes"].to_string().contains("A Theme is also set (Light)"), "{r}");
+    // One mode: the same values everywhere, so no attribute and nothing to say.
+    let code = r["code"].as_str().unwrap();
+    assert!(!code.contains("data-a-theme"), "{code}");
+    assert_eq!(r["notes"], json!([]), "{r}");
     // Asked for by name, the other collection is the brand.
     let r = run(&mut s, "export.tsx", json!({"ids": [screen.0], "collection": "A Theme"}));
     assert_eq!(r["brand"]["brand"], "light", "{r}");
@@ -485,4 +488,126 @@ fn a_token_the_stylesheet_does_not_declare_is_flagged() {
     // Only the text styles (an empty collection list): the TSX's tokens are not in this tokens.css.
     let r = run(&mut s, "export.code", json!({"ids": [screen.0], "collections": []}));
     assert!(r["tokens"].as_array().unwrap().iter().all(|t| t["defined"] == false), "{r}");
+}
+
+// ------------------------------------------------------------ Web (Tokens WEB, Layout, Checkout)
+
+/// A Web-like file: "Tokens WEB" with the nine brands, "Layout" with Desktop and Mobile, and a
+/// one-mode collection (as the Checkout file's): synthetic names and values.
+fn web() -> (Session, NodeId) {
+    let mut s = nine_brands();
+    run(&mut s, "variable.renameCollection", json!({"collection": "Tokens APP", "name": "Tokens WEB"}));
+    run(&mut s, "variable.createCollection", json!({"name": "Layout", "modes": ["Desktop", "Mobile"]}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Gutter", "type": "number", "values": {"Desktop": 24, "Mobile": 8}}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Margin", "type": "number", "values": {"Desktop": 80, "Mobile": 16}}));
+    run(&mut s, "variable.createCollection", json!({"name": "Variable collection"}));
+    run(&mut s, "variable.create", json!({"collection": "Variable collection", "name": "2 meios de pagamento", "type": "boolean", "value": true}));
+    let page = id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "PDP Web", "width": 1440, "height": 900}))["id"]).unwrap();
+    let margin = s.doc().unwrap().variables.get("Grid/Margin").unwrap().id.clone();
+    run(&mut s, "node.set", json!({"id": page.0, "props": {"layout": {"mode": "vertical", "padding": [0, 80, 0, 80]}}}));
+    for f in ["paddingLeft", "paddingRight"] {
+        run(&mut s, "variable.bind", json!({"ids": [page.0], "field": f, "variable": margin}));
+    }
+    run(&mut s, "variable.setMode", json!({"ids": [page.0], "collection": "Tokens WEB", "mode": "NV"}));
+    run(&mut s, "variable.setMode", json!({"ids": [page.0], "collection": "Layout", "mode": "Mobile"}));
+    (s, page)
+}
+
+#[test]
+fn layout_modes_are_their_own_attribute_not_a_brand() {
+    let (mut s, _) = web();
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    // Brands on data-brand, the nine of them.
+    assert!(
+        css.contains(
+            ":root,
+[data-brand=\"farm\"] {"
+        ),
+        "{css}"
+    );
+    assert!(css.contains("[data-brand=\"nv\"] {"), "{css}");
+    assert_eq!(r["brands"].as_array().unwrap().len(), 9, "{r}");
+    assert!(r["brands"].as_array().unwrap().iter().all(|b| b["collection"] == "Tokens WEB"), "{r}");
+    // Layout on data-layout, Desktop the default.
+    assert!(
+        css.contains(
+            ":root,
+[data-layout=\"desktop\"] {
+  --grid-gutter: 24px;
+  --grid-margin: 80px;
+}"
+        ),
+        "{css}"
+    );
+    assert!(
+        css.contains(
+            "[data-layout=\"mobile\"] {
+  --grid-gutter: 8px;
+  --grid-margin: 16px;
+}"
+        ),
+        "{css}"
+    );
+    assert!(!css.contains("data-brand=\"mobile\"") && !css.contains("data-brand=\"desktop\""), "{css}");
+    // One mode: :root only.
+    assert!(
+        css.contains(
+            "/* Variable collection · Mode 1 */
+:root {
+  --2-meios-de-pagamento: true;
+}"
+        ),
+        "{css}"
+    );
+    let attrs = r["attributes"].as_array().unwrap();
+    let layout = attrs.iter().find(|a| a["collection"] == "Layout").unwrap();
+    assert_eq!(layout["attribute"], "data-layout");
+    assert_eq!(layout["modes"], json!([{"mode": "Desktop", "value": "desktop"}, {"mode": "Mobile", "value": "mobile"}]));
+    assert_eq!(attrs.iter().find(|a| a["collection"] == "Variable collection").unwrap()["attribute"], Value::Null);
+    assert_eq!(r["warnings"], json!([]), "{r}");
+}
+
+#[test]
+fn the_screen_says_its_brand_and_its_layout() {
+    let (mut s, page) = web();
+    let r = run(&mut s, "export.tsx", json!({"ids": [page.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("data-brand=\"nv\" data-layout=\"mobile\""), "{code}");
+    assert!(code.contains("var(--grid-margin)"), "{code}");
+    assert_eq!(r["brand"]["collection"], "Tokens WEB", "{r}");
+    assert_eq!(r["notes"], json!([]), "{r}");
+    // The stylesheet has a block for every attribute the TSX sets.
+    let css = run(&mut s, "export.tokensCss", json!({}))["css"].as_str().unwrap().to_string();
+    for sel in ["[data-brand=\"nv\"]", "[data-layout=\"mobile\"]"] {
+        assert!(css.contains(sel), "{sel}: {css}");
+    }
+}
+
+#[test]
+fn two_collections_on_one_attribute_are_a_warning() {
+    let (mut s, _) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "LAYOUT", "modes": ["A", "B"]}));
+    run(&mut s, "variable.create", json!({"collection": "LAYOUT", "name": "x", "type": "number", "value": 1}));
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    assert!(r["warnings"].to_string().contains("both key their modes on data-layout"), "{r}");
+}
+
+#[test]
+fn app_and_web_name_a_token_the_same() {
+    // The developers get one convention: a token with the same name in Tokens APP and Tokens WEB
+    // is the same CSS variable.
+    let (mut s, _) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Surface/Brand/Background", "type": "color", "value": "#111111"}),
+    );
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    assert!(r["warnings"].to_string().contains("are both --colors-surface-brand-background"), "the clash is reported: {r}");
+    let web = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens WEB"]}));
+    let app = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens APP"]}));
+    assert!(web["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
+    assert!(app["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
 }

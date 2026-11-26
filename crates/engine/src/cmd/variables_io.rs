@@ -73,8 +73,9 @@ pub(crate) enum CssStyle {
     /// Tailwind theme names, the default mode as `@theme static`.
     Tailwind,
     /// Design-system tokens as `export.tsx` writes them ([`ds_var_name`], from the name alone);
-    /// every mode on `[data-brand="<brand>"]` ([`crate::export_tsx::brand_slug`]), the default
-    /// mode also on `:root`.
+    /// the brand collection's modes on `[data-brand="<brand>"]`, another collection's on its own
+    /// attribute (`[data-layout="mobile"]`), the default mode also on `:root`
+    /// ([`crate::export_tsx::ds_selector`]).
     Ds,
 }
 
@@ -101,14 +102,8 @@ pub(crate) fn css(doc: &Document, colls: &[&Collection], style: CssStyle) -> Str
     for c in colls {
         let attr = css_var_name(&c.name);
         for (i, m) in c.modes.iter().enumerate() {
-            let brand = || format!("[data-brand=\"{}\"]", crate::export_tsx::brand_slug(&m.name));
             let sel = match i {
-                0 if style == CssStyle::Ds => format!(
-                    ":root,
-{}",
-                    brand()
-                ),
-                _ if style == CssStyle::Ds => brand(),
+                _ if style == CssStyle::Ds => crate::export_tsx::ds_selector(doc, c, i, m),
                 // `static`: Tailwind otherwise drops theme variables no utility uses, and pages also
                 // read them through `var()` and `(--name)` utilities.
                 0 if tailwind => "@theme static".to_string(),
