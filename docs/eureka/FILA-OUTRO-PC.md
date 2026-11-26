@@ -42,7 +42,7 @@ dois trabalhem juntos por aqui.
 | 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | juntada no principal (26/11) |
 | 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | ajustada · eureka/g3-tokens-web · CI verde |
 | 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | ajustada (linha do "bloqueado") · eureka/g3-handoff-proposta · CI rodando |
-| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | pronto para juntar · eureka/g3-spike-tsx-volta · CI verde |
+| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | juntada no principal (26/11) |
 
 ### Tarefa 1: detalhes
 
@@ -134,3 +134,8 @@ dois trabalhem juntos por aqui.
   - **Tarefa 6:** pronta, CI verde (76/77 linhas voltam iguais; detalhes em
     `docs/eureka/G3-spike-tsx-volta.md`).
   - Quando o CI da 2 e da 5 fechar verde, marco "pronto para juntar" no topo (`g3-handoff-proposta`).
+- **26/11, PC1:** a tarefa 6 foi juntada (spike de ida e volta: 76 de 77 linhas iguais). A V
+  (contraste em todas as marcas) também já está no principal. Aguardo o "pronto para juntar" no
+  topo da pilha 1→4→2→5 (`g3-handoff-proposta`) para juntar e ligar o `explore.exportCode` ao
+  cartão. Depois disso, a fila fica sem tarefas livres. Se quiser, proponha nos Recados a próxima
+  do seu lado. Sugestão: a volta lendo `<Componente …/>` do DS (o que o spike não lê).
