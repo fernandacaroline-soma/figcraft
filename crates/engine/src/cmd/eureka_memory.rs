@@ -123,14 +123,20 @@ fn memory(s: &mut Session, p: &Value) -> Result<Value> {
         if !n.visible {
             continue;
         }
-        // Calls to action: the texts of buttons.
+        // The instances this layer is inside (nearest first, up to the screen).
+        let up: Vec<NodeId> = doc.ancestors(*lid).into_iter().take_while(|a| *a != id).take(64).collect();
+        let in_instance = up.iter().any(|a| doc.node(*a).is_some_and(|x| matches!(x.kind, NodeKind::Instance { .. })));
+        // Calls to action: the texts of buttons (not icon glyph names, not size or chip labels).
         if let Some(t) = n.kind.text() {
-            let in_button =
-                doc.ancestors(*lid).into_iter().take(8).filter_map(|a| main_and_set(doc, a)).any(|(_, set)| {
-                    doc.node(set).is_some_and(|x| x.name.to_lowercase().contains("button") || x.name.to_lowercase().contains("botão"))
-                });
-            if in_button && !t.characters.trim().is_empty() {
-                push_unique(&mut ctas, format!("\"{}\"", t.characters.trim().chars().take(60).collect::<String>()));
+            let in_button = up
+                .iter()
+                .take(4)
+                .filter_map(|a| main_and_set(doc, *a))
+                .any(|(_, set)| doc.node(set).is_some_and(|x| matches!(x.name.as_str(), "Button" | "Button Link")));
+            let label = t.characters.trim();
+            let glyph = !label.is_empty() && label.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-');
+            if in_button && !label.is_empty() && !glyph {
+                push_unique(&mut ctas, format!("\"{}\"", label.chars().take(60).collect::<String>()));
             }
         }
         if n.name.ends_with("(imagem de exemplo)") {
@@ -141,14 +147,17 @@ fn memory(s: &mut Session, p: &Value) -> Result<Value> {
             if set_name == "Image" {
                 images += 1;
             }
+            // States shown: a state toggle on, or a value that is itself a state (as the critique
+            // measures them); a kind such as a tag's "Status=Brand" is not one.
             for (k, v) in variant_pairs(&doc.node(main).map(|x| x.name.clone()).unwrap_or_default()) {
-                if (is_state(&k) && !matches!(v.to_lowercase().as_str(), "off" | "false")) || is_state_value(&v) {
+                let on = matches!(v.trim().to_lowercase().as_str(), "on" | "true" | "sim" | "yes");
+                if (is_state(&k) && on) || is_state_value(&v) {
                     push_unique(&mut states, format!("{set_name} {k}={v}"));
                 }
             }
         }
-        // Spacing tokens of the layout's own frames (not inside components).
-        if matches!(n.kind, NodeKind::Frame) {
+        // Spacing tokens of the screen's own frames (not inside DS components).
+        if matches!(n.kind, NodeKind::Frame) && !in_instance {
             for (field, vid) in &n.bound {
                 if matches!(field.as_str(), "gap" | "paddingHorizontal" | "paddingVertical" | "paddingTop" | "paddingLeft")
                     && let Some(v) = doc.variables.get_by_id(vid)
@@ -157,12 +166,23 @@ fn memory(s: &mut Session, p: &Value) -> Result<Value> {
                 }
             }
         }
-        // What the designer changed by hand (the recorded origin says "human"), not the agent.
+        // What the designer changed by hand (the recorded origin says "human"), not the agent; a
+        // change inside an instance is told by the outermost instance it belongs to.
         let origin = super::eureka::origin_of(n);
         let mine: BTreeSet<String> =
             origin.as_object().into_iter().flatten().filter(|(_, st)| st.get("by") == Some(&json!("human"))).map(|(g, _)| g.clone()).collect();
         if !mine.is_empty() {
-            push_unique(&mut adjusted, format!("{} ({})", n.name, mine.into_iter().collect::<Vec<_>>().join(", ")));
+            let owner = up.iter().rev().find(|a| doc.node(**a).is_some_and(|x| matches!(x.kind, NodeKind::Instance { .. }))).copied();
+            let who = owner.and_then(|o| doc.node(o)).map_or_else(|| n.name.clone(), |o| o.name.clone());
+            let item = format!("{who} ({})", mine.into_iter().collect::<Vec<_>>().join(", "));
+            match adjusted.iter_mut().find(|e: &&mut String| e.starts_with(&format!("{who} ("))) {
+                Some(e) => {
+                    let extra = item.trim_start_matches(&format!("{who} (")).trim_end_matches(')').to_string();
+                    let merged = format!("{}, {extra})", e.trim_end_matches(')'));
+                    *e = merged;
+                }
+                None => push_unique(&mut adjusted, item),
+            }
         }
     }
     let blocks: Vec<String> =
