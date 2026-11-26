@@ -612,6 +612,91 @@ fn app_and_web_name_a_token_the_same() {
     assert!(app["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
 }
 
+/// The Web file with text styles bound as the design system binds them: family and size in
+/// "Tokens WEB" (per brand), the weight by a face-name string variable, the line height in "Layout"
+/// (Desktop/Mobile). "Title/Title 01" bound; "Body/Body 01" with nothing bound.
+fn web_with_text_styles() -> Session {
+    let (mut s, _) = web();
+    let per = |s: &mut Session, coll: &str, name: &str, ty: &str, f: &dyn Fn(usize) -> Value| {
+        let modes: Vec<String> = s.doc().unwrap().variables.collection(coll).unwrap().modes.iter().map(|m| m.name.clone()).collect();
+        let values: serde_json::Map<String, Value> = modes.into_iter().enumerate().map(|(i, m)| (m, f(i))).collect();
+        run(s, "variable.create", json!({"collection": coll, "name": name, "type": ty, "values": values}))["id"].as_str().unwrap().to_string()
+    };
+    let fam = per(&mut s, "Tokens WEB", "Font/Family/brand-primary", "string", &|i| json!(if i % 2 == 0 { "Inter" } else { "Lora" }));
+    let size = per(&mut s, "Tokens WEB", "Font/Size/fs-xl", "number", &|i| json!(24 + i));
+    let face = per(&mut s, "Tokens WEB", "Font/Weight/font-bold", "string", &|i| json!(if i == 1 { "Semi bold" } else { "Bold" }));
+    let lh = per(&mut s, "Layout", "Font/Line Height/lh-xl", "number", &|i| json!(if i == 0 { 40 } else { 32 }));
+    let t1 = json!({"fontFamily": "Inter", "fontStyle": "Bold", "fontSize": 24, "lineHeight": 40, "letterSpacing": 0});
+    let t1 = run(&mut s, "style.create", json!({"type": "text", "name": "Title/Title 01", "value": t1}))["id"].as_str().unwrap().to_string();
+    for (field, var) in [("fontFamily", &fam), ("fontSize", &size), ("fontStyle", &face), ("lineHeight", &lh)] {
+        run(&mut s, "style.bind", json!({"style": t1, "field": field, "variable": var}));
+    }
+    let b = json!({"fontFamily": "Inter", "fontStyle": "Regular", "fontSize": 14, "lineHeight": 20, "letterSpacing": 0});
+    run(&mut s, "style.create", json!({"type": "text", "name": "Body/Body 01", "value": b}));
+    s
+}
+
+#[test]
+fn a_web_file_gets_its_text_styles_in_the_stylesheet() {
+    let mut s = web_with_text_styles();
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    assert_eq!(r["textStyles"].as_array().unwrap().len(), 2, "{r}");
+    for f in ["font-family", "font-weight", "font-size", "line-height", "letter-spacing"] {
+        assert!(css.contains(&format!("--text-title-title-01-{f}:")), "{f}: {css}");
+        assert!(css.contains(&format!("--text-body-body-01-{f}:")), "{f}: {css}");
+    }
+    assert!(css.contains("--text-title-title-01-font-family: var(--font-family-brand-primary);"), "{css}");
+    // The weight name is a number per brand of Tokens WEB, on data-brand.
+    assert!(css.contains("[data-brand=\"animale\"] {\n  --font-weight-font-bold-weight: 600;\n}"), "{css}");
+    // The line height lives in Layout: the text rule is also on data-layout, so a layout element
+    // inside a brand element resolves it again (declared on [data-brand] alone it would keep the
+    // ancestor's Desktop value).
+    assert!(css.contains("[data-brand],\n[data-layout] {\n  --text-title-title-01-font-family:"), "{css}");
+}
+
+#[test]
+fn a_weight_name_in_the_layout_collection_is_a_number_per_layout_not_per_brand() {
+    let mut s = web_with_text_styles();
+    let names = json!({"Desktop": "Bold", "Mobile": "Medium"});
+    let v =
+        run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Font/Weight/font-label", "type": "string", "values": names}))["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let st =
+        run(&mut s, "style.create", json!({"type": "text", "name": "Label/Label 01", "value": {"fontFamily": "Inter", "fontStyle": "Bold"}}))["id"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    run(&mut s, "style.bind", json!({"style": st, "field": "fontStyle", "variable": v}));
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    assert!(css.contains(":root,\n[data-layout=\"desktop\"] {\n  --font-weight-font-label-weight: 700;\n}"), "{css}");
+    assert!(css.contains("[data-layout=\"mobile\"] {\n  --font-weight-font-label-weight: 500;\n}"), "{css}");
+    assert!(!css.contains("[data-brand=\"mobile\"]") && !css.contains("[data-brand=\"desktop\"]"), "{css}");
+    assert!(css.contains("[data-brand],\n[data-layout] {"), "{css}");
+}
+
+#[test]
+fn app_and_web_name_a_text_style_the_same() {
+    // Same styles, same names, either file: one set of CSS names for the developers.
+    let names = |css: &str| -> Vec<String> {
+        let mut v: Vec<String> =
+            css.lines().filter_map(|l| l.trim().strip_prefix("--text-").and_then(|l| l.split(':').next()).map(str::to_string)).collect();
+        v.sort();
+        v.dedup();
+        v
+    };
+    let mut web = web_with_text_styles();
+    let w = run(&mut web, "export.tokensCss", json!({}))["css"].as_str().unwrap().to_string();
+    let mut app = web_with_text_styles();
+    run(&mut app, "variable.renameCollection", json!({"collection": "Tokens WEB", "name": "Tokens APP"}));
+    let a = run(&mut app, "export.tokensCss", json!({}))["css"].as_str().unwrap().to_string();
+    assert_eq!(names(&w).len(), 10, "{:?}", names(&w));
+    assert_eq!(names(&w), names(&a));
+}
+
 // ------------------------------------------------------------ design-system components (task 2)
 
 /// A screen with a design-system "Button" (a set, linked to code through the map) and a
