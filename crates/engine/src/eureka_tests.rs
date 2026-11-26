@@ -1110,3 +1110,47 @@ fn the_lint_flags_a_token_swapped_inside_an_official_component_instance() {
     assert_eq!(rule(&out).len(), 1, "{:?}", rule(&out));
     assert!(rule(&out)[0]["message"].as_str().unwrap().contains("no lugar de Colors/Other"), "{:?}", rule(&out));
 }
+
+#[test]
+fn a_local_component_is_flagged_only_in_a_file_declared_telas_e_fluxos() {
+    let mut s = Session::new();
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], Value::Null);
+    assert!(s.execute("ds.fileType", &json!({"type": "rascunho"})).is_err());
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40, "name": "Selo"}))["id"]).unwrap();
+    let local = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let variants: Vec<u64> = ["On", "Off"]
+        .iter()
+        .enumerate()
+        .map(|(k, v)| {
+            let f = id_of(
+                &run(&mut s, "frame.create", json!({"x": 200.0 + k as f64 * 100.0, "y": 0, "width": 80, "height": 40, "name": format!("Ativo={v}")}))
+                    ["id"],
+            )
+            .unwrap();
+            id_of(&run(&mut s, "component.create", json!({"ids": [f]}))["id"]).unwrap().0
+        })
+        .collect();
+    let set = id_of(&run(&mut s, "component.combineVariants", json!({"ids": variants}))["id"]).unwrap();
+    let found = |s: &mut Session, p: Value| -> Vec<u64> {
+        let out = run(s, "ds.lint", p);
+        out["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("componente-local")).map(|f| f["id"].as_u64().unwrap()).collect()
+    };
+    // Nothing declared: no rule to apply.
+    assert!(found(&mut s, json!({})).is_empty());
+    run(&mut s, "ds.fileType", json!({"type": "telas-e-fluxos"}));
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
+    // The standalone component and the set (once, not each variant).
+    let mut ids = found(&mut s, json!({}));
+    ids.sort_unstable();
+    assert_eq!(ids, vec![local.0, set.0]);
+    // A component an import recorded as coming from the DS library is not local.
+    run(&mut s, "node.set", json!({"id": set.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    assert_eq!(found(&mut s, json!({})), vec![local.0]);
+    // A Checkout file may have local components; the call can say so too.
+    assert!(found(&mut s, json!({"fileType": "checkout"})).is_empty());
+    run(&mut s, "ds.fileType", json!({"type": "checkout"}));
+    assert!(found(&mut s, json!({})).is_empty());
+    // Undo puts the declaration back.
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
+}
