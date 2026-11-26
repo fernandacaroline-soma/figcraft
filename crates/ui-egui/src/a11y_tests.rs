@@ -508,3 +508,94 @@ fn a_mixed_checkbox_paints_a_dash_and_a_checked_one_a_tick() {
     assert!(!checked.iter().any(|r| r.width() >= 5.0 && r.height() <= 2.5), "no dash on a checked box: {checked:?}");
     assert!(box_marks(Some(false)).is_empty(), "an empty box paints no mark");
 }
+
+/// An exploration board (Eureka) with two proposals, the first selected: its card shows.
+fn board() -> (Ui, NodeId) {
+    let mut s = Session::new();
+    s.execute("variable.createCollection", &json!({"name": "Tokens APP", "modes": ["NV"]})).unwrap();
+    s.execute("variable.create", &json!({"collection": "Tokens APP", "name": "Colors/Bg", "type": "color", "value": "#ffffff"})).unwrap();
+    let screen = |name: &str| json!({"name": name, "type": "incremental", "summary": "Tamanho antes do preço.", "screen": {"frame": "PDP", "width": 375, "height": 600, "fill": "Colors/Bg", "children": []}});
+    let r = s.execute("explore.board", &json!({"title": "Rodada", "proposals": [screen("Um"), screen("Dois")]})).unwrap();
+    let a = id(r["proposals"][0].clone());
+    s.execute("select.set", &json!({"ids": [a.0]})).unwrap();
+    let mut u = Ui::new(s);
+    u.frame(vec![]);
+    u.frame(vec![]);
+    (u, a)
+}
+
+fn focused_layer(u: &Ui) -> Option<egui::LayerId> {
+    let f = u.ctx.memory(|m| m.focused())?;
+    u.ctx.viewport(|v| v.prev_pass.widgets.get(f).map(|w| w.layer_id))
+}
+
+#[test]
+fn f6_reaches_the_proposal_card_and_enter_chooses_the_proposal() {
+    // The card floats over the canvas on its own layer: before, the keyboard never got to it.
+    let (mut u, a) = board();
+    let card = egui::LayerId::new(egui::Order::Foreground, crate::a11y::card_area());
+    assert_eq!(region(&u), Region::Canvas);
+    f6(&mut u, false);
+    assert_eq!(region(&u), Region::Card, "after the canvas comes the card while it shows");
+    u.frame(vec![]);
+    assert_eq!(focused_layer(&u), Some(card), "a control of the card has the keyboard");
+    // Tab stays in the card (it has one button before the choice: "Choose this proposal").
+    press(&mut u, Key::Tab, Modifiers::NONE);
+    u.frame(vec![]);
+    assert_eq!((region(&u), focused_layer(&u)), (Region::Card, Some(card)));
+    press(&mut u, Key::Enter, Modifiers::NONE);
+    u.frame(vec![]);
+    let info = u.app.session.ds().unwrap().doc.node(a).unwrap().plugin_data.get("eureka.proposal").cloned().unwrap();
+    assert!(info.contains("\"escolhida\""), "Enter on the card's button chose the proposal: {info}");
+    // F6 goes on to the properties panel; Escape from the card gives the keyboard to the canvas.
+    f6(&mut u, true);
+    f6(&mut u, false);
+    assert_eq!(region(&u), Region::Card);
+    press(&mut u, Key::Escape, Modifiers::NONE);
+    assert_eq!(region(&u), Region::Canvas);
+    // With no proposal selected there is no card: F6 skips it.
+    u.app.run("select.none", json!({}));
+    u.frame(vec![]);
+    u.frame(vec![]);
+    f6(&mut u, false);
+    assert_ne!(region(&u), Region::Card);
+}
+
+/// Whether the screen reader's tree has a node of `role` named (or, for text, reading) `label` now.
+fn has(u: &mut Ui, role: Role, label: &str) -> bool {
+    tree(u).iter().any(|n| n.role() == role && (n.label() == Some(label) || n.value() == Some(label)))
+}
+
+#[test]
+fn the_proposal_card_shows_each_step_and_only_the_next_action() {
+    // The card's states, in the generator's order: on the board, chosen, critiqued, reviewed,
+    // with the reviewer's verdict (export, approve, the code map's state).
+    let (mut u, a) = board();
+    assert!(has(&mut u, Role::Pane, "Proposal on the board"), "the card is a named container");
+    assert!(has(&mut u, Role::Button, "Choose this proposal"));
+    assert!(!has(&mut u, Role::Button, "Export the proposal as code"), "no export before the choice");
+
+    u.app.run("explore.choose", json!({"id": a.0}));
+    assert!(!has(&mut u, Role::Button, "Choose this proposal"));
+    assert!(has(&mut u, Role::Label, "No design critique yet."));
+
+    let finding = json!({"area": "falhas", "scenario": "Sem estoque no tamanho.", "consequence": "A cliente desiste.",
+        "severity": "alta", "recommendation": "Avisar no seletor."});
+    u.app.run("explore.critique", json!({"id": a.0, "findings": [finding]}));
+    assert!(has(&mut u, Role::Button, "I reviewed the critique"));
+    assert!(!has(&mut u, Role::Button, "Export the proposal as code"), "no export before the verdict");
+
+    u.app.run("explore.critiqueReviewed", json!({"id": a.0}));
+    assert!(has(&mut u, Role::Label, "You reviewed the critique."));
+    assert!(has(&mut u, Role::Label, "No review yet."));
+
+    u.app.run("explore.review", json!({"id": a.0, "verdict": "com-ressalvas", "reviewer": "DS Gatekeeper", "summary": "Ok com notas.", "items": []}));
+    assert!(has(&mut u, Role::Button, "Approve the layout"));
+    assert!(has(&mut u, Role::Button, "Export the proposal as code"));
+    assert!(has(&mut u, Role::Label, "No code map: the DS components go out drawn as layers."));
+    assert!(has(&mut u, Role::Button, "Link a code map…"));
+
+    u.app.run("explore.approve", json!({"id": a.0}));
+    assert!(has(&mut u, Role::Label, "You approved this layout."));
+    assert!(!has(&mut u, Role::Button, "Approve the layout"));
+}

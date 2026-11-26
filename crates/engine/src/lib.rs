@@ -325,6 +325,8 @@ mod eureka_critique_tests;
 #[cfg(test)]
 mod eureka_screen_tests;
 #[cfg(test)]
+mod eureka_snapshot_tests;
+#[cfg(test)]
 mod eureka_tests;
 #[cfg(test)]
 mod events_tests;
@@ -544,6 +546,8 @@ mod proto_responsive_tests;
 mod proto_run_tests;
 #[cfg(test)]
 mod proto_tail_tests;
+#[cfg(test)]
+mod repo_secrets_tests;
 #[cfg(test)]
 mod rest_slot_tests;
 #[cfg(test)]

@@ -2,7 +2,8 @@
 //! screen reader reads), and the keyboard navigation mode.
 //!
 //! Keyboard navigation: F6 / Shift+F6 move the keyboard between the regions of the window (the
-//! toolbar, the layers panel, the canvas and the properties panel); Tab / Shift+Tab move between
+//! toolbar, the layers panel, the canvas, an exploration board's proposal card while it shows, and
+//! the properties panel); Tab / Shift+Tab move between
 //! the controls of a region (wrapping at its ends); Enter or Space activate the control; the
 //! arrows move along the toolbar and through the layer rows; a menu or flyout opened from the
 //! keyboard takes it, and gives it back to its button when it closes; Escape goes back to the
@@ -37,18 +38,31 @@ pub enum Region {
     Layers,
     #[default]
     Canvas,
+    /// The card of the selected proposal on an exploration board (Eureka): an area over the canvas,
+    /// in F6's order only while it shows.
+    Card,
     Properties,
+}
+
+/// The egui area the proposal card draws in (its layer holds the card's controls).
+pub fn card_area() -> Id {
+    Id::unique("board_proposal_card")
+}
+
+fn card_layer() -> LayerId {
+    LayerId::new(Order::Foreground, card_area())
 }
 
 impl Region {
     /// In F6 order.
-    pub const ALL: [Region; 4] = [Region::Toolbar, Region::Layers, Region::Canvas, Region::Properties];
+    pub const ALL: [Region; 5] = [Region::Toolbar, Region::Layers, Region::Canvas, Region::Card, Region::Properties];
 
     pub fn id(self) -> &'static str {
         match self {
             Region::Toolbar => "toolbar",
             Region::Layers => "layers",
             Region::Canvas => "canvas",
+            Region::Card => "card",
             Region::Properties => "properties",
         }
     }
@@ -62,22 +76,24 @@ impl Region {
     }
 
     /// This region's entry of a per-region array.
-    fn of<T>(self, a: &[T; 4]) -> &T {
-        let [t, l, c, p] = a;
+    fn of<T>(self, a: &[T; 5]) -> &T {
+        let [t, l, c, k, p] = a;
         match self {
             Region::Toolbar => t,
             Region::Layers => l,
             Region::Canvas => c,
+            Region::Card => k,
             Region::Properties => p,
         }
     }
 
-    fn of_mut<T>(self, a: &mut [T; 4]) -> &mut T {
-        let [t, l, c, p] = a;
+    fn of_mut<T>(self, a: &mut [T; 5]) -> &mut T {
+        let [t, l, c, k, p] = a;
         match self {
             Region::Toolbar => t,
             Region::Layers => l,
             Region::Canvas => c,
+            Region::Card => k,
             Region::Properties => p,
         }
     }
@@ -87,9 +103,9 @@ impl Region {
 #[derive(Clone, Copy, Default)]
 struct Drawn {
     /// Where each region is (None: not shown).
-    rects: [Option<Rect>; 4],
+    rects: [Option<Rect>; 5],
     /// The control F6 lands on in each region (the active tool, the selected layer's row).
-    preferred: [Option<Id>; 4],
+    preferred: [Option<Id>; 5],
     /// The canvas widget.
     canvas: Option<Id>,
     /// An open popup the app draws itself: (the control that opened it, the popup's area id).
@@ -144,6 +160,10 @@ impl Nav {
     /// so a control scrolled below a panel's bottom still belongs to it).
     fn region_at(&self, p: Pos2) -> Option<Region> {
         let rect = |r: Region| *r.of(&self.last.rects);
+        // The card floats over the canvas.
+        if rect(Region::Card).is_some_and(|r| r.contains(p)) {
+            return Some(Region::Card);
+        }
         if rect(Region::Toolbar).is_some_and(|r| r.contains(p)) {
             return Some(Region::Toolbar);
         }
@@ -305,23 +325,35 @@ pub fn begin(app: &mut FigApp, ctx: &Context, root_scope: Id) {
     });
 }
 
-fn keys(app: &mut FigApp, ctx: &Context) {
-    // A press hides the ring, and the keyboard goes to the region pressed in.
+/// A press hides the ring, and the keyboard goes to the region pressed in: where it was, if any.
+fn pointer_press(nav: &mut Nav, ctx: &Context) -> Option<Pos2> {
     let press = ctx.input(|i| i.pointer.any_pressed().then(|| i.pointer.interact_pos()).flatten());
     if let Some(p) = press {
-        let nav = &mut app.ui.nav;
         nav.keyboard = false;
         nav.opener = None;
         nav.refocus = 0;
-        if ctx.layer_id_at(p).is_none_or(|l| l == LayerId::background())
+        let layer = ctx.layer_id_at(p);
+        if layer == Some(card_layer()) {
+            nav.region = Region::Card;
+        } else if layer.is_none_or(|l| l == LayerId::background())
             && let Some(r) = nav.region_at(p)
         {
             nav.region = r;
         }
     }
+    press
+}
+
+fn keys(app: &mut FigApp, ctx: &Context) {
+    let press = pointer_press(&mut app.ui.nav, ctx);
     let focused = ctx.memory(|m| m.focused());
     let widget = focused.and_then(|id| last_widget(ctx, id));
     let on_background = widget.is_none_or(|w| w.layer_id == LayerId::background());
+    // The proposal card's controls are on its own layer: the card is a region all the same.
+    let in_card = widget.is_some_and(|w| w.layer_id == card_layer());
+    if in_card && press.is_none() {
+        app.ui.nav.region = Region::Card;
+    }
     // The control with the keyboard decides the region (a click into a field, a Tab in a panel);
     // a press elsewhere takes the keyboard from it later this frame.
     if let Some(w) = widget.filter(|_| on_background && press.is_none())
@@ -350,7 +382,7 @@ fn keys(app: &mut FigApp, ctx: &Context) {
         return;
     }
     popups(app, ctx, focused, widget);
-    if !on_background {
+    if !on_background && !in_card {
         return;
     }
     let region = app.ui.nav.region;
@@ -557,7 +589,7 @@ fn menus_open(app: &FigApp) -> bool {
 /// The region `step` regions on from the current one, skipping regions not shown.
 fn next_region(nav: &Nav, step: i32) -> Region {
     // A full turn at most each way.
-    let step = step.clamp(-4, 4);
+    let step = step.clamp(-5, 5);
     let n = Region::ALL.len() as i32;
     let cur = nav.region.index() as i32;
     let dir = step.signum();
@@ -660,6 +692,19 @@ fn focusables(ctx: &Context, nav: &Nav, region: Region) -> Vec<(Id, Rect)> {
     if let Some(root) = shared(ctx, |s| s.root_scope) {
         edges.push(root.with("left_panel").with("__resize"));
         edges.push(root.with("right_panel").with("__resize"));
+    }
+    if region == Region::Card {
+        // Every control of the card's own layer, in the order it drew them (not the area itself:
+        // egui's `Area` senses clicks on its background as `<area id>.with("move")`).
+        let background = card_area().with("move");
+        return ctx.viewport(|v| {
+            v.prev_pass
+                .widgets
+                .get_layer(card_layer())
+                .filter(|w| w.enabled && w.sense.is_focusable() && w.rect.is_positive() && w.rect.is_finite() && w.id != background)
+                .map(|w| (w.id, w.rect))
+                .collect()
+        });
     }
     ctx.viewport(|v| {
         v.prev_pass

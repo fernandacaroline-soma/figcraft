@@ -11,3 +11,10 @@ plans/
 *.profraw
 .cache/
 .vscode/
+# Secrets never enter the repository (E14): local environment files and private keys.
+.env
+.env.*
+*.pem
+*.key
+*.p12
+id_rsa*
