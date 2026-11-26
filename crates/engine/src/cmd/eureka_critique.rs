@@ -53,14 +53,14 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "explore.measure",
             "Measure the chosen proposal",
-            "{id (a proposal's screen)}  what the Eureka measures on a proposal's screen for its design critique, without keeping anything: DS component states the screen does not show, text contrast with the brand's resolved tokens (WCAG 2.1 AA), touch targets under 44 pt and the DS lint → {findings: [{area, scenario, consequence, severity, evidence, recommendation, ids}]}",
+            "{id (a proposal's screen), allBrands? (text contrast in every brand of the brand collection, not only the screen's)}  what the Eureka measures on a proposal's screen for its design critique, without keeping anything: DS component states the screen does not show, text contrast with the brand's resolved tokens (WCAG 2.1 AA), touch targets under 44 pt and the DS lint → {findings: [{area, scenario, consequence, severity, evidence, recommendation, ids}]}",
             false,
             measure_cmd
         ),
         spec!(
             "explore.critique",
             "Critique the chosen proposal",
-            "{id (the chosen proposal's screen), reviewer?, findings?: [{area (\"fluxo\" | \"estados\" | \"falhas\" | \"casos de borda\" | \"conteúdo e interação\" | \"acessibilidade\" | \"viabilidade\" | \"medição\"), scenario, consequence, severity (\"crítica\" | \"alta\" | \"média\" | \"baixa\"), evidence? (a source, or \"inferência\"), recommendation, ids?}], refined?, open?: [decisions left to the designer]}  keep the design critique on the chosen proposal, with what the Eureka measures on its screen added; it replaces an earlier critique and the Gatekeeper's verdict, and waits for the designer's review → {critique}",
+            "{id (the chosen proposal's screen), reviewer?, findings?: [{area (\"fluxo\" | \"estados\" | \"falhas\" | \"casos de borda\" | \"conteúdo e interação\" | \"acessibilidade\" | \"viabilidade\" | \"medição\"), scenario, consequence, severity (\"crítica\" | \"alta\" | \"média\" | \"baixa\"), evidence? (a source, or \"inferência\"), recommendation, ids?}], refined?, open?: [decisions left to the designer], allBrands? (measure text contrast in every brand)}  keep the design critique on the chosen proposal, with what the Eureka measures on its screen added; it replaces an earlier critique and the Gatekeeper's verdict, and waits for the designer's review → {critique}",
             true,
             critique
         ),
@@ -110,7 +110,8 @@ fn measure_cmd(s: &mut Session, p: &Value) -> Result<Value> {
     if s.doc()?.node(id).is_none_or(|n| !n.plugin_data.contains_key(PROPOSAL_KEY)) {
         return Err(bad(CMD, "that layer is not a proposal on an exploration board"));
     }
-    Ok(json!({"findings": measure(s.doc()?, id)}))
+    let all = get(p, "allBrands").and_then(Value::as_bool).unwrap_or(false);
+    Ok(json!({"findings": measure(s.doc()?, id, all)}))
 }
 
 /// `explore.critique`.
@@ -164,7 +165,8 @@ fn critique(s: &mut Session, p: &Value) -> Result<Value> {
     let reviewer = text(get(p, "reviewer"), "reviewer")?.or_else(|| s.agent.clone()).unwrap_or_else(|| "revisor".into());
     let refined = text(get(p, "refined"), "refined")?;
     // What the Eureka measures goes first: it is what the screen shows, not an opinion.
-    let mut all = measure(s.doc()?, id);
+    let every = get(p, "allBrands").and_then(Value::as_bool).unwrap_or(false);
+    let mut all = measure(s.doc()?, id, every);
     all.extend(findings);
     all.truncate(MAX_FINDINGS);
     all.sort_by_key(|f| SEVERITIES.iter().position(|x| Some(*x) == f.get("severity").and_then(Value::as_str)).unwrap_or(SEVERITIES.len()));
@@ -227,7 +229,7 @@ fn finding(area: &str, severity: &str, scenario: String, consequence: &str, evid
 }
 
 /// What the Eureka measures on `screen`: findings in the critique's shape.
-pub fn measure(doc: &Document, screen: NodeId) -> Vec<Value> {
+pub fn measure(doc: &Document, screen: NodeId, all_brands: bool) -> Vec<Value> {
     let shown: Vec<NodeId> = doc
         .subtree(screen)
         .into_iter()
@@ -239,7 +241,8 @@ pub fn measure(doc: &Document, screen: NodeId) -> Vec<Value> {
         })
         .collect();
     let mut out = states(doc, &shown);
-    out.extend(contrast(doc, screen, &shown));
+    let every = if all_brands { brands(doc) } else { Vec::new() };
+    out.extend(contrast(doc, screen, &shown, &every));
     out.extend(touch(doc, screen, &shown));
     let lint = super::eureka_lint::lint_layers(doc, &doc.subtree(screen), MAX_MEASURED);
     if !lint.is_empty() {
@@ -354,15 +357,54 @@ fn is_off(v: &str) -> bool {
 
 /// The colour a paint field shows on a layer: its bound variable resolved in the layer's modes (the
 /// brand), else the first visible solid paint.
-fn fill_color(doc: &Document, id: NodeId) -> Option<Color> {
+fn fill_color(doc: &Document, id: NodeId, brand: Option<&Brand>) -> Option<Color> {
     let n = doc.node(id)?;
     let paint = n.fills.iter().find(|p| p.visible)?;
     let base = paint.solid_color()?;
-    let bound = n.bound.get("fills/0/color").and_then(|var| match doc.variables.resolve(var, &doc.modes_for(id)) {
+    let mut modes = doc.modes_for(id);
+    if let Some(b) = brand {
+        modes.insert(b.collection.clone(), b.mode.clone());
+    }
+    // The first fill's binding is kept as `fill` (or `fills/0/color`, as an import writes it).
+    let bound = n.bound.get("fill").or_else(|| n.bound.get("fills/0/color")).and_then(|var| match doc.variables.resolve(var, &modes) {
         Some(VariableValue::Color(c)) => Some(c.with_alpha(c.a * paint.opacity)),
         _ => None,
     });
     Some(bound.unwrap_or(base))
+}
+
+/// Below this ratio a text and the container behind it are the same colour (see [`text_contrast`]).
+const SAME_COLOUR: f32 = 1.1;
+
+/// Whether a layer belongs to a component shown in a disabled state (a variant such as
+/// `Desabilitado=On`), up to the screen.
+fn inactive(doc: &Document, screen: NodeId, id: NodeId) -> bool {
+    std::iter::once(id).chain(doc.ancestors(id).into_iter().take_while(|a| *a != screen).take(64)).any(|a| {
+        main_and_set(doc, a).and_then(|(main, _)| doc.node(main)).is_some_and(|m| {
+            variant_pairs(&m.name).iter().any(|(k, v)| {
+                let k = k.to_lowercase();
+                (k.contains("desabilitad") || k.contains("disabled") || k.contains("inativ"))
+                    && matches!(v.trim().to_lowercase().as_str(), "on" | "true" | "sim" | "yes")
+            })
+        })
+    })
+}
+
+/// One brand of the brand collection: the collection, the mode and its name.
+pub struct Brand {
+    collection: String,
+    mode: String,
+    name: String,
+}
+
+/// The modes of the brand collection (DS Apps', else DS N Marcas — Web): every brand a screen can
+/// take.
+pub fn brands(doc: &Document) -> Vec<Brand> {
+    ["Tokens APP", "Tokens WEB"]
+        .iter()
+        .find_map(|n| doc.variables.collection(n))
+        .map(|c| c.modes.iter().map(|m| Brand { collection: c.id.clone(), mode: m.id.clone(), name: m.name.clone() }).collect())
+        .unwrap_or_default()
 }
 
 fn over(fg: Color, bg: Color) -> Color {
@@ -370,38 +412,95 @@ fn over(fg: Color, bg: Color) -> Color {
     Color::new(fg.r * a + bg.r * (1.0 - a), fg.g * a + bg.g * (1.0 - a), fg.b * a + bg.b * (1.0 - a), 1.0)
 }
 
-/// Each text whose colour against what is behind it (the nearest container with a fill) falls under
-/// WCAG 2.1 AA.
-fn contrast(doc: &Document, screen: NodeId, shown: &[NodeId]) -> Vec<Value> {
+/// The contrast of a text against what is behind it (the nearest container with a fill, up to the
+/// screen; a translucent fill is passed over), in a brand or in the screen's own modes, with the
+/// ratio WCAG 2.1 AA asks of it.
+fn text_contrast(doc: &Document, screen: NodeId, id: NodeId, brand: Option<&Brand>) -> Option<(f32, f32)> {
+    let t = doc.node(id)?.kind.text()?;
+    let fg = fill_color(doc, id, brand)?;
+    let up: Vec<NodeId> = doc.ancestors(id).into_iter().take(64).collect();
+    let upto = up.iter().position(|a| *a == screen).map_or(up.len(), |i| i + 1);
+    let bg = up.iter().take(upto).find_map(|a| fill_color(doc, *a, brand).filter(|c| c.a >= 0.99))?;
+    let ratio = over(fg, bg).contrast(bg);
+    // A text the colour of the container measured behind it is read over something that is not
+    // measured (a photo, a gradient laid over it): no ratio rather than a false one.
+    if ratio < SAME_COLOUR {
+        return None;
+    }
+    let size = t.style.font_size;
+    let large = size >= 24.0 || (size >= 18.66 && t.style.weight() >= 700);
+    ratio.is_finite().then_some((ratio, if large { AA_LARGE } else { AA_TEXT }))
+}
+
+/// Each text whose colour against what is behind it falls under WCAG 2.1 AA: in the screen's brand,
+/// or, with `brands`, in every brand of the brand collection (one finding per text, naming the
+/// brands where it fails).
+fn contrast(doc: &Document, screen: NodeId, shown: &[NodeId], brands: &[Brand]) -> Vec<Value> {
     let mut out = Vec::new();
     for id in shown {
-        let Some(n) = doc.node(*id) else { continue };
-        let Some(t) = n.kind.text() else { continue };
+        let Some(t) = doc.node(*id).and_then(|n| n.kind.text()) else { continue };
         if t.characters.trim().is_empty() {
             continue;
         }
-        let Some(fg) = fill_color(doc, *id) else { continue };
-        // Up to the screen itself; a translucent fill is passed over (what it blends with is not
-        // measured).
-        let up: Vec<NodeId> = doc.ancestors(*id).into_iter().take(64).collect();
-        let upto = up.iter().position(|a| *a == screen).map_or(up.len(), |i| i + 1);
-        let behind = up.iter().take(upto).find_map(|a| fill_color(doc, *a).filter(|c| c.a >= 0.99));
-        let Some(bg) = behind else { continue };
-        let ratio = over(fg, bg).contrast(bg);
-        let size = t.style.font_size;
-        let large = size >= 24.0 || (size >= 18.66 && t.style.weight() >= 700);
-        let need = if large { AA_LARGE } else { AA_TEXT };
-        if !ratio.is_finite() || ratio >= need {
+        // WCAG 1.4.3 leaves inactive components out: a text of a disabled state is not measured.
+        if inactive(doc, screen, *id) {
             continue;
         }
         let sample: String = t.characters.chars().take(40).collect();
+        let (failing, need): (Vec<(String, f32)>, f32) = if brands.is_empty() {
+            let Some((ratio, need)) = text_contrast(doc, screen, *id, None) else { continue };
+            (if ratio < need { vec![(String::new(), ratio)] } else { Vec::new() }, need)
+        } else {
+            let mut need = AA_TEXT;
+            let failing = brands
+                .iter()
+                .filter_map(|b| {
+                    let (ratio, n) = text_contrast(doc, screen, *id, Some(b))?;
+                    need = n;
+                    (ratio < n).then(|| (b.name.clone(), ratio))
+                })
+                .collect();
+            (failing, need)
+        };
+        if failing.is_empty() {
+            continue;
+        }
+        let worst = failing.iter().map(|(_, r)| *r).fold(f32::INFINITY, f32::min);
+        // A text inside a DS component is the component's colour, not the proposal's: say whose.
+        let owner = doc
+            .ancestors(*id)
+            .into_iter()
+            .take_while(|a| *a != screen)
+            .take(64)
+            .filter_map(|a| main_and_set(doc, a))
+            .last()
+            .and_then(|(_, set)| doc.node(set))
+            .map(|x| format!(" Vem do componente {} do DS.", x.name))
+            .unwrap_or_default();
+        let (scenario, evidence) = if brands.is_empty() {
+            (
+                format!("Texto \"{sample}\" com contraste {worst:.1}:1 sobre o fundo (pede {need}:1).{owner}"),
+                format!("{MEASURED}: cores dos tokens na marca da tela; WCAG 2.1 AA 1.4.3"),
+            )
+        } else {
+            let list: Vec<String> = failing.iter().map(|(b, r)| format!("{b} ({r:.1}:1)")).collect();
+            (
+                format!(
+                    "Texto \"{sample}\" fica abaixo do contraste AA em {} de {} marca(s): {} (pede {need}:1).{owner}",
+                    failing.len(),
+                    brands.len(),
+                    list.join(", ")
+                ),
+                format!("{MEASURED}: cores dos tokens em cada marca da coleção; WCAG 2.1 AA 1.4.3"),
+            )
+        };
         out.push(finding(
             "acessibilidade",
-            if ratio < AA_LARGE { "alta" } else { "média" },
-            format!("Texto \"{sample}\" com contraste {ratio:.1}:1 sobre o fundo (pede {need}:1)."),
+            if worst < AA_LARGE { "alta" } else { "média" },
+            scenario,
             "Quem tem baixa visão, ou usa o app no sol, pode não conseguir ler.",
-            format!("{MEASURED}: cores dos tokens na marca da tela; WCAG 2.1 AA 1.4.3"),
-            "Usar uma cor de conteúdo do DS com contraste suficiente sobre esse fundo.".into(),
+            evidence,
+            "Usar uma cor de conteúdo do DS com contraste suficiente sobre esse fundo em todas as marcas.".into(),
             vec![id.0],
         ));
     }
