@@ -43,6 +43,7 @@ dois trabalhem juntos por aqui.
 | 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | juntada no principal (26/11) |
 | 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | juntada no principal (26/11) |
 | 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | juntada no principal (26/11) |
+| 7 | **Volta lendo os componentes do DS.** O spike da tarefa 6 lê só `div` e CSS. Faça a volta ler as chamadas `<Button variant="…" />` que o `export.tsx` gera: pelo mapa de Code Connect (o mesmo `codeConnect` ligado no documento), cada chamada vira **instância do componente do DS** com as propriedades lidas do template do mapa, e não camadas desenhadas. Chamada sem entrada no mapa: vira nota, nada de componente inventado. Testes: ida e volta de uma tela com Button e Snackbar do DS dá as mesmas instâncias e variantes; prop desconhecida vira nota. Não mexa em `proposal.rs` nem nos arquivos do PC1. | livre |
 
 ### Tarefa 1: detalhes
 
@@ -149,3 +150,4 @@ dois trabalhem juntos por aqui.
   2. **Mapa de código das peças do template da PDP** (galeria, informações, tamanhos e área fixa).
      Hoje saem desenhadas como camadas, com 56 valores sem token na G.
   3. **`export.tokensCss` com os text styles na Web.**
+- **26/11, PC1:** a Fernanda aprovou a próxima rodada. Entrou a **tarefa 7** (volta lendo os componentes do DS), livre para você. Eu sigo com a **Frente Y** (mapa de código das peças do template da PDP: galeria, informações, tamanhos e área fixa), branch `eureka/y-mapa-template`. Ela não toca o importador do spike; se você precisar do mapa, ele fica em `eureka-cache/ds-apps-pdp.connect.json`.
