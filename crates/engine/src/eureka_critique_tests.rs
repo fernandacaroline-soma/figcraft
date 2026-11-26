@@ -176,3 +176,88 @@ fn the_critique_comes_between_the_choice_and_the_gatekeeper() {
     ex(&mut s, "explore.choose", json!({"id": b.0}));
     assert!(kept(&s, a, "eureka.critique").is_none());
 }
+
+#[test]
+fn contrast_is_measured_in_every_brand_when_asked() {
+    // The screen is on Farm (black text, fine); the same token is light grey on NV.
+    let mut s = Session::new();
+    let (a, _) = board(&mut s, "Farm");
+    let own = ex(&mut s, "explore.measure", json!({"id": a.0}));
+    assert!(!serde_json::to_string(&own).unwrap().contains("contraste"), "the screen's brand passes: {own}");
+    let every = ex(&mut s, "explore.measure", json!({"id": a.0, "allBrands": true}));
+    let f: Vec<&Value> = every["findings"].as_array().unwrap().iter().filter(|x| x["scenario"].as_str().unwrap().contains("contraste")).collect();
+    assert_eq!(f.len(), 1, "{every}");
+    let scenario = f[0]["scenario"].as_str().unwrap();
+    assert!(scenario.contains("em 1 de 2 marca(s): NV ("), "{scenario}");
+    assert!(!scenario.contains("Farm"), "{scenario}");
+    assert_eq!(f[0]["severity"], json!("alta"));
+}
+
+#[test]
+fn a_disabled_text_and_a_text_over_an_unmeasured_background_are_not_flagged() {
+    let mut s = Session::new();
+    ex(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["NV"]}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Bg", "type": "color", "value": "#ffffff"}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Pale", "type": "color", "value": "#dddddd"}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/White", "type": "color", "value": "#ffffff"}));
+    // A size selector whose disabled variant has a pale label.
+    let variants: Vec<NodeId> = ["Off", "On"]
+        .iter()
+        .enumerate()
+        .map(|(k, v)| {
+            let f = idv(&ex(
+                &mut s,
+                "frame.create",
+                json!({"x": k as f64 * 100.0, "y": 600, "width": 48, "height": 48, "name": format!("Desabilitado={v}")}),
+            ));
+            let t = idv(&ex(&mut s, "text.create", json!({"text": "38", "x": 8, "y": 8, "parent": f.0})));
+            ex(&mut s, "variable.bind", json!({"ids": [t.0], "field": "fill", "variable": "Colors/Pale"}));
+            idv(&ex(&mut s, "component.create", json!({"ids": [f]})))
+        })
+        .collect();
+    let set = idv(&ex(&mut s, "component.combineVariants", json!({"ids": variants})));
+    ex(&mut s, "node.set", json!({"id": set, "props": {"name": "Tamanho"}}));
+    let screen = |c: Value| json!({"name": "Tela", "type": "incremental", "screen": {"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Bg", "children": [c]}});
+    let r = ex(
+        &mut s,
+        "explore.board",
+        json!({"title": "R", "proposals": [
+            screen(json!({"component": "Tamanho", "variant": {"Desabilitado": "On"}})),
+            screen(json!({"text": "Sobre a foto", "color": "Colors/White"}))
+        ]}),
+    );
+    for p in r["proposals"].as_array().unwrap() {
+        let m = ex(&mut s, "explore.measure", json!({"id": p["id"], "allBrands": true}));
+        assert!(!serde_json::to_string(&m).unwrap().contains("contraste"), "{m}");
+    }
+    // The same pale label in the enabled variant is measured.
+    let r = ex(
+        &mut s,
+        "explore.board",
+        json!({"title": "R2", "proposals": [
+            screen(json!({"component": "Tamanho", "variant": {"Desabilitado": "Off"}})),
+            screen(json!({"component": "Tamanho", "variant": {"Desabilitado": "Off"}}))
+        ]}),
+    );
+    let m = ex(&mut s, "explore.measure", json!({"id": r["proposals"][0]["id"]}));
+    assert!(serde_json::to_string(&m).unwrap().contains("contraste"), "{m}");
+}
+
+#[test]
+fn a_low_contrast_text_inside_a_ds_component_names_it() {
+    let mut s = Session::new();
+    ex(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["NV"]}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Bg", "type": "color", "value": "#ffffff"}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Pale", "type": "color", "value": "#dddddd"}));
+    let f = idv(&ex(&mut s, "frame.create", json!({"x": 0, "y": 600, "width": 120, "height": 40, "name": "Preço"})));
+    let t = idv(&ex(&mut s, "text.create", json!({"text": "10x sem juros", "x": 4, "y": 4, "parent": f.0})));
+    ex(&mut s, "variable.bind", json!({"ids": [t.0], "field": "fill", "variable": "Colors/Pale"}));
+    ex(&mut s, "component.create", json!({"ids": [f]}));
+    let screen = json!({"name": "Tela", "type": "incremental", "screen": {"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Bg", "children": [{"component": "Preço"}]}});
+    let r = ex(&mut s, "explore.board", json!({"title": "R", "proposals": [screen.clone(), screen]}));
+    for every in [false, true] {
+        let m = ex(&mut s, "explore.measure", json!({"id": r["proposals"][0]["id"], "allBrands": every}));
+        let text = serde_json::to_string(&m).unwrap();
+        assert!(text.contains("Vem do componente Preço do DS."), "{text}");
+    }
+}

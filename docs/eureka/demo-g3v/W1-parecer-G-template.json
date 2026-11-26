@@ -1,0 +1,30 @@
+{
+ "verdict": "com-ressalvas",
+ "summary": "Como prévia de teste, a tela está conforme nos pontos que puderam ser verificados: todas as instâncias vêm do DS Apps, o modo Tokens APP: NV está explícito na tela, o ds_lint voltou vazio e o Action Button usa propriedades oficiais (Fixed=On, Vertical=Off, Secundário + Primário). Não dá para levar a handoff sem antes resolver como as peças .Nested foram usadas, o segundo CTA primário herdado da galeria e a decisão sobre o novo padrão de compra na PDP.",
+ "items": [
+  {
+   "message": "Peças .Nested como base: para teste, servem. Para handoff, não estão conformes. Elas são nested exclusivos do template da PDP e devem ser usadas pela instância do template, não soltas na tela. Componentes com ponto no início não são publicados, então falta saber como essas instâncias chegaram ao arquivo: se vieram de um template desanexado (detach), isso é bloqueio. Também falta confirmar se o template deixa trocar a área fixa por propriedade ou slot. Se não deixa, trocar essa área é mudança estrutural no template compartilhado do DS Apps.",
+   "source": "Fluxo Oficial §4 (não fazer detach nem reconstruir componente oficial); G2-F-regras.md regra 10; guardrails G04; gatekeeper-scope-risk-reuse §1 (DS Apps: altíssima criticidade)"
+  },
+  {
+   "message": "Dentro de 'Galeria (template)' (Complete o look=False), o 'Card Content' traz um Button Primário Grande 'Eu quero' (camada 'image-slot-2', id 2265) e textos de exemplo ('Tag opcional', 'Nome do produto', 'R$ 999,99') que repetem o nome e o preço de 'Informações (template)'. Se essa camada estiver visível, a tela tem dois CTAs primários. Confirmar a visibilidade. Se precisar esconder, usar a propriedade exposta da instância, sem apagar camada nem fazer detach.",
+   "source": "Guardrails G03 (estado e conteúdo se configuram na instância); Fluxo Oficial §4"
+  },
+  {
+   "message": "O 'tamanho de sempre' aparece como 'M' no CTA ('Comprar agora · M') e no Snackbar, mas a grade de 'Tamanhos (template)' é numérica (34–44) e nenhum Selector Size está com Selecionado=On. Configurar o tamanho de sempre na própria instância (Selecionado=On num tamanho que exista na grade) e usar o mesmo rótulo no CTA e no Snackbar.",
+   "source": "Guardrails G03 (estado local é configuração de instância)"
+  },
+  {
+   "message": "Novo padrão para decidir: dois CTAs na área fixa da PDP ('Comprar agora · tamanho' e 'Adicionar à sacola') com compra direta. É uma composição de componentes oficiais, sem componente nem token novo, mas mudaria o template da PDP compartilhado do DS Apps. Antes de qualquer handoff, a liderança de DS Apps precisa decidir sobre o padrão. Não precisa perguntar sobre alinhamento, porque não se cria componente.",
+   "source": "Critérios de Escalonamento (Notion, 20/10); gatekeeper-scope-risk-reuse §1 (DS Apps / Checkout compartilhado: escalar mudança estrutural)"
+  },
+  {
+   "message": "A instância 'Image' (Tipo=Produto, id 2218) tem uma camada chamada 'farm'. Confirmar que é só o nome interno do componente oficial e que a imagem e o conteúdo são da NV. O lint não verifica referência de outra marca (regra 9 fora do lint), então esse ponto não foi conferido.",
+   "source": "Playbook §3 ('Não existem referências antigas ou de outra marca'); G2-F-regras.md regra 9"
+  },
+  {
+   "message": "Pontos sem base para afirmar conformidade. (a) Posição e comportamento do Snackbar: ele está no frame 'Módulos da proposta', e não se sabe se fica acima do Action Button fixo nem quanto tempo aparece; isso é pergunta. (b) O ds_lint vazio não cobre detach, reconstrução manual nem texto literal no lugar de token de texto, porque as regras 8 e 10 estão fora do lint. Esses dois pontos continuam sem verificação, e não estão declarados como conformes.",
+   "source": "G2-F-regras.md regras 8 e 10; guardrails G11 (teste não executado não recebe Concluído)"
+  }
+ ]
+}
