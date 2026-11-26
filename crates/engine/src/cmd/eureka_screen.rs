@@ -46,6 +46,9 @@ fn variant_pairs(name: &str) -> BTreeMap<String, String> {
     name.split(',').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (short(k), v.trim().to_string())).collect()
 }
 
+/// The collections a variable name means when several collections have it (DS Apps, then Web).
+const PREFERRED: [&str; 2] = ["Tokens APP", "Tokens WEB"];
+
 /// A layer of a described screen, read and checked.
 #[derive(Debug)]
 pub enum Item {
@@ -126,8 +129,17 @@ impl Reader<'_> {
         match v.get(key) {
             None | Some(Value::Null) => Ok(None),
             Some(Value::String(name)) => {
-                // Bound by id: `variable.bind` looks names up by first match only.
-                let id = super::variables::resolve_strict(self.cmd, self.doc, name)?;
+                // Bound by id: `variable.bind` looks names up by first match only. A name found in
+                // several collections (a library brings its own copy, as DS Apps' templates bring
+                // "Tokens") means the official brand collection's when it has it.
+                let id = match super::variables::resolve_strict(self.cmd, self.doc, name) {
+                    Ok(id) => id,
+                    Err(e) => PREFERRED
+                        .iter()
+                        .filter(|c| self.doc.variables.collection(c).is_some())
+                        .find_map(|c| super::variables::resolve_strict(self.cmd, self.doc, &format!("{c}/{name}")).ok())
+                        .ok_or(e)?,
+                };
                 if !self.uses.variables.contains(name) {
                     self.uses.variables.push(name.clone());
                 }
