@@ -19,8 +19,12 @@ import socket
 import sys
 import time
 
-S, TOK, COMP, PROPS = sys.argv[1:5]
-MORE = sys.argv[5:]
+ARGS = [a for a in sys.argv[1:] if not a.startswith("--base=")]
+# --base=template: the base screen is built from DS Apps' official PDP template parts (Frente T)
+# instead of the hand-drawn one; needs a snapshot with them (components-app-frente-t-*).
+BASE = next((a.split("=", 1)[1] for a in sys.argv[1:] if a.startswith("--base=")), "drawn")
+S, TOK, COMP, PROPS = ARGS[:4]
+MORE = ARGS[4:]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
 n = [0]
@@ -95,16 +99,39 @@ def pdp(mods):
     ] + mods.get("overlay", [])}
 
 
+def pdp_template(mods):
+    """The PDP base screen from DS Apps' official template parts (page "Página de Produto"): the
+    gallery, the product's main info, the size selection and the fixed action bar, with a proposal's
+    modules in place. A long, scrolling page as in production; the fixed bar docks at the bottom.
+    Texts inside the parts are the template's example content."""
+    content = [{"component": ".Nested / PDP-product-gallery", "variant": {"Complete o look": "False"}, "name": "Galeria (template)"}]
+    content += mods.get("before_title", [])
+    content.append({"component": ".Nested / pdp-main-info", "variant": {"Sale": "False", "Indisponível": "false"}, "name": "Informações (template)"})
+    if not mods.get("no_sizes"):
+        content.append({"component": ".Nested / size-selection-PDP", "variant": {"Sem estoque": "False"}, "name": "Tamanhos (template)"})
+    after = mods.get("after_sizes", [])
+    if after:
+        content.append({"frame": "Módulos da proposta", "padding": {"h": "Spacing/Mobile/sp-marginside", "v": "Spacing/sp-md"},
+                        "gap": "Spacing/sp-sm", "width": "fill", "children": after})
+    overlay = mods.get("overlay", [])
+    if not mods.get("no_button"):
+        overlay = [{"component": ".Nested / fixed-component", "variant": {"Sale": "False"}, "name": "Área fixa (template)", "dock": "bottom"}] + overlay
+    return {"frame": "PDP", "width": 375, "height": 1600, "fill": "Colors/Surface/Background", "children": content + overlay}
+
+
 round_ = json.load(open(PROPS))
 for extra in MORE:
     added = json.load(open(extra))["proposals"]
     round_["proposals"] += added
     # Say where they came from: proposals added for a test are not the generator's output.
     round_["title"] += f" + {len(added)} de teste do Eureka"
+if BASE == "template":
+    round_["title"] += " · base: template oficial da PDP"
 board = copy.deepcopy(round_)
 for p in board["proposals"]:
     sc = p["screen"]
-    p["screen"] = expand(pdp(sc) if sc.get("$base") == "pdp" else sc)
+    base = pdp_template if BASE == "template" else pdp
+    p["screen"] = expand(base(sc) if sc.get("$base") == "pdp" else sc)
 open(f"{S}/N1-descricao-expandida.json", "w").write(json.dumps(board, ensure_ascii=False, indent=1))
 
 r = ex("explore.board", board)

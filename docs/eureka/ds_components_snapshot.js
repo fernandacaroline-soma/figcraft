@@ -27,6 +27,14 @@ const ROOTS = {
   '3169:23397': null,     // Snackbar
   '11651:22206': null,    // Tipbar
   '362:10674': null,      // Section Heading
+  // Frente T: the parts of DS Apps' official PDP template (page "Página de Produto"), so a proposal's
+  // base screen is the template's, not drawn by hand. The gallery without "Complete o look" (that
+  // variant brings product cards); Image only as a product photo.
+  '14789:39750': v => v.name.includes('Complete o look=False'),  // .Nested / PDP-product-gallery
+  '11247:54973': null,    // .Nested / pdp-main-info
+  '11240:78010': null,    // .Nested / size-selection-PDP
+  '11247:37602': v => v.name.includes('Sale=False'),  // .Nested / fixed-component
+  '3276:26477': v => v.name.includes('Tipo=Produto'),  // Image
 };
 const want = new Map(); for (const [id, f] of Object.entries(ROOTS)) want.set(id, f);
 const R = x => typeof x === 'number' ? Math.round(x * 1000) / 1000 : x;

@@ -1154,3 +1154,33 @@ fn a_local_component_is_flagged_only_in_a_file_declared_telas_e_fluxos() {
     run(&mut s, "edit.undo", json!({}));
     assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
 }
+
+#[test]
+fn a_binding_the_main_component_has_is_inherited_not_the_screens() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["NV"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface", "type": "color", "value": "#EEEEEE"}));
+    // A DS component whose layer uses a variable of another library's collection.
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens", "modes": ["Default"]}));
+    let other = run(&mut s, "variable.create", json!({"collection": "Tokens", "name": "Colors/Text", "type": "color", "value": "#111111"}));
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 120, "height": 40, "name": "Info"}))["id"]).unwrap();
+    let text = id_of(
+        &run(&mut s, "shape.rectangle", json!({"x": 4, "y": 4, "width": 40, "height": 10, "parent": frame.0, "props": {"name": "Nome"}}))["id"],
+    )
+    .unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [text.0], "field": "fill", "variable": other["id"]}));
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 300, "y": 0}))["id"]).unwrap();
+    let rule = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("colecao-nao-oficial")).count();
+    // On the main component it is reported (the DS team's to fix); in an instance it is inherited.
+    assert_eq!(rule(&run(&mut s, "ds.lint", json!({"ids": [main.0]}))), 1);
+    let out = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    assert_eq!(rule(&out), 0, "{out}");
+    assert!(out["inherited"].as_u64().unwrap() >= 1, "{out}");
+    // Bound by the screen to that variable where the component has another: the screen's own.
+    let inner = s.doc().unwrap().node(inst).unwrap().children[0];
+    let surface = s.doc().unwrap().variables.variables.iter().find(|v| v.name == "Colors/Surface").unwrap().id.clone();
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": surface}));
+    run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": other["id"]}));
+    assert_eq!(rule(&run(&mut s, "ds.lint", json!({"ids": [inst.0]}))), 1);
+}

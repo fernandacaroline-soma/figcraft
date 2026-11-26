@@ -13,7 +13,8 @@
 //!
 //! Inside an instance, a raw value the main component has too is the component's own (the DS
 //! team's to fix), not the screen's: it is counted as `inherited` and not reported. Only what the
-//! instance changes (an override) is reported. A hidden layer inside an instance (a slot's
+//! instance changes (an override) is reported; the same goes for a binding the main component has
+//! (a variable of another collection, or out of its scope, inside a DS component). A hidden layer inside an instance (a slot's
 //! placeholder, a loading or error state) is not on the screen and is not linted.
 
 use std::collections::BTreeMap;
@@ -332,12 +333,7 @@ impl Lint<'_> {
         // Compared with the layer it mirrors in the enclosing main component (`source`) first: what
         // a DS component does to the instances inside it (a nested instance's background, say) is
         // the DS's own, not the screen's. A top-level instance has no source: its component then.
-        let main = match (node.source, &node.kind) {
-            (Some(src), _) => Some(src),
-            (None, NodeKind::Instance { component, .. }) => Some(*component),
-            _ => None,
-        };
-        let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return };
+        let Some(m) = Self::mirrored(self.doc, node) else { return };
         let Some(component) = self.official_component(node.id) else { return };
         for (field, theirs) in &m.bound {
             let var_name = |id: &str| self.doc.variables.get_by_id(id).map_or_else(|| id.to_string(), |v| v.name.clone());
@@ -365,6 +361,27 @@ impl Lint<'_> {
             };
             self.push(node, "override-token", message, SRC_OVERRIDE, Some(field), Some(value));
         }
+    }
+
+    /// The layer this one mirrors: in the enclosing main component (`source`) first, else, for a
+    /// top-level instance, its main component.
+    fn mirrored<'d>(doc: &'d Document, node: &figcraft_doc::Node) -> Option<&'d figcraft_doc::Node> {
+        let main = match (node.source, &node.kind) {
+            (Some(src), _) => Some(src),
+            (None, NodeKind::Instance { component, .. }) => Some(*component),
+            _ => None,
+        };
+        main.filter(|m| *m != node.id).and_then(|m| doc.node(m))
+    }
+
+    /// Whether a binding is the main component's own (the same variable on the layer it mirrors):
+    /// then it is the DS component's matter, counted as inherited and not reported.
+    fn inherited_binding(&mut self, node: &figcraft_doc::Node, field: &str, vid: &str) -> bool {
+        let same = Self::mirrored(self.doc, node).and_then(|m| m.bound.get(field)).is_some_and(|v| v == vid);
+        if same {
+            self.inherited += 1;
+        }
+        same
     }
 
     /// The name of the official component the layer is part of: the nearest instance (the layer or
@@ -426,7 +443,7 @@ impl Lint<'_> {
         }
         for (field, vid) in &node.bound {
             let Some(var) = self.doc.variables.get_by_id(vid) else { continue };
-            if self.official.contains(&var.collection) {
+            if self.official.contains(&var.collection) || self.inherited_binding(node, field, vid) {
                 continue;
             }
             let coll = self.doc.variables.collection(&var.collection).map_or_else(|| var.collection.clone(), |c| c.name.clone());
@@ -449,7 +466,7 @@ impl Lint<'_> {
             let Some(var) = self.doc.variables.get_by_id(vid) else { continue };
             let Some(scope) = field_scope(self.doc, node.id, field) else { continue };
             let declared = scopes_text(var);
-            if !var.in_scope(scope) {
+            if !var.in_scope(scope) && !self.inherited_binding(node, field, vid) {
                 let message = format!(
                     "{}: {} usa {}, cujo escopo declarado é {declared}; está fora do escopo (só aviso).",
                     node.name,
