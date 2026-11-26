@@ -58,6 +58,13 @@ que existem. Corrija e entregue de novo.
 Mantenha a regra da skill: de 3 a 10 propostas, **3 disruptivas**, e cada proposta parte da mesma
 tela base da jornada.
 
+**Tela base a partir do template oficial.** Quando o DS tem template da jornada (a PDP do DS Apps,
+por exemplo), a tela base pode ser montada com as peças dele: galeria, informações do produto,
+seleção de tamanho e área de ação fixa (`.Nested / PDP-product-gallery`, `.Nested / pdp-main-info`,
+`.Nested / size-selection-PDP`, `.Nested / fixed-component`). Isso serve **só para exploração**: no
+handoff, a tela usa a instância do template, não as peças soltas. Se a proposta acrescenta módulos
+que o template não comporta, escreva isso como **novo padrão potencial**.
+
 ## 3. Escolha
 
 A designer escolhe no próprio quadro, pelo botão **Escolher esta proposta** do cartão. Não escolha
@@ -79,7 +86,9 @@ Inclua também `refined` (a proposta refinada) e `open` (as decisões em aberto)
 
 O Eureka acrescenta sozinho, com a evidência "Eureka (medido)":
 - estados do DS que a tela não mostra;
-- contraste do texto na marca da tela;
+- contraste do texto em **todas as marcas** do DS (não só na marca da tela), dizendo de qual
+  componente do DS o texto vem. Quando o texto vem de um componente do DS, o achado é do DS, não da
+  proposta: anote e não corrija desenhando por cima;
 - áreas de toque menores que 44 pt;
 - valores fora do DS.
 
@@ -89,11 +98,38 @@ A designer marca o status de cada achado e clica **Revisei a crítica** no cart�
 
 ## 5. Gatekeeper (Fase D)
 
-O Eureka só aceita o parecer do ds-gatekeeper (`explore.review`) depois que a designer revisou a
-crítica. O pedido ao Gatekeeper leva a proposta, o lint do DS, o contexto e a crítica revisada. O
-parecer é guardado na proposta, só como orientação.
+Siga [ds-gatekeeper.md](ds-gatekeeper.md). O Eureka só aceita o parecer do ds-gatekeeper
+(`explore.review`) depois que a designer revisou a crítica. O pedido ao Gatekeeper leva a proposta, o
+lint do DS, o contexto e a crítica revisada. O parecer é guardado na proposta, só como orientação.
 
-## 6. O que não muda
+## 6. Aprovação e memória visual (Fase E)
+
+A designer aprova o layout refinado pelo botão **Aprovar o layout** do cartão (`explore.approve`).
+Não aprove por ela. Depois da aprovação, `explore.memory` monta o **rascunho** da entrada no modelo
+de [memoria-visual.md](memoria-visual.md):
+
+- componentes e variantes usados;
+- estados mostrados;
+- tokens de espaçamento do layout;
+- o que a designer ajustou à mão (o Eureka registra o que veio dela e o que veio da IA).
+
+O rascunho não é gravado no Notion sem o ok explícito da designer.
+
+## 7. Código para os devs
+
+Depois do parecer, o botão **Exportar a proposta como código** do cartão (`explore.exportCode`)
+gera o `.tsx` da tela escolhida e o `tokens.css`. No topo do `.tsx` vão a proposta, o parecer e os
+achados da crítica ainda abertos.
+
+- **Mapa de código do DS:** com o mapa ligado (botão **Ligar um mapa de código…** no cartão, ou
+  `explore.codeMap`), cada componente do DS vira uma chamada ao componente de código, por exemplo
+  `<ActionButton vertical="Off" fixed="On" />`. Sem o mapa, ele sai desenhado como camadas e o
+  cartão avisa.
+- **O que a chamada não leva** (um texto trocado dentro do componente, como os rótulos dos botões de
+  uma área de ação) vai como nota para o dev, no topo do arquivo.
+- Exportar não muda nada no DS nem no Figma.
+
+## 8. O que não muda
 
 - Registro no Notion só com o ok explícito da designer (`registro-notion.md`).
 - Nada é escrito no Figma nem no DS oficial.
