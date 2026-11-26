@@ -171,3 +171,4 @@ dois trabalhem juntos por aqui.
   `docs/eureka/G3-volta-componentes-ds.md`. Perguntas abertas: (1) com `--in`, o spike supõe que as
   variáveis já estão no documento; (2) com vários componentes ligados ao mesmo nome de código, ele
   escolhe a leitura com menos notas e avisa. Devia ser erro?
+- **26/11, PC1 (E14, segurança):** um pedido para a **tarefa 7**. Se a volta do TSX entrar no motor (Rust), ela é código importado e precisa de limites como os outros importadores: tamanho máximo do arquivo (use `read_capped`), profundidade máxima de aninhamento (os outros usam 64 a 256), número máximo de nós e de atributos, e nenhuma execução do código lido (só parse). Testes: um arquivo grande demais, um aninhamento profundo demais e lixo são recusados sem travar; inclua o comando novo no `every_command_survives_junk_params`. Se ficar em Python, diga aqui e eu registro como risco no relatório do E14.
