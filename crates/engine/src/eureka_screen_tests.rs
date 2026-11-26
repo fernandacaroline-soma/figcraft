@@ -161,3 +161,22 @@ fn the_catalog_lists_components_by_the_names_a_description_uses() {
     let only = ex(&mut s, "explore.catalog", json!({"query": "butt"}));
     assert_eq!(only["components"].as_array().unwrap().len(), 1);
 }
+
+#[test]
+fn a_token_name_in_two_collections_means_the_official_one() {
+    let mut s = Session::new();
+    library(&mut s);
+    // A library's own copy of the tokens, with the same names.
+    ex(&mut s, "variable.createCollection", json!({"name": "Tokens", "modes": ["Default"]}));
+    ex(&mut s, "variable.create", json!({"collection": "Tokens", "name": "Colors/Surface", "type": "color", "value": "#000000"}));
+    let sc = json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Surface", "children": []});
+    let out = board(&mut s, vec![sc.clone(), sc]).unwrap();
+    let screen = idv(&out["proposals"][0]);
+    let doc = s.doc().unwrap();
+    let bound = doc.node(screen).unwrap().bound.get("fill").cloned().unwrap();
+    let var = doc.variables.get_by_id(&bound).unwrap();
+    assert_eq!(doc.variables.collection(&var.collection).unwrap().name, "Tokens APP");
+    // An unknown name is still refused.
+    let nope = json!({"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Nope", "children": []});
+    assert!(board(&mut s, vec![nope.clone(), nope]).is_err());
+}

@@ -1902,6 +1902,7 @@ name = "figcraft-engine"
 version = "0.18.1"
 dependencies = [
  "base64 0.22.1",
+ "chrono",
  "craft-docpath",
  "craft-font-catalog",
  "craft-font-store",

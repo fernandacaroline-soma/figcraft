@@ -1154,3 +1154,77 @@ fn a_local_component_is_flagged_only_in_a_file_declared_telas_e_fluxos() {
     run(&mut s, "edit.undo", json!({}));
     assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
 }
+
+#[test]
+fn a_binding_the_main_component_has_is_inherited_not_the_screens() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["NV"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface", "type": "color", "value": "#EEEEEE"}));
+    // A DS component whose layer uses a variable of another library's collection.
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens", "modes": ["Default"]}));
+    let other = run(&mut s, "variable.create", json!({"collection": "Tokens", "name": "Colors/Text", "type": "color", "value": "#111111"}));
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 120, "height": 40, "name": "Info"}))["id"]).unwrap();
+    let text = id_of(
+        &run(&mut s, "shape.rectangle", json!({"x": 4, "y": 4, "width": 40, "height": 10, "parent": frame.0, "props": {"name": "Nome"}}))["id"],
+    )
+    .unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [text.0], "field": "fill", "variable": other["id"]}));
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 300, "y": 0}))["id"]).unwrap();
+    let rule = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("colecao-nao-oficial")).count();
+    // On the main component it is reported (the DS team's to fix); in an instance it is inherited.
+    assert_eq!(rule(&run(&mut s, "ds.lint", json!({"ids": [main.0]}))), 1);
+    let out = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    assert_eq!(rule(&out), 0, "{out}");
+    assert!(out["inherited"].as_u64().unwrap() >= 1, "{out}");
+    // Bound by the screen to that variable where the component has another: the screen's own.
+    let inner = s.doc().unwrap().node(inst).unwrap().children[0];
+    let surface = s.doc().unwrap().variables.variables.iter().find(|v| v.name == "Colors/Surface").unwrap().id.clone();
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": surface}));
+    run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": other["id"]}));
+    assert_eq!(rule(&run(&mut s, "ds.lint", json!({"ids": [inst.0]}))), 1);
+}
+
+#[test]
+fn an_approved_layout_drafts_its_visual_memory_entry_with_the_designers_adjustments() {
+    let mut s = Session::new();
+    run(&mut s, "origin.track", json!({"on": true}));
+    s.agent = Some("Claude".into());
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "Rodada", "brand": "NV", "platform": "app", "journey": "PDP",
+               "proposals": [proposal("Um", "incremental", "#EEEEEE"), proposal("Dois", "disruptiva", "#DDDDDD")]}),
+    );
+    s.agent = None;
+    let a = id_of(&out["proposals"][0]["id"]).unwrap();
+    // The designer adjusts a text by hand.
+    let text = s.doc().unwrap().node(a).unwrap().children[0];
+    run(&mut s, "node.set", json!({"id": text.0, "props": {"opacity": 0.5}}));
+    run(&mut s, "explore.choose", json!({"id": a.0}));
+    // The approval comes after the critique was reviewed and the Gatekeeper's verdict.
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err());
+    run(&mut s, "explore.critique", json!({"id": a.0}));
+    run(&mut s, "explore.critiqueReviewed", json!({"id": a.0}));
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err(), "no verdict yet");
+    run(&mut s, "explore.review", json!({"id": a.0, "verdict": "com-ressalvas"}));
+    assert!(s.execute("explore.memory", &json!({"id": a.0})).is_err(), "not approved yet");
+    assert!(s.execute("explore.approve", &json!({"id": a.0, "date": "26/11/2026"})).is_err(), "date as AAAA-MM-DD");
+    run(&mut s, "explore.approve", json!({"id": a.0, "by": "Designer NV", "date": "2026-11-26"}));
+    let m = run(&mut s, "explore.memory", json!({"id": a.0}));
+    let entry = m["entry"].as_str().unwrap();
+    assert_eq!(m["written"], json!(false));
+    assert!(entry.starts_with("## 2026-11-26 — PDP · app — Um"), "{entry}");
+    assert!(entry.contains("Aprovado por: Designer NV em 2026-11-26"), "{entry}");
+    // Her edit, not the agent's drawing: only the text she changed.
+    let adjusted = m["fields"]["ajustes_designer"].as_str().unwrap();
+    assert!(adjusted.contains("opacity"), "{adjusted}");
+    assert!(!adjusted.contains("tela"), "the agent's frame is not her adjustment: {adjusted}");
+    // What was set aside, with the reason left to her.
+    assert!(m["fields"]["evitar"].as_str().unwrap().contains("Dois"), "{m}");
+    assert_eq!(m["fields"]["status"], json!("observação"));
+    // Choosing another proposal leaves the approval with the old one (it was its layout).
+    run(&mut s, "explore.choose", json!({"id": id_of(&out["proposals"][1]["id"]).unwrap().0}));
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err());
+    assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.approval"), "the approval was of the other choice");
+}
