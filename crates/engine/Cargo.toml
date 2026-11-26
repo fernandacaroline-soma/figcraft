@@ -10,6 +10,7 @@ workspace = true
 
 [dependencies]
 figcraft-geom = { workspace = true }
+chrono = { workspace = true }
 figcraft-color = { workspace = true }
 figcraft-doc = { workspace = true }
 figcraft-collab = { workspace = true }

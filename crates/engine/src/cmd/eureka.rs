@@ -601,7 +601,7 @@ const MAX_ORIGIN_LAYERS: usize = 500;
 pub const ORIGIN_KEY: &str = "eureka.origin";
 
 /// A layer's recorded origin (`{}` when none, or when the stored text is not an object).
-fn origin_of(n: &figcraft_doc::Node) -> Value {
+pub(crate) fn origin_of(n: &figcraft_doc::Node) -> Value {
     n.plugin_data.get(ORIGIN_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object).unwrap_or_else(|| json!({}))
 }
 

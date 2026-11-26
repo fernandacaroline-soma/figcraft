@@ -1,0 +1,12 @@
+## 2026-11-26 — PDP · app — Comprar agora no tamanho de sempre
+- Registro: <link da página no Registro de propostas>
+- Layout aprovado (Figma): <link do layout aprovado com node-id> · Aprovado por: designer da NV (teste) em 2026-11-26
+- Componentes e tokens usados (DS): Componentes: .Nested / PDP-product-gallery; .Nested / pdp-main-info; .Nested / size-selection-PDP; Snackbar; Action Button. Tokens: Colors/Surface/Background; Spacing/Mobile/sp-marginside; Spacing/sp-md; Spacing/sp-sm.
+- Padrões de layout: Blocos, de cima para baixo: Galeria (template); Informações (template); Tamanhos (template); Módulos da proposta; Action Button · comprar. Espaçamento: Spacing/sp-sm; Spacing/Mobile/sp-marginside; Spacing/sp-md.
+- Imagem: 1 imagem(ns) na tela (conteúdo de exemplo; tipo e enquadramento a descrever pela designer).
+- Texto: Chamadas para ação: "Eu quero"; "Guia de medidas"; "Meu tamanho acabou"; "Adicionar à sacola"; "Comprar agora · M".
+- Interações: Estados mostrados: Selector Size (Selector Button) Desabilitado=On; Snackbar Status=Sucesso.
+- O que a designer ajustou: Snackbar (props, characters)
+- O que evitar: Não escolhidas nesta rodada: A · Incremental · Tamanho na hora de escolher; B · Incremental · Como veste; C · Incremental · Concierge NV para tamanho e styling; D · Incremental · Galeria editorial com look comprável; E · Incremental · Botão fixo que resolve o tamanho; F · Disruptiva · Tamanho resolvido antes da galeria; H · Disruptiva · Provar na loja antes de comprar (motivo: <a registrar pela designer>).
+- Status do aprendizado: observação
+- Validação: <sem teste ainda; aprovação de design não é validação com clientes>

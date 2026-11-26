@@ -259,7 +259,7 @@ pub fn measure(doc: &Document, screen: NodeId) -> Vec<Value> {
 }
 
 /// The main component an instance shows and the set it belongs to (or itself, standing alone).
-fn main_and_set(doc: &Document, id: NodeId) -> Option<(NodeId, NodeId)> {
+pub(crate) fn main_and_set(doc: &Document, id: NodeId) -> Option<(NodeId, NodeId)> {
     let NodeKind::Instance { component, .. } = doc.node(id)?.kind else { return None };
     let set = doc.node(component)?.parent.filter(|p| doc.node(*p).is_some_and(|n| matches!(n.kind, NodeKind::ComponentSet { .. })));
     Some((component, set.unwrap_or(component)))
@@ -267,12 +267,12 @@ fn main_and_set(doc: &Document, id: NodeId) -> Option<(NodeId, NodeId)> {
 
 /// A variant name's `property=value` pairs, the property as a description names it but with its
 /// case kept for the designer ("✍️ Desabilitado#1:2" → "Desabilitado").
-fn variant_pairs(name: &str) -> BTreeMap<String, String> {
+pub(crate) fn variant_pairs(name: &str) -> BTreeMap<String, String> {
     let label = |k: &str| k.split('#').next().unwrap_or(k).trim_start_matches(|c: char| !c.is_alphanumeric()).trim().to_string();
     name.split(',').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (label(k), v.trim().to_string())).collect()
 }
 
-fn is_state(word: &str) -> bool {
+pub(crate) fn is_state(word: &str) -> bool {
     let w = word.to_lowercase();
     STATE_WORDS.iter().any(|s| w.contains(s))
 }
@@ -282,7 +282,7 @@ fn is_state(word: &str) -> bool {
 const STATE_VALUES: [&str; 12] =
     ["erro", "error", "loading", "carregando", "vazio", "empty", "sucesso", "success", "desabilitado", "disabled", "falha", "offline"];
 
-fn is_state_value(v: &str) -> bool {
+pub(crate) fn is_state_value(v: &str) -> bool {
     let w = v.trim().to_lowercase();
     STATE_VALUES.contains(&w.as_str())
 }
