@@ -8,6 +8,7 @@ Antes, o `export.tsx` redesenhava toda instância com `div` e CSS, inclusive os 
 
 ```tsx
 import { Button } from "@pacote/ds-apps";
+/* cabeçalho da tela */
 import "./pdp-mobile.css";
 …
         <Button variant="Secundário" />
@@ -32,11 +33,13 @@ Uma instância de componente local, que não é do DS, continua desenhada, sem n
 ## Validação
 
 - `a_design_system_component_in_the_map_is_a_call_to_its_code_component`. Uma tela com um Button do DS ligado pelo mapa, na variante Secundário com preenchimento solto dentro do componente, e um Chip do DS sem link. Resultado:
-  - o `import` sai antes do CSS e a chamada traz o valor da instância;
+  - o `import` abre o arquivo e a chamada traz o valor da instância;
   - nenhum valor de dentro do componente entra, nem como aviso;
   - `components` traz a chamada;
   - a nota do Chip aparece no resultado e no cabeçalho.
 - `without_a_map_the_design_systems_instances_are_drawn_and_noted`. Sem o link, o Button é desenhado e anotado, e `components` fica vazio.
+- `two_screens_with_one_code_component_import_it_once_at_the_top`. Duas telas com Button no mesmo `.tsx`: um único `import { Button }`, no topo, e duas chamadas.
+- `a_layer_named_as_an_imported_component_gets_a_number`. Uma camada raiz chamada "Button" junto de uma tela que importa o Button vira `function Button2`, com nota.
 - Também rodei os filtros `code_connect`, `code_map`, `codegen`, `inspect`, `eureka`, o junk sweep e o `clippy -D warnings` no engine. O resultado do CI está no commit.
 
 ## Limites
@@ -45,3 +48,9 @@ Uma instância de componente local, que não é do DS, continua desenhada, sem n
 - **Template e chamada.** Uma propriedade que o template do mapa não lê não chega ao código; o `export.codeMap` lista essas propriedades em `unmapped`. Um slot preenchido também não aparece na chamada, a menos que o template o leia.
 - **Componentes aninhados.** Uma instância ligada dentro de outra instância não ligada aparece como chamada no lugar dela, e o `import` sobe para o topo. Uma instância dentro de uma instância ligada não é vista, porque o componente de código cuida dela.
 - **Sem conferência no código.** Não há verificação de que o pacote ou a prop existem. Ver os limites da Tarefa 3.
+
+## Ajustes da revisão (PC1, 26/11)
+
+- **Imports no topo, sem repetição.** Antes, cada tela trazia os próprios `import`, e duas telas com Button davam dois `import { Button }` no mesmo arquivo (identificador duplicado). Agora os `import` de todas as telas são juntados, sem repetição, e abrem o arquivo.
+- **Nome de camada igual ao de um componente importado.** Uma camada raiz com o nome de um componente importado (por exemplo, "Button") ganha número (`Button2`), como duas camadas de mesmo nome. A nota diz `Button is also an imported code component: this layer (…) is Button2`.
+- O merge com `g3-tokens-web` tinha perdido um `}` em `export_tsx_tests.rs`; está corrigido.

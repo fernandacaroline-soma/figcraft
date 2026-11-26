@@ -86,4 +86,20 @@ fn comment_closers_in_the_reviewers_text_do_not_end_the_header() {
     let tsx = r["files"][0]["text"].as_str().unwrap();
     let header_end = tsx.find(" */\n").unwrap();
     assert!(!tsx[..header_end].contains("*/"), "{tsx}");
+    assert!(!tsx.contains("Exported although"), "only a blocked verdict says so: {tsx}");
+}
+
+#[test]
+fn a_blocked_verdict_still_exports_and_says_the_designer_decides() {
+    let mut s = Session::new();
+    let (a, _) = board(&mut s);
+    ex(&mut s, "explore.choose", json!({"id": a.0}));
+    ex(&mut s, "explore.critique", json!({"id": a.0, "findings": [finding("alta", "Contraste baixo")]}));
+    ex(&mut s, "explore.critiqueReviewed", json!({"id": a.0}));
+    ex(&mut s, "explore.review", json!({"id": a.0, "verdict": "bloqueado", "summary": "Token errado."}));
+    let r = ex(&mut s, "explore.exportCode", json!({"id": a.0}));
+    let tsx = r["files"][0]["text"].as_str().unwrap();
+    let header_end = tsx.find(" */\n").unwrap();
+    assert!(tsx[..header_end].contains("Exported although the verdict is \"bloqueado\""), "{tsx}");
+    assert!(tsx[..header_end].contains("the designer chose this proposal and decides"), "{tsx}");
 }

@@ -9,6 +9,7 @@ pub mod eureka;
 pub mod eureka_critique;
 pub mod eureka_explore;
 pub mod eureka_lint;
+pub mod eureka_memory;
 pub mod eureka_screen;
 pub mod facilitate;
 pub mod file;
@@ -86,6 +87,7 @@ fn registry() -> &'static Registry {
         list.extend(eureka_lint::specs());
         list.extend(eureka_screen::specs());
         list.extend(eureka_critique::specs());
+        list.extend(eureka_memory::specs());
         list.extend(lists::specs());
         list.extend(crate::selection_colors::specs());
         list.extend(arrange::specs());

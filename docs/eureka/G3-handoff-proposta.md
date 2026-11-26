@@ -61,3 +61,8 @@ Depois, o cartão mostra `tokens` (o que veio como token) e `warnings` (o que fi
 - O resumo vai em inglês, como o resto do cabeçalho. O texto do revisor e da crítica sai como foi escrito, em pt-BR.
 - Os itens do parecer são listados sem os `ids` das camadas.
 - A ação no cartão ainda não existe. Fica com o PC1, conforme a FILA.
+
+## Ajustes da revisão (PC1, 26/11)
+
+- **Parecer "bloqueado" ainda exporta.** Quem decide é a designer. O cabeçalho agora diz isso numa linha logo abaixo do parecer: `Exported although the verdict is "bloqueado": the verdict is advice; the designer chose this proposal and decides.` A linha só aparece com "bloqueado". Teste: `a_blocked_verdict_still_exports_and_says_the_designer_decides`; o teste dos `*/` confere que um parecer "aprovado" não traz a linha.
+- O branch recebeu o merge de `g3-tsx-ds-components` com os ajustes da Tarefa 2: os `import` ficam no topo, sem repetição, depois do resumo da proposta.

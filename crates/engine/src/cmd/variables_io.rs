@@ -83,6 +83,12 @@ pub(crate) enum CssStyle {
 /// default mode's values on `:root`, every other mode's on `[data-<collection>="<mode>"]`;
 /// aliases are `var(--name)` and colour calculations resolve to their colour in the mode.
 pub(crate) fn css(doc: &Document, colls: &[&Collection], style: CssStyle) -> String {
+    css_with(doc, colls, style, None)
+}
+
+/// [`css`], with `CssStyle::Ds`'s `data-brand` on collection `brand` (an id) when given, else on
+/// [`crate::export_tsx::brand_collection`].
+pub(crate) fn css_with(doc: &Document, colls: &[&Collection], style: CssStyle, brand: Option<&str>) -> String {
     let tailwind = style == CssStyle::Tailwind;
     let vars = &doc.variables;
     let flattener = vars.flattener();
@@ -103,7 +109,7 @@ pub(crate) fn css(doc: &Document, colls: &[&Collection], style: CssStyle) -> Str
         let attr = css_var_name(&c.name);
         for (i, m) in c.modes.iter().enumerate() {
             let sel = match i {
-                _ if style == CssStyle::Ds => crate::export_tsx::ds_selector(doc, c, i, m),
+                _ if style == CssStyle::Ds => crate::export_tsx::ds_selector(doc, c, i, m, brand),
                 // `static`: Tailwind otherwise drops theme variables no utility uses, and pages also
                 // read them through `var()` and `(--name)` utilities.
                 0 if tailwind => "@theme static".to_string(),

@@ -96,6 +96,10 @@ fn summary(proposal: &Value, review: &Value, critique: &Value) -> String {
         out.push_str(&format!(" · {}", t(review, "summary")));
     }
     out.push('\n');
+    // A blocked verdict does not stop the export: the Gatekeeper advises, the designer decides.
+    if t(review, "verdict").trim().eq_ignore_ascii_case("bloqueado") {
+        out.push_str(" *   Exported although the verdict is \"bloqueado\": the verdict is advice; the designer chose this proposal and decides.\n");
+    }
     let items = review.get("items").and_then(Value::as_array).cloned().unwrap_or_default();
     for i in items.iter().take(MAX_LISTED) {
         let source = t(i, "source");
