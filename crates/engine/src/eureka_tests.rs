@@ -1184,3 +1184,47 @@ fn a_binding_the_main_component_has_is_inherited_not_the_screens() {
     run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": other["id"]}));
     assert_eq!(rule(&run(&mut s, "ds.lint", json!({"ids": [inst.0]}))), 1);
 }
+
+#[test]
+fn an_approved_layout_drafts_its_visual_memory_entry_with_the_designers_adjustments() {
+    let mut s = Session::new();
+    run(&mut s, "origin.track", json!({"on": true}));
+    s.agent = Some("Claude".into());
+    let out = run(
+        &mut s,
+        "explore.board",
+        json!({"title": "Rodada", "brand": "NV", "platform": "app", "journey": "PDP",
+               "proposals": [proposal("Um", "incremental", "#EEEEEE"), proposal("Dois", "disruptiva", "#DDDDDD")]}),
+    );
+    s.agent = None;
+    let a = id_of(&out["proposals"][0]["id"]).unwrap();
+    // The designer adjusts a text by hand.
+    let text = s.doc().unwrap().node(a).unwrap().children[0];
+    run(&mut s, "node.set", json!({"id": text.0, "props": {"opacity": 0.5}}));
+    run(&mut s, "explore.choose", json!({"id": a.0}));
+    // The approval comes after the critique was reviewed and the Gatekeeper's verdict.
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err());
+    run(&mut s, "explore.critique", json!({"id": a.0}));
+    run(&mut s, "explore.critiqueReviewed", json!({"id": a.0}));
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err(), "no verdict yet");
+    run(&mut s, "explore.review", json!({"id": a.0, "verdict": "com-ressalvas"}));
+    assert!(s.execute("explore.memory", &json!({"id": a.0})).is_err(), "not approved yet");
+    assert!(s.execute("explore.approve", &json!({"id": a.0, "date": "26/11/2026"})).is_err(), "date as AAAA-MM-DD");
+    run(&mut s, "explore.approve", json!({"id": a.0, "by": "Designer NV", "date": "2026-11-26"}));
+    let m = run(&mut s, "explore.memory", json!({"id": a.0}));
+    let entry = m["entry"].as_str().unwrap();
+    assert_eq!(m["written"], json!(false));
+    assert!(entry.starts_with("## 2026-11-26 — PDP · app — Um"), "{entry}");
+    assert!(entry.contains("Aprovado por: Designer NV em 2026-11-26"), "{entry}");
+    // Her edit, not the agent's drawing: only the text she changed.
+    let adjusted = m["fields"]["ajustes_designer"].as_str().unwrap();
+    assert!(adjusted.contains("opacity"), "{adjusted}");
+    assert!(!adjusted.contains("tela"), "the agent's frame is not her adjustment: {adjusted}");
+    // What was set aside, with the reason left to her.
+    assert!(m["fields"]["evitar"].as_str().unwrap().contains("Dois"), "{m}");
+    assert_eq!(m["fields"]["status"], json!("observação"));
+    // Choosing another proposal leaves the approval with the old one (it was its layout).
+    run(&mut s, "explore.choose", json!({"id": id_of(&out["proposals"][1]["id"]).unwrap().0}));
+    assert!(s.execute("explore.approve", &json!({"id": a.0})).is_err());
+    assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.approval"), "the approval was of the other choice");
+}

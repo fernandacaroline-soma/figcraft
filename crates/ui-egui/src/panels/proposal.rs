@@ -424,17 +424,19 @@ pub struct BoardProposal {
     pub info: Value,
     pub critique: Option<Value>,
     pub review: Option<Value>,
+    pub approval: Option<Value>,
 }
 
 pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
     use figcraft_engine::cmd::eureka_critique::CRITIQUE_KEY;
     use figcraft_engine::cmd::eureka_explore::{PROPOSAL_KEY, REVIEW_KEY};
+    use figcraft_engine::cmd::eureka_memory::APPROVAL_KEY;
     let ds = app.session.ds().ok()?;
     let [id] = ds.selection.as_slice() else { return None };
     let n = ds.doc.node(*id)?;
     let info: Value = serde_json::from_str(n.plugin_data.get(PROPOSAL_KEY)?).ok()?;
     let kept = |k: &str| n.plugin_data.get(k).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
-    Some(BoardProposal { name: n.name.clone(), info, critique: kept(CRITIQUE_KEY), review: kept(REVIEW_KEY) })
+    Some(BoardProposal { name: n.name.clone(), info, critique: kept(CRITIQUE_KEY), review: kept(REVIEW_KEY), approval: kept(APPROVAL_KEY) })
 }
 
 /// What the designer did on the board card.
@@ -445,6 +447,8 @@ enum CardAction {
     /// A finding's number and the status the designer gave it.
     Status(u64, String),
     Reviewed,
+    /// The designer approves the refined layout (`explore.approve`).
+    Approve,
 }
 
 /// While one proposal of an exploration board is selected (and no proposal preview shows): a card
@@ -491,6 +495,9 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
         }
         CardAction::Reviewed => {
             app.run("explore.critiqueReviewed", json!({"id": id.0}));
+        }
+        CardAction::Approve => {
+            app.run("explore.approve", json!({"id": id.0}));
         }
         CardAction::None => {}
     }
@@ -545,6 +552,14 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
         Some(rv) => {
             review_block(ui, rv, t);
             line(ui, tr("A review only advises: you decide."), t.text_tertiary);
+            // Last step: the designer approves the refined layout; its visual-memory entry can then
+            // be drafted (`explore.memory`), and only written with her explicit ok.
+            ui.add_space(8.0);
+            if bp.approval.is_some() {
+                line(ui, tr("You approved this layout."), t.success);
+            } else if ui.button(tr("Approve the layout")).clicked() {
+                action = CardAction::Approve;
+            }
         }
         None if reviewed => {
             ui.add_space(8.0);
