@@ -799,3 +799,68 @@ fn numbered_names_never_meet_a_layer_already_named_so() {
         assert_eq!(code.matches(f).count(), 1, "{f}: {code}");
     }
 }
+
+#[test]
+fn what_an_instance_changed_inside_a_call_is_listed_for_the_developers() {
+    // The PDP's Action Button: a DS component holding a Button and a label. The proposal changes the
+    // nested Button's variant and the label's text; the call passes only the Action Button's own
+    // properties, so both are listed (they were lost without a word).
+    let (mut s, screen) = screen_with_ds_components();
+    let set = s.doc().unwrap().nodes().find(|n| n.name == "Button" && matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })).unwrap().id;
+    let bar = id_of(&run(&mut s, "frame.create", json!({"x": 800, "y": 400, "width": 300, "height": 60, "name": "Action Bar"}))["id"]).unwrap();
+    run(&mut s, "instance.create", json!({"component": set.0, "x": 0, "y": 0, "parent": bar.0}));
+    run(&mut s, "text.create", json!({"text": "Comprar", "x": 130, "y": 10, "parent": bar.0, "props": {"name": "Label"}}));
+    let hint =
+        id_of(&run(&mut s, "text.create", json!({"text": "Dica", "x": 130, "y": 30, "parent": bar.0, "props": {"name": "Hint"}}))["id"]).unwrap();
+    let bar = id_of(&run(&mut s, "component.create", json!({"ids": [bar.0]}))["id"]).unwrap();
+    // A text the Action Bar's own property drives: the call passes it, so it is not listed.
+    run(&mut s, "component.addProperty", json!({"id": bar.0, "name": "Dica", "type": "text", "layer": hint.0}));
+    run(&mut s, "node.set", json!({"id": bar.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let map = json!({"version": 1, "links": [{"component": "Action Bar", "language": "react", "importPath": "@acme/ds-apps", "name": "ActionBar", "template": "<ActionBar />"}]});
+    run(&mut s, "codeConnect.import", json!({"json": map}));
+    let main = id_of(&run(&mut s, "node.get", json!({"id": screen.0, "fields": ["children"]}))["children"][0]["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": bar.0, "x": 0, "y": 200, "parent": main.0}))["id"]).unwrap();
+    let inside = run(&mut s, "node.get", json!({"id": inst.0, "fields": ["children"]}))["children"].clone();
+    let (button, label) = (id_of(&inside[0]["id"]).unwrap(), id_of(&inside[1]["id"]).unwrap());
+    run(&mut s, "instance.setProperties", json!({"ids": [button.0], "properties": {"Hierarquia": "Secundário"}}));
+    run(&mut s, "text.set", json!({"id": label.0, "characters": "Comprar agora · M"}));
+    run(&mut s, "instance.setProperties", json!({"ids": [inst.0], "properties": {"Dica": "Entrega amanhã"}}));
+
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let calls = r["components"].as_array().unwrap();
+    let bar_call = calls.iter().find(|c| c["name"] == "ActionBar").unwrap();
+    let listed = bar_call["inside"].to_string();
+    assert!(listed.contains("Hierarquia=Secundário") && listed.contains("Comprar agora · M"), "{bar_call}");
+    assert!(!listed.contains("Entrega amanhã"), "the call passes its own text property: {bar_call}");
+    // The Button on the card set only its own property: nothing inside it to list.
+    assert_eq!(calls.iter().find(|c| c["name"] == "Button").unwrap()["inside"], json!([]), "{r}");
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("the call to ActionBar passes only its own properties; changed inside it:"), "{code}");
+}
+
+#[test]
+fn a_component_an_instance_swap_places_in_a_call_is_imported_too() {
+    // The Snackbar's button icon: an instance swap whose component (Icon) is in the map too. The
+    // call writes `icone={<Icon />}`, so `Icon` must be imported (it wasn't: the file didn't compile).
+    let (mut s, screen) = screen_with_ds_components();
+    let icon = id_of(&run(&mut s, "frame.create", json!({"x": 800, "y": 600, "width": 24, "height": 24, "name": "Icon"}))["id"]).unwrap();
+    let icon = id_of(&run(&mut s, "component.create", json!({"ids": [icon.0]}))["id"]).unwrap();
+    let bar = id_of(&run(&mut s, "frame.create", json!({"x": 900, "y": 600, "width": 300, "height": 48, "name": "Snackbar"}))["id"]).unwrap();
+    let nested = id_of(&run(&mut s, "instance.create", json!({"component": icon.0, "x": 8, "y": 8, "parent": bar.0}))["id"]).unwrap();
+    let bar = id_of(&run(&mut s, "component.create", json!({"ids": [bar.0]}))["id"]).unwrap();
+    run(&mut s, "component.addProperty", json!({"id": bar.0, "name": "Ícone", "type": "instanceSwap", "default": icon.0, "layer": nested.0}));
+    for id in [icon, bar] {
+        run(&mut s, "node.set", json!({"id": id.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    }
+    let map = json!({"version": 1, "links": [
+        {"component": "Icon", "language": "react", "importPath": "@acme/ds-apps", "name": "Icon", "template": "<Icon />"},
+        {"component": "Snackbar", "language": "react", "importPath": "@acme/ds-apps", "name": "Snackbar", "template": "<Snackbar icone={icone} />"}
+    ]});
+    run(&mut s, "codeConnect.import", json!({"json": map}));
+    let main = id_of(&run(&mut s, "node.get", json!({"id": screen.0, "fields": ["children"]}))["children"][0]["id"]).unwrap();
+    run(&mut s, "instance.create", json!({"component": bar.0, "x": 0, "y": 300, "parent": main.0}));
+    let code = run(&mut s, "export.tsx", json!({"ids": [screen.0]}))["code"].as_str().unwrap().to_string();
+    assert!(code.contains("<Snackbar icone={<Icon />} />"), "{code}");
+    assert!(code.contains("import { Icon } from \"@acme/ds-apps\";"), "{code}");
+    assert_eq!(code.matches("import { Icon }").count(), 1, "{code}");
+}

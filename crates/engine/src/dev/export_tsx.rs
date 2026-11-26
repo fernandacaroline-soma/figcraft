@@ -29,6 +29,7 @@ use crate::cmd::CommandSpec;
 use crate::cmd::variables_io::{CssStyle, css_with};
 use crate::codegen::ds_var_name;
 use crate::codegen::{Loose, slug};
+use crate::components::variant_props;
 use crate::params::{get, targets};
 use crate::{bad, spec};
 
@@ -81,7 +82,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "export.tsx",
             "Export TSX with design-system tokens",
-            "{ids? (default: the selection), collection? (the brand collection, id or name; default: the one named Tokens APP or Tokens WEB, this file's or a library's, else the one with the most modes; export.tokensCss keys the same one on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. An instance connected to code in React (codeConnect, e.g. from the design system's code map: codeConnect.import) is a call to its code component, imported from its package at the top; another design-system instance (`eureka.library`) is drawn as layers and noted. No dialog → {code, warnings: [{id, layer, field, value}], brand, components: [{id, layer, component, name, importPath}] (the calls), notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates; a design-system instance with no code component)}",
+            "{ids? (default: the selection), collection? (the brand collection, id or name; default: the one named Tokens APP or Tokens WEB, this file's or a library's, else the one with the most modes; export.tokensCss keys the same one on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. An instance connected to code in React (codeConnect, e.g. from the design system's code map: codeConnect.import) is a call to its code component, imported from its package at the top; another design-system instance (`eureka.library`) is drawn as layers and noted. No dialog → {code, warnings: [{id, layer, field, value}], brand, components: [{id, layer, component, name, importPath, inside: [text] (what the instance changed inside it, which the call doesn't pass)}] (the calls), notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates; a design-system instance with no code component; a call whose instance changed texts, variants or visibility inside it)}",
             false,
             |s, p| {
                 let cmd = "export.tsx";
@@ -433,6 +434,9 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
         for (layer, component) in &ds.drawn {
             own.push(format!("{layer}: {component} is a design-system component with no code component in the map (drawn as layers)"));
         }
+        for (layer, name, changes) in &ds.inside {
+            own.push(format!("{layer}: the call to {name} passes only its own properties; changed inside it: {}", changes.join("; ")));
+        }
         calls.extend(ds.calls);
         parts.push(format!("{}{code}", header(&loose, brand.as_ref(), &own)));
         warnings.extend(loose.iter().map(|l| json!({"id": l.id.0, "layer": l.layer, "field": l.field, "value": l.value})));
@@ -475,6 +479,80 @@ struct DsCalls {
     calls: Vec<Value>,
     /// (layer, component) of the design system's instances with no code component: drawn.
     drawn: Vec<(String, String)>,
+    /// (layer, code component, changes) of the calls whose instance changed something inside it.
+    inside: Vec<(String, String, Vec<String>)>,
+}
+
+/// Most changes listed inside one call.
+const MAX_INSIDE: usize = 12;
+
+/// What instance `id` changed inside it, against the layers of its main component that each one
+/// mirrors: texts, a nested instance's variant or other non-text values (texts are listed by their
+/// layer), and visibility. A call passes only the instance's own properties, so these never reach
+/// the code component: the developers need to see them.
+fn changed_inside(doc: &Document, id: NodeId) -> Vec<String> {
+    use figcraft_doc::NodeKind;
+    let mut out = Vec::new();
+    // The instance's own properties: the call passes them (a text or visibility they drive is not
+    // a change inside it).
+    let own: Vec<String> = crate::component_codegen::main_of(doc, id)
+        .and_then(|m| crate::component_codegen::describe(doc, m))
+        .map(|c| c.params.into_iter().map(|p| p.prop).collect())
+        .unwrap_or_default();
+    let passed = |n: &figcraft_doc::Node, src: &figcraft_doc::Node, field: &str| {
+        let Some(prop) = n.prop_refs.get(field).or_else(|| src.prop_refs.get(field)) else { return false };
+        let nearest =
+            doc.ancestors(n.id).into_iter().take(MAX_WALK).find(|a| doc.node(*a).is_some_and(|x| matches!(x.kind, NodeKind::Instance { .. })));
+        nearest == Some(id) && own.contains(prop)
+    };
+    let mut stack: Vec<NodeId> = doc.node(id).map(|n| n.children.iter().rev().copied().collect()).unwrap_or_default();
+    let mut seen = 0usize;
+    while let Some(d) = stack.pop() {
+        seen += 1;
+        if seen > MAX_WALK || out.len() >= MAX_INSIDE {
+            break;
+        }
+        let Some(n) = doc.node(d) else { continue };
+        let Some(src) = n.source.filter(|s| *s != d).and_then(|s| doc.node(s)) else {
+            stack.extend(n.children.iter().rev().copied());
+            continue;
+        };
+        if n.visible != src.visible && !passed(n, src, "visible") {
+            out.push(format!("{}: {}", n.name, if n.visible { "shown" } else { "hidden" }));
+            continue;
+        }
+        if !n.visible {
+            continue;
+        }
+        match (&n.kind, &src.kind) {
+            (NodeKind::Text(t), NodeKind::Text(o)) if t.characters != o.characters && !passed(n, src, "characters") => {
+                let text: String = t.characters.chars().take(80).collect();
+                out.push(format!("{}: \"{text}\"", n.name));
+            }
+            (NodeKind::Instance { component, props }, NodeKind::Instance { component: oc, props: op }) => {
+                let mut changes = Vec::new();
+                if component != oc {
+                    let (now, was) = (doc.node(*component).map(|m| variant_props(&m.name)), doc.node(*oc).map(|m| variant_props(&m.name)));
+                    for (k, v) in now.unwrap_or_default() {
+                        if was.as_ref().and_then(|w| w.get(&k)) != Some(&v) {
+                            changes.push(format!("{k}={v}"));
+                        }
+                    }
+                }
+                for (k, v) in props {
+                    if !v.is_string() && op.get(k) != Some(v) {
+                        changes.push(format!("{k}={}", v.as_bool().map_or_else(|| v.to_string(), |b| if b { "On".into() } else { "Off".into() })));
+                    }
+                }
+                if !changes.is_empty() {
+                    out.push(format!("{}: {}", n.name, changes.join(", ")));
+                }
+            }
+            _ => {}
+        }
+        stack.extend(n.children.iter().rev().copied());
+    }
+    out
 }
 
 /// The visible instances under `root` (itself included only when it is not the root): one
@@ -494,11 +572,16 @@ fn ds_calls(doc: &Document, root: NodeId) -> DsCalls {
         let Some(n) = doc.node(id).filter(|n| n.visible) else { continue };
         if let figcraft_doc::NodeKind::Instance { component, .. } = n.kind {
             if let Some(link) = crate::code_connect::link(doc, id, CodeLang::React) {
-                let line = crate::code_connect::import_line(link, CodeLang::React);
-                if !line.is_empty() && !out.imports.contains(&line) {
-                    out.imports.push(line);
+                for line in crate::code_connect::call_import_lines(doc, id, CodeLang::React) {
+                    if !line.is_empty() && !out.imports.contains(&line) {
+                        out.imports.push(line);
+                    }
                 }
-                out.calls.push(json!({"id": id.0, "layer": n.name, "component": doc.node(component).map(|m| m.name.clone()), "name": link.name, "importPath": link.import_path}));
+                let inside = changed_inside(doc, id);
+                if !inside.is_empty() {
+                    out.inside.push((n.name.clone(), link.name.clone(), inside.clone()));
+                }
+                out.calls.push(json!({"id": id.0, "layer": n.name, "component": doc.node(component).map(|m| m.name.clone()), "name": link.name, "importPath": link.import_path, "inside": inside}));
                 continue;
             }
             if !crate::cmd::eureka::library_of(doc, component).is_null() {

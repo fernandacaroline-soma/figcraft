@@ -157,6 +157,14 @@ fn tree(ctx: &Ctx, id: NodeId, lang: CodeLang, depth: usize, out: &mut Vec<Strin
     }
 }
 
+/// The import lines instance `id`'s call needs: its own and, connected, those of the components
+/// its instance swaps place (`export.tsx` writes `icon={<Icon />}`, so `Icon` is imported too).
+pub fn call_import_lines(doc: &Document, id: NodeId, lang: CodeLang) -> Vec<String> {
+    let mut out = Vec::new();
+    call_imports(doc, id, lang, 0, &mut out);
+    out
+}
+
 /// The imports instance `id` placed as a call brings: a connected one's snippet's, else those of
 /// the content it puts in its slots.
 fn call_imports(doc: &Document, id: NodeId, lang: CodeLang, depth: usize, out: &mut Vec<String>) {

@@ -458,3 +458,30 @@ fn case_colliding_variant_properties_get_distinct_data_attributes() {
         assert!(def.contains("#FF0000"), "{lang}:\n{def}");
     }
 }
+
+#[test]
+fn names_in_portuguese_keep_their_accented_letters_and_drop_emoji_and_ids() {
+    // DS Apps' property names: an emoji first, accents, and Figma's id suffix on text and boolean
+    // properties. The code name keeps the word ("Ícone" was `cone`, "Indisponível" `indisponVel`).
+    let mut s = Session::new();
+    let f = idv(&ex(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 100, "height": 100, "name": ".Nested / Seleção de tamanho"})));
+    let c = idv(&ex(&mut s, "component.create", json!({"ids": [f]})));
+    for (name, ty, default) in [
+        ("↔️ Ícone", "variant", json!("Esquerda")),
+        ("Indisponível", "variant", json!("false")),
+        ("✍️ Texto#7:26", "text", json!("Comprar")),
+        ("👁️ Ícone#7:0", "boolean", json!(false)),
+        ("Item #2", "boolean", json!(false)),
+    ] {
+        ex(&mut s, "component.addProperty", json!({"id": c, "name": name, "type": ty, "default": default}));
+    }
+    let doc = s.doc().unwrap();
+    let comp = describe(doc, c).unwrap();
+    assert_eq!(crate::component_codegen::type_name(".Nested / Seleção de tamanho"), "NestedSelecaoDeTamanho");
+    let idents: Vec<(&str, &str)> = comp.params.iter().map(|p| (p.prop.as_str(), p.ident.as_str())).collect();
+    for want in
+        [("↔️ Ícone", "icone"), ("Indisponível", "indisponivel"), ("✍️ Texto#7:26", "texto"), ("👁️ Ícone#7:0", "icone2"), ("Item #2", "item2")]
+    {
+        assert!(idents.contains(&want), "{want:?} in {idents:?}");
+    }
+}
