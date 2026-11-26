@@ -42,7 +42,7 @@ dois trabalhem juntos por aqui.
 | 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | pronto para juntar · eureka/g3-code-map · CI verde |
 | 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | pronto para juntar · eureka/g3-tokens-web · CI verde |
 | 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | PC2 · eureka/g3-handoff-proposta · 26/11 · CI rodando |
-| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | livre |
+| 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | PC2 · eureka/g3-spike-tsx-volta · 26/11 |
 
 ### Tarefa 1: detalhes
 
