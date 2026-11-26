@@ -417,16 +417,34 @@ fn review_block(ui: &mut Ui, rv: &Value, t: &Tokens) {
     }
 }
 
-/// The proposal a selected screen holds on an exploration board (`explore.board`), with its
-/// reviewer's verdict once chosen (`explore.review`): `(name, proposal, review)`.
-pub fn board_proposal(app: &FigApp) -> Option<(String, Value, Option<Value>)> {
+/// The proposal a selected screen holds on an exploration board (`explore.board`), with its design
+/// critique (`explore.critique`) and its reviewer's verdict (`explore.review`) once chosen.
+pub struct BoardProposal {
+    pub name: String,
+    pub info: Value,
+    pub critique: Option<Value>,
+    pub review: Option<Value>,
+}
+
+pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
+    use figcraft_engine::cmd::eureka_critique::CRITIQUE_KEY;
     use figcraft_engine::cmd::eureka_explore::{PROPOSAL_KEY, REVIEW_KEY};
     let ds = app.session.ds().ok()?;
     let [id] = ds.selection.as_slice() else { return None };
     let n = ds.doc.node(*id)?;
     let info: Value = serde_json::from_str(n.plugin_data.get(PROPOSAL_KEY)?).ok()?;
-    let review = n.plugin_data.get(REVIEW_KEY).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
-    Some((n.name.clone(), info, review))
+    let kept = |k: &str| n.plugin_data.get(k).and_then(|t| serde_json::from_str::<Value>(t).ok()).filter(Value::is_object);
+    Some(BoardProposal { name: n.name.clone(), info, critique: kept(CRITIQUE_KEY), review: kept(REVIEW_KEY) })
+}
+
+/// What the designer did on the board card.
+#[derive(Debug, PartialEq)]
+enum CardAction {
+    None,
+    Choose,
+    /// A finding's number and the status the designer gave it.
+    Status(u64, String),
+    Reviewed,
 }
 
 /// While one proposal of an exploration board is selected (and no proposal preview shows): a card
@@ -435,9 +453,9 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
     if previewing(app) || app.ui.proposal.is_some() {
         return;
     }
-    let Some((name, info, review)) = board_proposal(app) else { return };
+    let Some(bp) = board_proposal(app) else { return };
     let selected = app.session.ds().ok().and_then(|ds| ds.selection.first().copied());
-    let mut choose = false;
+    let mut action = CardAction::None;
     let t = Tokens::get(ctx);
     let x = (canvas.max.x - CARD_W - 12.0).max(canvas.min.x + 12.0);
     let max_h = (canvas.height() - 160.0).max(120.0);
@@ -459,17 +477,28 @@ pub fn board_card(app: &mut FigApp, ctx: &egui::Context, canvas: Rect) {
                         .max_height(max_h)
                         .min_scrolled_height(max_h)
                         .auto_shrink([false, true])
-                        .show(ui, |ui| choose = board_body(ui, &name, &info, review.as_ref(), &t));
+                        .show(ui, |ui| action = board_body(ui, &bp, &t));
                 });
         });
-    // The designer's pick, the same as `explore.choose`: the others stay on the board, marked.
-    if choose && let Some(id) = selected {
-        app.run("explore.choose", json!({"id": id.0}));
+    let Some(id) = selected else { return };
+    match action {
+        // The designer's pick, the same as `explore.choose`: the others stay on the board, marked.
+        CardAction::Choose => {
+            app.run("explore.choose", json!({"id": id.0}));
+        }
+        CardAction::Status(n, status) => {
+            app.run("explore.critiqueStatus", json!({"id": id.0, "finding": n, "status": status}));
+        }
+        CardAction::Reviewed => {
+            app.run("explore.critiqueReviewed", json!({"id": id.0}));
+        }
+        CardAction::None => {}
     }
 }
 
-/// The card's content; true when the designer chooses this proposal.
-fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: &Tokens) -> bool {
+/// The card's content and what the designer did on it.
+fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
+    let (name, info) = (bp.name.as_str(), &bp.info);
     ui.spacing_mut().item_spacing.y = 2.0;
     let text = |k: &str| info.get(k).and_then(Value::as_str).filter(|x| !x.is_empty());
     let (status, color) = match text("status") {
@@ -497,23 +526,121 @@ fn board_body(ui: &mut Ui, name: &str, info: &Value, review: Option<&Value>, t: 
     if !used.is_empty() {
         line(ui, &trf("DS components: {components}", &[("components", &used.join(", "))]), t.text_secondary);
     }
-    let mut choose = false;
-    if text("status") != Some("escolhida") {
+    let chosen = text("status") == Some("escolhida");
+    if !chosen {
         ui.add_space(8.0);
-        choose = ui.button(tr("Choose this proposal")).clicked();
+        return if ui.button(tr("Choose this proposal")).clicked() { CardAction::Choose } else { CardAction::None };
     }
-    match review {
+    // The generator's order: the choice, the design critique the designer reviews, the Gatekeeper.
+    let mut action = CardAction::None;
+    let reviewed = bp.critique.as_ref().is_some_and(|c| c.get("reviewed") == Some(&json!(true)));
+    match &bp.critique {
+        Some(c) => action = critique_block(ui, c, t),
+        None => {
+            ui.add_space(8.0);
+            line(ui, tr("No design critique yet."), t.text_tertiary);
+        }
+    }
+    match &bp.review {
         Some(rv) => {
             review_block(ui, rv, t);
             line(ui, tr("A review only advises: you decide."), t.text_tertiary);
         }
-        None if text("status") == Some("escolhida") => {
+        None if reviewed => {
             ui.add_space(8.0);
             line(ui, tr("No review yet."), t.text_tertiary);
         }
         None => {}
     }
-    choose
+    action
+}
+
+/// Most findings the card lists.
+const MAX_FINDINGS_LISTED: usize = 40;
+
+/// The design critique: its findings by severity, each with a status the designer sets, and the
+/// button that tells the Gatekeeper it may look.
+fn critique_block(ui: &mut Ui, c: &Value, t: &Tokens) -> CardAction {
+    use figcraft_engine::cmd::eureka_critique::{SEVERITIES, STATUSES};
+    let mut action = CardAction::None;
+    let reviewer = c.get("reviewer").and_then(Value::as_str).unwrap_or_default();
+    heading(ui, &trf("Design critique by {reviewer}", &[("reviewer", &reviewer)]), t);
+    let findings: Vec<&Value> = c.get("findings").and_then(Value::as_array).map(|l| l.iter().collect()).unwrap_or_default();
+    let counts: Vec<String> = SEVERITIES
+        .iter()
+        .filter_map(|sv| {
+            let n = findings.iter().filter(|f| f.get("severity").and_then(Value::as_str) == Some(sv)).count();
+            (n > 0).then(|| format!("{n} {}", severity_label(sv)))
+        })
+        .collect();
+    line(ui, &if counts.is_empty() { tr("No findings").to_string() } else { counts.join(" · ") }, t.text_secondary);
+    let get = |f: &Value, k: &str| f.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+    for f in findings.iter().take(MAX_FINDINGS_LISTED) {
+        ui.add_space(6.0);
+        let sv = get(f, "severity");
+        let color = match sv.as_str() {
+            "crítica" | "alta" => t.danger,
+            "média" => t.warning,
+            _ => t.text_secondary,
+        };
+        let n = f.get("n").and_then(Value::as_u64).unwrap_or_default();
+        ui.add(
+            egui::Label::new(egui::RichText::new(format!("{n}. {} · {}", severity_label(&sv), get(f, "area"))).font(semibold(11.0)).color(color))
+                .wrap(),
+        );
+        line(ui, &get(f, "scenario"), t.text);
+        line(ui, &get(f, "consequence"), t.text_secondary);
+        line(ui, &format!("→ {}", get(f, "recommendation")), t.text);
+        line(ui, &source_label(&get(f, "evidence")), t.text_tertiary);
+        let status = get(f, "status");
+        let mut picked = status.clone();
+        craft_ui::ComboBox::from_id_salt(("critique_status", n)).selected_text(status_label(&status)).show_ui(ui, |ui| {
+            for st in STATUSES {
+                ui.selectable_value(&mut picked, st.to_string(), status_label(st));
+            }
+        });
+        if picked != status {
+            action = CardAction::Status(n, picked);
+        }
+    }
+    if findings.len() > MAX_FINDINGS_LISTED {
+        line(ui, &trn("{n} more findings", findings.len() - MAX_FINDINGS_LISTED, &[]), t.text_tertiary);
+    }
+    if let Some(r) = c.get("refined").and_then(Value::as_str).filter(|x| !x.is_empty()) {
+        ui.add_space(6.0);
+        line(ui, &trf("Refined: {refined}", &[("refined", &r)]), t.text);
+    }
+    let open: Vec<&str> = c.get("open").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
+    if !open.is_empty() {
+        heading(ui, tr("Open decisions"), t);
+        for o in open {
+            line(ui, &format!("· {o}"), t.text_secondary);
+        }
+    }
+    ui.add_space(8.0);
+    if c.get("reviewed") == Some(&json!(true)) {
+        line(ui, tr("You reviewed the critique."), t.success);
+    } else if ui.button(tr("I reviewed the critique")).clicked() {
+        action = CardAction::Reviewed;
+    }
+    action
+}
+
+fn severity_label(sv: &str) -> &'static str {
+    match sv {
+        "crítica" => tr("Critical"),
+        "alta" => tr("High"),
+        "média" => tr("Medium"),
+        _ => tr("Low"),
+    }
+}
+
+fn status_label(st: &str) -> &'static str {
+    match st {
+        "resolvido" => tr("Resolved"),
+        "decisão da designer" => tr("Designer's decision"),
+        _ => tr("Open finding"),
+    }
 }
 
 #[cfg(test)]

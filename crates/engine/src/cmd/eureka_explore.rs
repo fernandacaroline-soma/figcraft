@@ -2,9 +2,10 @@
 //! generator ("gerador-propostas") produces for a problem, drawn side by side on the canvas so the
 //! designer compares and picks one. `explore.board` draws them in one section as one undo step,
 //! each proposal's screen carrying what it is (`pluginData["eureka.proposal"]`); `explore.choose`
-//! marks the one the designer picked, which then goes through the proposal card, the DS lint and
-//! the Gatekeeper like any other refinement. Nothing here decides for the designer, and nothing is
-//! deleted: the proposals not picked stay on the board as the round's record.
+//! marks the one the designer picked, which then goes through the proposal card, the DS lint, the
+//! design critique (`explore.critique`, which the designer reviews) and the Gatekeeper like any
+//! other refinement. Nothing here decides for the designer, and nothing is deleted: the proposals
+//! not picked stay on the board as the round's record.
 
 use serde_json::{Map, Value, json};
 
@@ -48,7 +49,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "explore.review",
             "Review the chosen proposal",
-            "{id (the chosen proposal's screen), verdict (\"aprovado\" | \"com-ressalvas\" | \"bloqueado\"), reviewer?, summary?, items?: [{message, source?, ids?}]}  keep a reviewer's verdict (such as the DS Gatekeeper's, in preview mode) on the chosen proposal; it only advises: the designer decides → {review}",
+            "{id (the chosen proposal's screen), verdict (\"aprovado\" | \"com-ressalvas\" | \"bloqueado\"), reviewer?, summary?, items?: [{message, source?, ids?}]}  keep a reviewer's verdict (such as the DS Gatekeeper's, in preview mode) on the chosen proposal, once the designer has reviewed its design critique (`explore.critique`); it only advises: the designer decides → {review}",
             true,
             review
         ),
@@ -172,7 +173,7 @@ fn board(s: &mut Session, p: &Value) -> Result<Value> {
     Ok(json!({"section": section, "proposals": out}))
 }
 
-fn info_of(s: &Session, id: NodeId) -> Option<Value> {
+pub(crate) fn info_of(s: &Session, id: NodeId) -> Option<Value> {
     let n = s.doc().ok()?.node(id)?;
     serde_json::from_str(n.plugin_data.get(PROPOSAL_KEY)?).ok()
 }
@@ -202,6 +203,7 @@ fn choose(s: &mut Session, p: &Value) -> Result<Value> {
             if sid != id {
                 // A verdict belongs to the proposal that was chosen when it was given.
                 n.plugin_data.remove(REVIEW_KEY);
+                n.plugin_data.remove(super::eureka_critique::CRITIQUE_KEY);
             }
             n.name.clone()
         };
@@ -225,6 +227,13 @@ fn review(s: &mut Session, p: &Value) -> Result<Value> {
     let Some(info) = info_of(s, id) else { return Err(bad(CMD, "that layer is not a proposal on an exploration board")) };
     if info.get("status").and_then(Value::as_str) != Some("escolhida") {
         return Err(bad(CMD, "only the chosen proposal is reviewed: pick it with `explore.choose` first"));
+    }
+    // The generator's order: the designer reviews the design critique before the Gatekeeper is asked.
+    if !super::eureka_critique::is_reviewed(s.doc()?, id) {
+        return Err(bad(
+            CMD,
+            "the design critique comes first: keep it with `explore.critique` and let the designer review it (`explore.critiqueReviewed`)",
+        ));
     }
     let r = super::eureka::parse_review(CMD, s.agent.clone(), p)?;
     let doc = s.ds_mut()?.doc_mut();

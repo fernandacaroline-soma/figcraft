@@ -1,0 +1,12 @@
+Crítica da proposta 276: 7 achado(s) — 1 alta, 4 média, 2 baixa
+  medidos pelo Eureka: 2; do roteiro (revisor): 5
+  1. [alta] casos de borda: Produto sem modelo fotografada ou sem as medidas cadastradas. (inferência)
+  2. [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On. (Eureka (medido): variantes de Selector Size (Selector Button) no DS)
+  3. [média] conteúdo e interação: O resumo da proposta promete as medidas da peça, mas a tela mostra só as medidas do corpo da modelo. (Resumo da proposta × texto da tela (rodada_nv01_propostas.json, proposta A))
+  4. [média] fluxo: A cliente seleciona um tamanho diferente do que a modelo veste. (inferência)
+  5. [média] viabilidade: Os dados vêm do catálogo do produto. (inferência)
+  6. [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela: Tamanho PP, Tamanho P, Tamanho M, Tamanho G, Tamanho GG). (Eureka (medido); referência: Apple Human Interface Guidelines, 44 × 44 pt)
+  7. [baixa] medição: Saber se o módulo reduz a dúvida de tamanho. (Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e)
+Gatekeeper antes da revisão da crítica: recusado — "invalid parameters for `explore.review`: the design critique comes first: keep it with `explore.critique` and let the designer review it (`explore.critiqueReviewed`)"
+Status e "Revisei a crítica" foram um teste do cartão; a revisão real é da designer.
+Nada gravado no Notion nem no Figma; nenhum componente, token ou regra do DS foi alterado.

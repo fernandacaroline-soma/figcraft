@@ -1,0 +1,50 @@
+{
+  "reviewer": "Claude (roteiro de crítica do gerador-propostas)",
+  "refined": "Módulo logo abaixo do seletor com \"A modelo veste P\", altura e medidas da modelo. Ele some quando o produto não tem esses dados, e as medidas da peça por tamanho entram quando existirem no catálogo.",
+  "open": [
+    "Mostrar também as medidas da peça por tamanho, como diz o resumo da proposta, ou só as da modelo?",
+    "O texto muda quando a cliente seleciona outro tamanho?"
+  ],
+  "findings": [
+    {
+      "area": "casos de borda",
+      "scenario": "Produto sem modelo fotografada ou sem as medidas cadastradas.",
+      "consequence": "O módulo aparece vazio ou com dado de outra peça, e a dúvida de tamanho aumenta.",
+      "severity": "alta",
+      "evidence": "inferência",
+      "recommendation": "Esconder o módulo quando faltar o dado e desenhar essa variação no fluxo."
+    },
+    {
+      "area": "conteúdo e interação",
+      "scenario": "O resumo da proposta promete as medidas da peça, mas a tela mostra só as medidas do corpo da modelo.",
+      "consequence": "A cliente compara o próprio corpo com o da modelo, sem saber como a peça veste em cada tamanho.",
+      "severity": "média",
+      "evidence": "Resumo da proposta × texto da tela (rodada_nv01_propostas.json, proposta A)",
+      "recommendation": "Decidir se a peça entra, e deixar claro no texto que as medidas são da modelo."
+    },
+    {
+      "area": "fluxo",
+      "scenario": "A cliente seleciona um tamanho diferente do que a modelo veste.",
+      "consequence": "Se nada muda, a informação não ajuda a decidir entre o tamanho escolhido e o da modelo.",
+      "severity": "média",
+      "evidence": "inferência",
+      "recommendation": "Mostrar a tela com outro tamanho selecionado e o que o módulo diz nesse caso."
+    },
+    {
+      "area": "viabilidade",
+      "scenario": "Os dados vêm do catálogo do produto.",
+      "consequence": "Sem altura e medidas da modelo por produto, a proposta não sai do papel.",
+      "severity": "média",
+      "evidence": "inferência",
+      "recommendation": "Perguntar à engenharia e ao catálogo da NV se altura e medidas da modelo existem por produto hoje."
+    },
+    {
+      "area": "medição",
+      "scenario": "Saber se o módulo reduz a dúvida de tamanho.",
+      "consequence": "Sem métrica definida antes, não há como decidir se o módulo fica.",
+      "severity": "baixa",
+      "evidence": "Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+      "recommendation": "Métrica principal: adição à sacola na PDP; secundária: trocas por tamanho. Teste A/B com e sem o módulo."
+    }
+  ]
+}
