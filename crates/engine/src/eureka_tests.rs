@@ -1092,4 +1092,21 @@ fn the_lint_flags_a_token_swapped_inside_an_official_component_instance() {
     run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": brand["id"]}));
     run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": surface["id"]}));
     assert!(rule(&lint(&mut s)).is_empty(), "{:?}", rule(&lint(&mut s)));
+    // A DS component that overrides the token of an instance inside it (as DS Apps' Bottom Sheet
+    // does with its Action Button's background): on the screen, that is the DS's own, not reported.
+    run(&mut s, "variable.bind", json!({"ids": [main.0], "field": "fill", "variable": brand["id"]}));
+    let sheet = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 200, "width": 375, "height": 200, "name": "Sheet"}))["id"]).unwrap();
+    let nested = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 10, "y": 10, "parent": sheet.0}))["id"]).unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [nested.0], "field": "fill", "variable": other["id"]}));
+    let sheet_main = id_of(&run(&mut s, "component.create", json!({"ids": [sheet]}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": sheet_main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let on_screen = id_of(&run(&mut s, "instance.create", json!({"component": sheet_main.0, "x": 600, "y": 200}))["id"]).unwrap();
+    let out = run(&mut s, "ds.lint", json!({"ids": [on_screen.0]}));
+    assert!(rule(&out).is_empty(), "the DS component's own override: {:?}", rule(&out));
+    // The same swap made on the screen's instance is the screen's.
+    let copy = s.doc().unwrap().node(on_screen).unwrap().children[0];
+    run(&mut s, "variable.bind", json!({"ids": [copy.0], "field": "fill", "variable": surface["id"]}));
+    let out = run(&mut s, "ds.lint", json!({"ids": [on_screen.0]}));
+    assert_eq!(rule(&out).len(), 1, "{:?}", rule(&out));
+    assert!(rule(&out)[0]["message"].as_str().unwrap().contains("no lugar de Colors/Other"), "{:?}", rule(&out));
 }

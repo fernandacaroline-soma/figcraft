@@ -246,9 +246,12 @@ impl Lint<'_> {
     /// value tokenised on the screen) is not an override of a token and is left alone. In the
     /// written rule this is a block; the lint only warns.
     fn token_overrides(&mut self, node: &figcraft_doc::Node) {
-        let main = match (&node.kind, node.source) {
-            (NodeKind::Instance { component, .. }, _) => Some(*component),
-            (_, Some(src)) => Some(src),
+        // Compared with the layer it mirrors in the enclosing main component (`source`) first: what
+        // a DS component does to the instances inside it (a nested instance's background, say) is
+        // the DS's own, not the screen's. A top-level instance has no source: its component then.
+        let main = match (node.source, &node.kind) {
+            (Some(src), _) => Some(src),
+            (None, NodeKind::Instance { component, .. }) => Some(*component),
             _ => None,
         };
         let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return };
