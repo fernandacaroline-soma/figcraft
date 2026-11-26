@@ -135,7 +135,7 @@ pub(crate) fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<
     };
     let mut out = tokens_css(doc, &colls, brand.as_deref());
     if with_styles {
-        add_text_styles(doc, &mut out);
+        add_text_styles(doc, brand.as_deref(), &mut out);
     }
     Ok(out)
 }
@@ -255,6 +255,9 @@ pub struct TextStyleTokens {
     pub decls: String,
     /// Per-brand blocks of the weights read from style-name variables (`--<variable>-weight`).
     pub weights_css: String,
+    /// The attributes (`data-layout`) of the other collections with modes that a style reads a
+    /// token from: the styles' rule is declared on them too.
+    pub attrs: Vec<String>,
     /// `textStyles` rows: `{style, prefix, fields}`.
     pub rows: Vec<Value>,
     /// `weights` rows: `{variable, token, brands: {brand: weight}}`.
@@ -268,8 +271,16 @@ pub struct TextStyleTokens {
 /// the face by brand bind it) is `var(--<variable>-weight)`, a number written for every mode of the
 /// variable's collection from the name it holds there (the weight the app gives that name). A
 /// field with no variable is the style's own value and a warning.
-pub fn text_style_tokens(doc: &Document) -> TextStyleTokens {
-    let mut out = TextStyleTokens { decls: String::new(), weights_css: String::new(), rows: Vec::new(), weights: Vec::new(), warnings: Vec::new() };
+pub fn text_style_tokens(doc: &Document, brand: Option<&str>) -> TextStyleTokens {
+    let mut out = TextStyleTokens {
+        decls: String::new(),
+        weights_css: String::new(),
+        attrs: Vec::new(),
+        rows: Vec::new(),
+        weights: Vec::new(),
+        warnings: Vec::new(),
+    };
+    let brand_id = brand.map(str::to_string).or_else(|| brand_collection(doc).map(|c| c.id.clone()));
     let mut seen: BTreeMap<String, String> = BTreeMap::new();
     let mut named_weights: Vec<&figcraft_doc::Variable> = Vec::new();
     for st in crate::library::local_styles(doc).take(MAX_TEXT_STYLES) {
@@ -286,6 +297,17 @@ pub fn text_style_tokens(doc: &Document) -> TextStyleTokens {
                 .then(|| st.bound.get("fontStyle").and_then(|id| doc.variables.get_by_id(id)))
                 .flatten()
                 .filter(|v| v.kind == figcraft_doc::VariableType::String);
+            for v in var.into_iter().chain(named) {
+                if let Some(c) = doc.variables.collections.iter().find(|c| c.id == v.collection)
+                    && brand_id.as_deref() != Some(c.id.as_str())
+                    && c.modes.len() > 1
+                {
+                    let a = collection_attr(c);
+                    if !out.attrs.contains(&a) {
+                        out.attrs.push(a);
+                    }
+                }
+            }
             let (value, row) = match (var, named) {
                 (Some(v), _) => {
                     let value = format!("var({})", ds_var_name(&v.name));
@@ -324,7 +346,15 @@ pub fn text_style_tokens(doc: &Document) -> TextStyleTokens {
             };
             let w = figcraft_doc::style_weight(&name);
             let b = brand_slug(&m.name);
-            let sel = if i == 0 { format!(":root,\n[data-brand=\"{b}\"]") } else { format!("[data-brand=\"{b}\"]") };
+            // The collection's own attribute: the brand's on data-brand, another one's on its own
+            // (`data-layout`), one mode on :root alone.
+            let is_brand = brand_id.as_deref() == Some(c.id.as_str());
+            let attr = if is_brand { "data-brand".to_string() } else { collection_attr(c) };
+            let sel = match (is_brand || c.modes.len() > 1, i) {
+                (false, _) => ":root".to_string(),
+                (true, 0) => format!(":root,\n[{attr}=\"{b}\"]"),
+                (true, _) => format!("[{attr}=\"{b}\"]"),
+            };
             out.weights_css.push_str(&format!("{sel} {{\n  {token}: {w};\n}}\n"));
             brands.insert(b, json!(w));
         }
@@ -355,11 +385,12 @@ fn own_value(t: &figcraft_doc::TextStyle, key: &str) -> String {
 /// rule, `textStyles`, `weights` and the warnings. The styles' rule is on `:root` and every
 /// `[data-brand]`: a custom property's `var()` is resolved where it is declared, so declared on
 /// `:root` alone it would keep the default brand's values inside a `data-brand` element.
-fn add_text_styles(doc: &Document, out: &mut Value) {
-    let t = text_style_tokens(doc);
+fn add_text_styles(doc: &Document, brand: Option<&str>, out: &mut Value) {
+    let t = text_style_tokens(doc, brand);
     if let Some(css) = out.get_mut("css").and_then(|c| c.as_str().map(str::to_string)) {
         let weights = if t.weights_css.is_empty() { String::new() } else { format!("/* Weights from style-name tokens */\n{}", t.weights_css) };
-        let rule = if t.decls.is_empty() { String::new() } else { format!("/* Text styles */\n:root,\n[data-brand] {{\n{}}}\n", t.decls) };
+        let sels: String = t.attrs.iter().map(|a| format!(",\n[{a}]")).collect();
+        let rule = if t.decls.is_empty() { String::new() } else { format!("/* Text styles */\n:root,\n[data-brand]{sels} {{\n{}}}\n", t.decls) };
         out["css"] = Value::String(format!("{css}{weights}{rule}"));
     }
     out["textStyles"] = Value::Array(t.rows);
