@@ -63,6 +63,7 @@ pub use content::templates;
 pub use content::textfit;
 pub use dev::annotations;
 pub use dev::code_connect;
+pub use dev::code_map;
 pub use dev::codegen;
 pub use dev::component_codegen;
 pub use dev::dev_measurements;
@@ -247,6 +248,8 @@ mod brush_tests;
 mod canvas_fixes_tests;
 #[cfg(test)]
 mod code_connect_tests;
+#[cfg(test)]
+mod code_map_tests;
 #[cfg(test)]
 mod collab_ids_tests;
 #[cfg(test)]
