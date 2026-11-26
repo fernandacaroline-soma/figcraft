@@ -1,0 +1,32 @@
+[
+ {
+  "area": "estados",
+  "consequence": "Sem o estado desenhado, o comportamento nesse momento fica para o desenvolvimento decidir.",
+  "evidence": "Eureka (medido): variantes de Selector Size (Selector Button) no DS",
+  "ids": [
+   282,
+   286,
+   290,
+   294,
+   298
+  ],
+  "recommendation": "Mostrar quando a tela fica em Desabilitado=On (num fluxo com o estado), ou registrar por que não se aplica.",
+  "scenario": "Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.",
+  "severity": "média"
+ },
+ {
+  "area": "acessibilidade",
+  "consequence": "Se for tocável, um alvo pequeno gera toques errados.",
+  "evidence": "Eureka (medido); referência: Apple Human Interface Guidelines, 44 × 44 pt",
+  "ids": [
+   282,
+   286,
+   290,
+   294,
+   298
+  ],
+  "recommendation": "Se for tocável, garantir área de toque de 44 × 44 pt (a área pode ser maior que o desenho).",
+  "scenario": "Selector Size (Selector Button) mede 40 × 40 pt (5 na tela: Tamanho PP, Tamanho P, Tamanho M, Tamanho G, Tamanho GG).",
+  "severity": "baixa"
+ }
+]

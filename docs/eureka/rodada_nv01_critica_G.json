@@ -1,0 +1,50 @@
+{
+  "reviewer": "Claude (roteiro de crítica do gerador-propostas)",
+  "refined": "Área de ação fixa com \"Comprar agora · M\" só quando há tamanho conhecido da cliente e estoque desse tamanho; sem isso, volta o botão único \"Adicionar à sacola\". A confirmação usa o Snackbar de sucesso, e a compra direta abre o checkout com o resumo antes de cobrar.",
+  "open": [
+    "De onde vem o tamanho de sempre: última compra, perfil ou escolha nesta sessão?",
+    "\"Comprar agora\" pula a sacola só desta peça ou leva o que já está nela?"
+  ],
+  "findings": [
+    {
+      "area": "falhas",
+      "scenario": "O tamanho de sempre (M) está sem estoque nesta peça.",
+      "consequence": "O botão promete comprar no M e a cliente só descobre a falta depois do toque.",
+      "severity": "crítica",
+      "evidence": "inferência",
+      "recommendation": "Mostrar \"Comprar agora\" só com o tamanho disponível; sem estoque, trocar pelo seletor com o aviso de indisponível."
+    },
+    {
+      "area": "fluxo",
+      "scenario": "Cliente sem compra anterior ou sem login.",
+      "consequence": "Não existe \"tamanho de sempre\" e a área de ação fica sem sentido.",
+      "severity": "alta",
+      "evidence": "inferência",
+      "recommendation": "Desenhar a variação sem tamanho conhecido: botão único \"Adicionar à sacola\", como hoje."
+    },
+    {
+      "area": "conteúdo e interação",
+      "scenario": "Dois botões lado a lado com ações parecidas (comprar agora e adicionar à sacola).",
+      "consequence": "Toque no botão errado e compra sem revisão, o que gera troca ou cancelamento.",
+      "severity": "média",
+      "evidence": "inferência",
+      "recommendation": "\"Comprar agora\" leva ao resumo do checkout antes de cobrar; testar a ordem e o rótulo dos botões com usuárias."
+    },
+    {
+      "area": "viabilidade",
+      "scenario": "Compra direta a partir da PDP no app NV.",
+      "consequence": "Se o checkout não aceita entrar direto com um item, a proposta depende de uma mudança maior.",
+      "severity": "média",
+      "evidence": "inferência",
+      "recommendation": "Perguntar à engenharia se o checkout do app aceita compra direta de um item, sem passar pela sacola."
+    },
+    {
+      "area": "medição",
+      "scenario": "Saber se a compra direta aumenta a conversão sem aumentar trocas.",
+      "consequence": "Sem as duas métricas juntas, um ganho de conversão pode esconder mais devoluções.",
+      "severity": "baixa",
+      "evidence": "Problema da rodada no Notion: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+      "recommendation": "Métrica principal: conversão da PDP; de controle: taxa de troca por tamanho. Teste A/B com e sem a área de dois botões."
+    }
+  ]
+}

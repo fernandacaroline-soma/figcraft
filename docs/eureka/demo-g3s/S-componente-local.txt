@@ -1,0 +1,4 @@
+Arquivo declarado: telas-e-fluxos
+Página com o quadro (8 propostas): 0 componente(s) local(is)
+Página com a biblioteca importada do DS Apps (23 conjuntos/componentes): 0 componente(s) local(is)
+Depois de criar um componente na página do quadro: Selo de frete: componente local num arquivo de Telas e Fluxos; use o componente do DS ou leve-o para a biblioteca (ou Team Component) pelo fluxo oficial.

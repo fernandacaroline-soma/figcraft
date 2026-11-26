@@ -978,6 +978,11 @@ fn a_verdict_is_kept_on_the_chosen_proposal_only() {
     run(&mut s, "explore.choose", json!({"id": a.0}));
     assert!(s.execute("explore.review", &json!({"id": b.0, "verdict": "aprovado"})).is_err(), "not the chosen one");
     assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "talvez"})).is_err());
+    // The design critique comes first, reviewed by the designer.
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "aprovado"})).is_err(), "no critique yet");
+    run(&mut s, "explore.critique", json!({"id": a.0}));
+    assert!(s.execute("explore.review", &json!({"id": a.0, "verdict": "aprovado"})).is_err(), "critique not reviewed");
+    run(&mut s, "explore.critiqueReviewed", json!({"id": a.0}));
     let mut p = verdict.clone();
     p["id"] = json!(a.0);
     let r = run(&mut s, "explore.review", p);
@@ -992,4 +997,160 @@ fn a_verdict_is_kept_on_the_chosen_proposal_only() {
     // Choosing another proposal drops the old verdict: it belonged to the other choice.
     run(&mut s, "explore.choose", json!({"id": b.0}));
     assert!(!s.doc().unwrap().node(a).unwrap().plugin_data.contains_key("eureka.review"));
+}
+
+#[test]
+fn the_lint_reports_an_instance_override_but_not_the_components_own_values() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface/Container", "type": "color", "value": "#EEEEEE"}));
+    // The main component itself has a raw fill: that is the DS component's matter, not the screen's.
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40, "props": {"fill": "#DDDDDD"}}))["id"]).unwrap();
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 200, "y": 0}))["id"]).unwrap();
+    let out = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    let loose = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("valor-solto")).count();
+    assert_eq!(loose(&out), 0, "{out}");
+    assert!(out["inherited"].as_u64().unwrap() >= 1, "{out}");
+    // The main component on its own still shows it.
+    assert_eq!(loose(&run(&mut s, "ds.lint", json!({"ids": [main.0]}))), 1);
+    // An override with another raw colour is the screen's own: reported.
+    run(&mut s, "node.set", json!({"id": inst.0, "props": {"fill": "#CCCCCC"}}));
+    let after = run(&mut s, "ds.lint", json!({"ids": [inst.0]}));
+    assert_eq!(loose(&after), 1, "{after}");
+}
+
+#[test]
+fn the_reviewer_sees_which_library_an_instance_comes_from() {
+    let mut s = Session::new();
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40}))["id"]).unwrap();
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let screen = id_of(&run(&mut s, "frame.create", json!({"x": 300, "y": 0, "width": 375, "height": 812}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "parent": screen.0}))["id"]).unwrap();
+    let doc = s.doc().unwrap();
+    // Not recorded: null, never a guess.
+    let ctx = crate::cmd::eureka::review_context(doc, &[inst]);
+    assert_eq!(ctx["layers"][0]["library"], Value::Null);
+    // Recorded by the import that brought the component.
+    run(&mut s, "node.set", json!({"id": main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\",\"file\":\"abc\"}"}}}));
+    let ctx = crate::cmd::eureka::review_context(s.doc().unwrap(), &[inst]);
+    assert_eq!(ctx["layers"][0]["library"]["name"], json!("DS Apps"));
+}
+
+#[test]
+fn the_review_context_leaves_hidden_layers_out_and_carries_the_texts() {
+    let mut s = Session::new();
+    let screen = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 375, "height": 812}))["id"]).unwrap();
+    let label = id_of(&run(&mut s, "text.create", json!({"parent": screen.0, "text": "Adicionar à sacola", "x": 0, "y": 0}))["id"]).unwrap();
+    let hidden = id_of(&run(&mut s, "frame.create", json!({"parent": screen.0, "x": 0, "y": 0, "width": 10, "height": 10}))["id"]).unwrap();
+    let inside = id_of(&run(&mut s, "text.create", json!({"parent": hidden.0, "text": "Carregando", "x": 0, "y": 0}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": hidden.0, "props": {"visible": false}}));
+    let ctx = crate::cmd::eureka::review_context(s.doc().unwrap(), &[screen, label, hidden, inside]);
+    let layers = ctx["layers"].as_array().unwrap();
+    let ids: Vec<u64> = layers.iter().map(|l| l["id"].as_u64().unwrap()).collect();
+    assert_eq!(ids, vec![screen.0, label.0], "hidden layers and what is inside them are left out");
+    assert_eq!(layers[1]["text"], json!("Adicionar à sacola"));
+    assert_eq!(layers[1]["parent"], json!(screen.0));
+}
+
+#[test]
+fn the_lint_flags_a_token_swapped_inside_an_official_component_instance() {
+    let mut s = Session::new();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    let brand = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Brand", "type": "color", "value": "#111111"}));
+    let other = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Other", "type": "color", "value": "#222222"}));
+    let surface = run(&mut s, "variable.create", json!({"collection": "Tokens APP", "name": "Colors/Surface", "type": "color", "value": "#EEEEEE"}));
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 120, "height": 40, "name": "Button"}))["id"]).unwrap();
+    let label = id_of(
+        &run(&mut s, "shape.rectangle", json!({"x": 4, "y": 4, "width": 40, "height": 10, "parent": frame.0, "props": {"name": "Fundo"}}))["id"],
+    )
+    .unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [label.0], "field": "fill", "variable": brand["id"]}));
+    let main = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let inst = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 300, "y": 0}))["id"]).unwrap();
+    let inner = s.doc().unwrap().node(inst).unwrap().children[0];
+    let rule = |o: &Value| o["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("override-token")).cloned().collect::<Vec<_>>();
+    let lint = |s: &mut Session| run(s, "ds.lint", json!({"ids": [inst.0]}));
+    // An untouched instance keeps the component's token: nothing to say.
+    assert!(rule(&lint(&mut s)).is_empty());
+    // Swapped token, but the component is not known to be official (no library recorded): left out.
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": other["id"]}));
+    assert!(rule(&lint(&mut s)).is_empty(), "only official components");
+    // Recorded as coming from the DS library: the swap is reported, naming both tokens.
+    run(&mut s, "node.set", json!({"id": main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let found = rule(&lint(&mut s));
+    assert_eq!(found.len(), 1, "{found:?}");
+    let msg = found[0]["message"].as_str().unwrap();
+    assert!(msg.contains("Colors/Other") && msg.contains("Colors/Brand") && msg.contains("Button"), "{msg}");
+    assert_eq!(found[0]["id"], json!(inner.0));
+    // A raw colour in place of the token: the binding was lost.
+    run(&mut s, "node.set", json!({"id": inner.0, "props": {"fill": "#FF0000"}}));
+    let found = rule(&lint(&mut s));
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0]["message"].as_str().unwrap().contains("perdeu o token Colors/Brand"), "{found:?}");
+    // A token on a layer the component left raw is not an override of a token.
+    run(&mut s, "variable.bind", json!({"ids": [inner.0], "field": "fill", "variable": brand["id"]}));
+    run(&mut s, "variable.bind", json!({"ids": [inst.0], "field": "fill", "variable": surface["id"]}));
+    assert!(rule(&lint(&mut s)).is_empty(), "{:?}", rule(&lint(&mut s)));
+    // A DS component that overrides the token of an instance inside it (as DS Apps' Bottom Sheet
+    // does with its Action Button's background): on the screen, that is the DS's own, not reported.
+    run(&mut s, "variable.bind", json!({"ids": [main.0], "field": "fill", "variable": brand["id"]}));
+    let sheet = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 200, "width": 375, "height": 200, "name": "Sheet"}))["id"]).unwrap();
+    let nested = id_of(&run(&mut s, "instance.create", json!({"component": main.0, "x": 10, "y": 10, "parent": sheet.0}))["id"]).unwrap();
+    run(&mut s, "variable.bind", json!({"ids": [nested.0], "field": "fill", "variable": other["id"]}));
+    let sheet_main = id_of(&run(&mut s, "component.create", json!({"ids": [sheet]}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": sheet_main.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let on_screen = id_of(&run(&mut s, "instance.create", json!({"component": sheet_main.0, "x": 600, "y": 200}))["id"]).unwrap();
+    let out = run(&mut s, "ds.lint", json!({"ids": [on_screen.0]}));
+    assert!(rule(&out).is_empty(), "the DS component's own override: {:?}", rule(&out));
+    // The same swap made on the screen's instance is the screen's.
+    let copy = s.doc().unwrap().node(on_screen).unwrap().children[0];
+    run(&mut s, "variable.bind", json!({"ids": [copy.0], "field": "fill", "variable": surface["id"]}));
+    let out = run(&mut s, "ds.lint", json!({"ids": [on_screen.0]}));
+    assert_eq!(rule(&out).len(), 1, "{:?}", rule(&out));
+    assert!(rule(&out)[0]["message"].as_str().unwrap().contains("no lugar de Colors/Other"), "{:?}", rule(&out));
+}
+
+#[test]
+fn a_local_component_is_flagged_only_in_a_file_declared_telas_e_fluxos() {
+    let mut s = Session::new();
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], Value::Null);
+    assert!(s.execute("ds.fileType", &json!({"type": "rascunho"})).is_err());
+    let frame = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 80, "height": 40, "name": "Selo"}))["id"]).unwrap();
+    let local = id_of(&run(&mut s, "component.create", json!({"ids": [frame]}))["id"]).unwrap();
+    let variants: Vec<u64> = ["On", "Off"]
+        .iter()
+        .enumerate()
+        .map(|(k, v)| {
+            let f = id_of(
+                &run(&mut s, "frame.create", json!({"x": 200.0 + k as f64 * 100.0, "y": 0, "width": 80, "height": 40, "name": format!("Ativo={v}")}))
+                    ["id"],
+            )
+            .unwrap();
+            id_of(&run(&mut s, "component.create", json!({"ids": [f]}))["id"]).unwrap().0
+        })
+        .collect();
+    let set = id_of(&run(&mut s, "component.combineVariants", json!({"ids": variants}))["id"]).unwrap();
+    let found = |s: &mut Session, p: Value| -> Vec<u64> {
+        let out = run(s, "ds.lint", p);
+        out["findings"].as_array().unwrap().iter().filter(|f| f["rule"] == json!("componente-local")).map(|f| f["id"].as_u64().unwrap()).collect()
+    };
+    // Nothing declared: no rule to apply.
+    assert!(found(&mut s, json!({})).is_empty());
+    run(&mut s, "ds.fileType", json!({"type": "telas-e-fluxos"}));
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
+    // The standalone component and the set (once, not each variant).
+    let mut ids = found(&mut s, json!({}));
+    ids.sort_unstable();
+    assert_eq!(ids, vec![local.0, set.0]);
+    // A component an import recorded as coming from the DS library is not local.
+    run(&mut s, "node.set", json!({"id": set.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    assert_eq!(found(&mut s, json!({})), vec![local.0]);
+    // A Checkout file may have local components; the call can say so too.
+    assert!(found(&mut s, json!({"fileType": "checkout"})).is_empty());
+    run(&mut s, "ds.fileType", json!({"type": "checkout"}));
+    assert!(found(&mut s, json!({})).is_empty());
+    // Undo puts the declaration back.
+    run(&mut s, "edit.undo", json!({}));
+    assert_eq!(run(&mut s, "ds.fileType", json!({}))["type"], json!("telas-e-fluxos"));
 }

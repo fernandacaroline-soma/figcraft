@@ -1,0 +1,416 @@
+{
+ "mode": "prévia — somente leitura, SEM registro no Notion (decisão da dona, 24/11, opção a)",
+ "design_system": "DS Apps (Figma U3pOCU4CEBgYKHGVR1F3sK), coleção Tokens APP",
+ "brand_modes": [
+  {
+   "Tokens APP": "NV"
+  }
+ ],
+ "board": "NV App · PDP · Rodada 01 (13/11) · DS Apps",
+ "problem": "Na PDP do app NV, baixa adição à sacola, dúvida de tamanho e pouca inspiração. Registro: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+ "proposal": {
+  "letter": "E",
+  "name": "Botão fixo que resolve o tamanho",
+  "type": "Incremental",
+  "mechanism": "reduzir passos",
+  "summary": "Botão fixo com estado \"Selecione o tamanho\"; ao tocar, abre o seletor de tamanhos.",
+  "confidence": "baixa"
+ },
+ "not_chosen": [
+  "A · Incremental · Tamanho na hora de escolher",
+  "B · Incremental · Como veste",
+  "C · Incremental · Concierge NV para tamanho e styling",
+  "D · Incremental · Galeria editorial com look comprável"
+ ],
+ "ds_lint": [],
+ "context": {
+  "layers": [
+   {
+    "id": 414,
+    "kind": "FRAME",
+    "name": "E · Incremental · Botão fixo que resolve o tamanho",
+    "parent": 480
+   },
+   {
+    "id": 415,
+    "kind": "RECTANGLE",
+    "name": "Galeria",
+    "parent": 414
+   },
+   {
+    "id": 416,
+    "kind": "FRAME",
+    "name": "Conteúdo",
+    "parent": 414
+   },
+   {
+    "id": 417,
+    "kind": "TEXT",
+    "name": "Vestido midi de alça",
+    "parent": 416,
+    "text": "Vestido midi de alça"
+   },
+   {
+    "id": 418,
+    "kind": "TEXT",
+    "name": "R$ 1.290,00",
+    "parent": 416,
+    "text": "R$ 1.290,00"
+   },
+   {
+    "id": 419,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Primário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Button",
+    "parent": 416
+   },
+   {
+    "id": 422,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 419,
+    "text": "Selecione o tamanho"
+   },
+   {
+    "id": 423,
+    "instanceOf": "↔️ Modal Sheet=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Bottom Sheet · tamanhos",
+    "parent": 414
+   },
+   {
+    "id": 424,
+    "kind": "FRAME",
+    "name": "top-bar",
+    "parent": 423
+   },
+   {
+    "id": 425,
+    "kind": "FRAME",
+    "name": "controllers",
+    "parent": 424
+   },
+   {
+    "id": 429,
+    "kind": "FRAME",
+    "name": "Close",
+    "parent": 425
+   },
+   {
+    "id": 430,
+    "instanceOf": "🖊️ Tipo=Ghost, 🤏 Tamanho=Médio, 🔒 Desabilitado=Off, ✖️ Destrutivo=Off, 🎨 Inverso=Off, ↔️ Padding=True",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Close Button",
+    "parent": 429
+   },
+   {
+    "id": 431,
+    "instanceOf": "↕ Size=medium, 🖼️ Icon=close",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Icon",
+    "parent": 430
+   },
+   {
+    "id": 432,
+    "kind": "TEXT",
+    "name": "name",
+    "parent": 431,
+    "text": "close"
+   },
+   {
+    "id": 433,
+    "kind": "FRAME",
+    "name": "title+subtitle",
+    "parent": 424
+   },
+   {
+    "id": 434,
+    "kind": "TEXT",
+    "name": "title",
+    "parent": 433,
+    "text": "Escolha o tamanho"
+   },
+   {
+    "id": 437,
+    "kind": "FRAME",
+    "name": "drag bar",
+    "parent": 424
+   },
+   {
+    "id": 438,
+    "kind": "RECTANGLE",
+    "name": "drag-bar",
+    "parent": 437
+   },
+   {
+    "id": 439,
+    "kind": "FRAME",
+    "name": "🖊️ Slot",
+    "parent": 423
+   },
+   {
+    "id": 481,
+    "kind": "FRAME",
+    "name": "Tamanhos",
+    "parent": 439
+   },
+   {
+    "id": 482,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Tamanho PP",
+    "parent": 481
+   },
+   {
+    "id": 483,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 482
+   },
+   {
+    "id": 484,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 483,
+    "text": "PP"
+   },
+   {
+    "id": 486,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Tamanho P",
+    "parent": 481
+   },
+   {
+    "id": 487,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 486
+   },
+   {
+    "id": 488,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 487,
+    "text": "P"
+   },
+   {
+    "id": 490,
+    "instanceOf": "✅ Selecionado=On, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Tamanho M",
+    "parent": 481
+   },
+   {
+    "id": 491,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 490
+   },
+   {
+    "id": 492,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 491,
+    "text": "M"
+   },
+   {
+    "id": 494,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Tamanho G",
+    "parent": 481
+   },
+   {
+    "id": 495,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 494
+   },
+   {
+    "id": 496,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 495,
+    "text": "G"
+   },
+   {
+    "id": 498,
+    "instanceOf": "✅ Selecionado=Off, 🔒 Desabilitado=Off, ↕ Tamanho=Grande",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "Tamanho GG",
+    "parent": 481
+   },
+   {
+    "id": 499,
+    "kind": "FRAME",
+    "name": "button-area",
+    "parent": 498
+   },
+   {
+    "id": 500,
+    "kind": "TEXT",
+    "name": "PP",
+    "parent": 499,
+    "text": "GG"
+   },
+   {
+    "id": 449,
+    "instanceOf": ".HomeIndicator",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": ".HomeIndicator",
+    "parent": 423
+   },
+   {
+    "id": 450,
+    "kind": "RECTANGLE",
+    "name": "Home Indicator",
+    "parent": 449
+   },
+   {
+    "id": 451,
+    "instanceOf": "↕️ Vertical=On, 📍 Fixed=On",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "▶️ Botão",
+    "parent": 423
+   },
+   {
+    "id": 452,
+    "instanceOf": "🤏 Tamanho=Large, ✅ Agree=Off, ☑️ Agree Disabled=Off, 🎒 Mochila=Off, ⌨️ Keyboard=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "▶️ Action",
+    "parent": 451
+   },
+   {
+    "id": 453,
+    "kind": "RECTANGLE",
+    "name": "BG",
+    "parent": 452
+   },
+   {
+    "id": 454,
+    "kind": "FRAME",
+    "name": "Buttons",
+    "parent": 452
+   },
+   {
+    "id": 459,
+    "instanceOf": "🤏 Tamanho=Grande, 🖊️ Tipo=Primário, ↔️ Ícone=Off, 🔒 Desabilitado=Off, ⏳ Loading=False, ✖️ Destrutivo=Off, 🎨 Inverso=Off",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": "🖊️ Botão Primário",
+    "parent": 454
+   },
+   {
+    "id": 462,
+    "kind": "TEXT",
+    "name": "Botão",
+    "parent": 459,
+    "text": "Adicionar à sacola"
+   },
+   {
+    "id": 463,
+    "instanceOf": ".HomeIndicator",
+    "kind": "INSTANCE",
+    "library": {
+     "file": "U3pOCU4CEBgYKHGVR1F3sK",
+     "name": "DS Apps",
+     "snapshot": "components-app-nv-round-bd88e36339f2.json"
+    },
+    "name": ".HomeIndicator",
+    "parent": 452
+   },
+   {
+    "id": 464,
+    "kind": "RECTANGLE",
+    "name": "Home Indicator",
+    "parent": 463
+   }
+  ],
+  "screens": [
+   {
+    "brandChosen": true,
+    "id": 414,
+    "modes": {
+     "Tokens APP": "NV"
+    },
+    "name": "E · Incremental · Botão fixo que resolve o tamanho"
+   }
+  ]
+ },
+ "rules_file": "docs/eureka/G2-F-regras.md",
+ "answer_schema": {
+  "verdict": "aprovado | com-ressalvas | bloqueado",
+  "summary": "1-2 frases em pt-BR",
+  "items": [
+   {
+    "message": "o que corrigir, em pt-BR",
+    "source": "regra oficial citada (página do Notion e seção)"
+   }
+  ]
+ }
+}

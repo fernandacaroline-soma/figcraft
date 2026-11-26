@@ -1,0 +1,2 @@
+Regra 6 na tela 921: 0 achado(s) antes; 1 depois de trocar o token de "🖊️ Botão Primário".
+  · 🖊️ Botão Primário: `fill` usa Colors/Feedback/Success/Content no lugar de Colors/Surface/Brand/Background do componente oficial Button; não troque token de instância de componente oficial.

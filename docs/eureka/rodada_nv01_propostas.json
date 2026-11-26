@@ -1,0 +1,62 @@
+{
+  "title": "NV App · PDP · Rodada 01 (13/11) · gerada pela skill",
+  "brand": "NV",
+  "platform": "app",
+  "journey": "PDP",
+  "problem": "Na PDP do app NV, baixa adição à sacola, dúvida de tamanho e pouca inspiração. Registro: https://app.notion.com/p/417690e9a7e28145a5b5cf56a2214e4e",
+  "proposals": [
+    {
+      "name": "Tamanho na hora de escolher", "type": "incremental", "mechanism": "informação no momento certo", "confidence": "média",
+      "summary": "Módulo logo abaixo do seletor com a modelo veste P, altura e medidas da peça.",
+      "screen": {"$base": "pdp", "after_sizes": [
+        {"text": "A modelo veste P · 1,75 m · busto 84 cm, cintura 66 cm", "size": "Font/Size/fs-xxxs", "color": "Colors/Content/01", "wrap": true}
+      ]}
+    },
+    {
+      "name": "Como veste", "type": "incremental", "mechanism": "reduzir risco percebido", "confidence": "baixa",
+      "summary": "Escala justo / fiel / folgado e % das clientes que acharam fiel, com link para avaliações de caimento.",
+      "screen": {"$base": "pdp", "after_sizes": [
+        {"text": "Como veste", "size": "Font/Size/fs-xxs", "color": "Colors/Content/Pure"},
+        {"frame": "Escala de caimento", "layout": "horizontal", "gap": "Spacing/sp-xs", "children": [
+          {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "Justo"}},
+          {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "On", "Desabilitado": "Off"}, "props": {"Texto": "Fiel"}},
+          {"component": "Choice Tag (Chips)", "variant": {"Tamanho": "Médio", "Selecionado": "Off", "Desabilitado": "Off"}, "props": {"Texto": "Folgado"}}
+        ]},
+        {"text": "82% das clientes acharam fiel ao tamanho · ver avaliações (conteúdo de exemplo)", "size": "Font/Size/fs-xxxs", "color": "Colors/Content/01", "wrap": true}
+      ]}
+    },
+    {
+      "name": "Concierge NV para tamanho e styling", "type": "incremental", "mechanism": "personalização", "confidence": "média",
+      "summary": "O Concierge NV, que já existe na PDP, vira ponto de ajuda no tamanho e no look.",
+      "screen": {"$base": "pdp", "after_sizes": [
+        {"frame": "Concierge NV (novo padrão potencial)", "layout": "horizontal", "fill": "Colors/Feedback/Success/Surface",
+         "padding": {"h": "Spacing/sp-sm", "v": "Spacing/sp-xs"}, "children": [
+          {"text": "Em dúvida no tamanho ou no look? Fale com o Concierge NV", "size": "Font/Size/fs-xxxs", "color": "Colors/Feedback/Success/Content", "wrap": true}
+        ]}
+      ]}
+    },
+    {
+      "name": "Galeria editorial com look comprável", "type": "incremental", "mechanism": "conteúdo e inspiração", "confidence": "baixa",
+      "summary": "Carrossel \"Looks com esta peça\" logo após a galeria, com \"Comprar o look completo\".",
+      "screen": {"$base": "pdp", "before_title": [
+        {"text": "Looks com esta peça", "size": "Font/Size/fs-xxs", "color": "Colors/Content/Pure"},
+        {"frame": "Looks", "layout": "horizontal", "gap": "Spacing/sp-xs", "children": [
+          {"image": "Look 1", "width": 96, "height": 120, "fill": "Colors/Surface/Container"},
+          {"image": "Look 2", "width": 96, "height": 120, "fill": "Colors/Surface/Container"},
+          {"image": "Look 3", "width": 96, "height": 120, "fill": "Colors/Surface/Container"}
+        ]},
+        {"component": "Button", "variant": {"Tipo": "Secundário", "Tamanho": "Grande", "Desabilitado": "Off"}, "props": {"Texto": "Comprar o look completo", "Ícone": false}, "width": "fill"}
+      ]}
+    },
+    {
+      "name": "Botão fixo que resolve o tamanho", "type": "incremental", "mechanism": "reduzir passos", "confidence": "baixa",
+      "summary": "Botão fixo com estado \"Selecione o tamanho\"; ao tocar, abre o seletor de tamanhos.",
+      "screen": {"$base": "pdp", "no_sizes": true, "button": "Selecione o tamanho", "overlay": [
+        {"component": "Bottom Sheet", "variant": {"Modal Sheet": "Off"}, "name": "Bottom Sheet · tamanhos", "dock": "bottom",
+         "props": {"Título": "Escolha o tamanho", "Subtítulo": false, "Voltar": false},
+         "layers": {"Botão Primário": {"Texto": "Adicionar à sacola"}},
+         "slot": [{"$sizes": "M"}]}
+      ]}
+    }
+  ]
+}

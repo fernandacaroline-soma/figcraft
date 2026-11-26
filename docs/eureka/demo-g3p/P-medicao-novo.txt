@@ -1,0 +1,49 @@
+A · Incremental · Tamanho na hora de escolher: 4 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+B · Incremental · Como veste: 6 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Choice Tag (Chips) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Choice Tag (Chips) mede 35 × 24 pt, 46 × 24 pt, 60 × 24 pt (3 na tela).
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+C · Incremental · Concierge NV para tamanho e styling: 4 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+D · Incremental · Galeria editorial com look comprável: 4 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+E · Incremental · Botão fixo que resolve o tamanho: 3 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+F · Disruptiva · Tamanho resolvido antes da galeria: 8 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Choice Tag (Chips) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Snackbar aparece só com Loading=Off; a tela não mostra Loading=On.
+  [média] estados: Snackbar aparece só com Status=Informação; a tela não mostra Status=Erro, Status=Sucesso.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] acessibilidade: Texto "Assim indicamos o tamanho desta peça." com contraste 4.1:1 sobre o fundo (pede 4.5:1).
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+G · Disruptiva · Comprar agora no tamanho de sempre: 6 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Snackbar aparece só com Loading=Off; a tela não mostra Loading=On.
+  [média] estados: Snackbar aparece só com Status=Sucesso; a tela não mostra Status=Erro.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+H · Disruptiva · Provar na loja antes de comprar: 5 achado(s) medido(s)
+  [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+  [média] estados: Selector Size (Selector Button) aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+  [baixa] acessibilidade: Section Heading mede 327 × 32 pt (1 na tela).
+  [baixa] acessibilidade: Selector Size (Selector Button) mede 40 × 40 pt (5 na tela).
+Total por área: acessibilidade 10, estados 30

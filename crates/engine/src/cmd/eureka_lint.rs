@@ -6,7 +6,15 @@
 //! the proposals' [`ds_warnings`]), `escopo` (a variable bound outside its declared scope),
 //! `marca-nao-escolhida` (a screen using the brand
 //! collection without choosing its mode) and `marca-no-componente` (a brand mode set on a main
-//! component, which every instance inherits).
+//! component, which every instance inherits) and `override-token` (inside an instance of a
+//! component from a design-system library, a layer whose token differs from the main component's)
+//! and `componente-local` (a main component not from a library, in a file declared Telas e Fluxos
+//! with `ds.fileType`).
+//!
+//! Inside an instance, a raw value the main component has too is the component's own (the DS
+//! team's to fix), not the screen's: it is counted as `inherited` and not reported. Only what the
+//! instance changes (an override) is reported. A hidden layer inside an instance (a slot's
+//! placeholder, a loading or error state) is not on the screen and is not linted.
 
 use std::collections::BTreeMap;
 
@@ -46,16 +54,64 @@ const OFFICIAL_WEB: &[&str] = &["Tokens WEB", "Layout"];
 /// Most names `officialCollections` takes.
 const MAX_OFFICIAL: usize = 32;
 const SRC_BRAND_SCREEN: &str = "docs/eureka/E05-arquitetura-adrs.md §7 D3 (\"a marca deve ser escolhida na tela, nunca deixada ao padrão\"); https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (\"conferir modos de marca\")";
+const SRC_OVERRIDE: &str = "https://app.notion.com/p/3a4690e9a7e281e5baefc847c98ee64a (Fluxo Oficial, Tokens — bloqueio crítico: \"não trocar nem sobrescrever token de qualquer instância de componente oficial\"); https://app.notion.com/p/39f690e9a7e281c0bfd9dd5e7d006510 (Critérios de Escalonamento); componente oficial = vindo de biblioteca do DS (docs/eureka/G2-F-regras.md, resposta 3 de 24/11)";
+const SRC_LOCAL_COMPONENT: &str = "https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (DS N Marcas — Web §1: \"Não crie componentes locais no arquivo de Telas e Fluxos\"); o arquivo declara o tipo (docs/eureka/G2-F-regras.md, resposta 4 de 24/11)";
+/// The `pluginData` key the first page keeps the file's declared kind under (`ds.fileType`).
+pub const FILE_TYPE_KEY: &str = "eureka.fileType";
+/// The kinds a file can declare; only "telas-e-fluxos" forbids local components.
+const FILE_TYPES: [&str; 3] = ["telas-e-fluxos", "checkout", "biblioteca"];
+const SCREENS_AND_FLOWS: &str = "telas-e-fluxos";
 const SRC_BRAND_COMPONENT: &str = "https://app.notion.com/p/39e690e9a7e281978c0dfc4333a87e8c (DS N Marcas — Web §3: \"nunca deixando um modo específico preso ao componente original\")";
 
 pub fn specs() -> Vec<CommandSpec> {
-    vec![spec!(
-        CMD,
-        "Lint the design system",
-        "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), officialCollections? (collection names or ids counted as official; default [\"Tokens APP\"] when the document has it, else [\"Tokens WEB\", \"Layout\"]), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\")}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, variable of a non-official collection, screen without a brand mode, brand mode on a main component). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
-        false,
-        run
-    )]
+    vec![
+        file_type_spec(),
+        spec!(
+            CMD,
+            "Lint the design system",
+            "{ids? (layers to look at with everything inside them; default the current page), limit? (findings listed, default 200, at most 2000), officialCollections? (collection names or ids counted as official; default [\"Tokens APP\"] when the document has it, else [\"Tokens WEB\", \"Layout\"]), brandCollection? (the brand collection, default \"Tokens APP\" when the document has it, else \"Tokens WEB\"), fileType? (the file's kind, default what `ds.fileType` declared)}  read-only: where the layers stray from the design system's rules (raw value where a variable exists, variable out of its scope, variable of a non-official collection, screen without a brand mode, brand mode on a main component, token swapped or lost inside an instance of a component from a design-system library, local component in a Telas e Fluxos file). Only warns → {findings: [{id, name, rule, message, source, prop?, value?}], counted, scanned, truncated}",
+            false,
+            run
+        ),
+    ]
+}
+
+fn file_type_spec() -> CommandSpec {
+    spec!(
+        "ds.fileType",
+        "Declare the file's kind",
+        "{type? (\"telas-e-fluxos\" | \"checkout\" | \"biblioteca\"; null clears)}  declare what this file is, as the design system's rules tell them apart (local components are not allowed in a Telas e Fluxos file); without `type`, says what is declared → {type}",
+        true,
+        file_type
+    )
+}
+
+/// The kind the file declares (on its first page), if any.
+pub fn declared_file_type(doc: &Document) -> Option<String> {
+    doc.pages.iter().find_map(|p| doc.node(*p)?.plugin_data.get(FILE_TYPE_KEY).cloned())
+}
+
+/// `ds.fileType`.
+fn file_type(s: &mut crate::Session, p: &Value) -> Result<Value> {
+    const C: &str = "ds.fileType";
+    let set = match p.get("type") {
+        None => return Ok(json!({"type": declared_file_type(s.doc()?)})),
+        Some(Value::Null) => None,
+        Some(Value::String(t)) if FILE_TYPES.contains(&t.trim()) => Some(t.trim().to_string()),
+        Some(_) => return Err(bad(C, format!("`type` must be one of: {}", FILE_TYPES.join(", ")))),
+    };
+    let doc = s.ds_mut()?.doc_mut();
+    let pages = doc.pages.clone();
+    for (k, page) in pages.iter().enumerate() {
+        let Some(n) = doc.node_mut(*page) else { continue };
+        n.plugin_data.remove(FILE_TYPE_KEY);
+        if k == 0
+            && let Some(t) = &set
+        {
+            n.plugin_data.insert(FILE_TYPE_KEY.to_string(), t.clone());
+        }
+    }
+    Ok(json!({"type": set}))
 }
 
 fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
@@ -76,6 +132,11 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
     };
     let page = s.page()?;
     let doc = s.doc()?;
+    let file_kind = match get(p, "fileType") {
+        None => declared_file_type(doc),
+        Some(Value::String(t)) if FILE_TYPES.contains(&t.trim()) => Some(t.trim().to_string()),
+        Some(_) => return Err(bad(CMD, format!("`fileType` must be one of: {}", FILE_TYPES.join(", ")))),
+    };
     let roots = match get(p, "ids") {
         None => vec![page],
         Some(Value::Array(a)) => {
@@ -119,11 +180,13 @@ fn run(s: &mut crate::Session, p: &Value) -> Result<Value> {
         scanned: 0,
         truncated: false,
         tokens: BTreeMap::new(),
+        inherited: 0,
+        file_kind,
     };
     for root in roots {
         lint.walk(root, 0);
     }
-    Ok(json!({"findings": lint.findings, "counted": lint.counted, "scanned": lint.scanned, "truncated": lint.truncated}))
+    Ok(json!({"findings": lint.findings, "counted": lint.counted, "inherited": lint.inherited, "scanned": lint.scanned, "truncated": lint.truncated}))
 }
 
 /// The lint of the given layers only (not what is inside them), with the default brand and
@@ -145,6 +208,8 @@ pub(crate) fn lint_layers(doc: &Document, ids: &[NodeId], limit: usize) -> Vec<V
         scanned: 0,
         truncated: false,
         tokens: BTreeMap::new(),
+        inherited: 0,
+        file_kind: declared_file_type(doc),
     };
     for id in ids.iter().take(MAX_SCANNED) {
         if let Some(node) = doc.node(*id).filter(|n| !matches!(n.kind, NodeKind::Page { .. })) {
@@ -168,6 +233,10 @@ struct Lint<'a> {
     truncated: bool,
     /// Whether the document has a variable of a type for a scope (memo).
     tokens: BTreeMap<(&'static str, Option<&'static str>), bool>,
+    /// Raw values inside instances that the main component has too (not reported).
+    inherited: usize,
+    /// The file's declared kind (`ds.fileType`, or the call's `fileType`).
+    file_kind: Option<String>,
 }
 
 impl Lint<'_> {
@@ -177,6 +246,11 @@ impl Lint<'_> {
             return;
         }
         let Some(node) = self.doc.node(id) else { return };
+        // A hidden layer inside an instance is a state of the component nobody sees on this screen
+        // (a slot's placeholder, a loading or error state): it is the component's, not the screen's.
+        if !node.visible && self.in_instance(id) {
+            return;
+        }
         self.scanned += 1;
         if !matches!(node.kind, NodeKind::Page { .. }) {
             self.check(node);
@@ -184,6 +258,18 @@ impl Lint<'_> {
         for c in &node.children {
             self.walk(*c, depth + 1);
         }
+    }
+
+    fn in_instance(&self, id: NodeId) -> bool {
+        let mut cur = self.doc.node(id).and_then(|n| n.parent);
+        for _ in 0..64 {
+            let Some(n) = cur.and_then(|p| self.doc.node(p)) else { return false };
+            if matches!(n.kind, NodeKind::Instance { .. }) {
+                return true;
+            }
+            cur = n.parent;
+        }
+        false
     }
 
     fn push(&mut self, node: &figcraft_doc::Node, rule: &str, message: String, source: &str, prop: Option<&str>, value: Option<Value>) {
@@ -209,15 +295,104 @@ impl Lint<'_> {
         self.scopes(node);
         self.collections(node);
         self.brand_mode(node);
+        self.token_overrides(node);
+        self.local_component(node);
+    }
+
+    /// `componente-local`: in a file declared Telas e Fluxos, a main component (or component set)
+    /// that no import recorded as coming from a design-system library. A variant inside a set is
+    /// reported once, through its set.
+    fn local_component(&mut self, node: &figcraft_doc::Node) {
+        if self.file_kind.as_deref() != Some(SCREENS_AND_FLOWS) {
+            return;
+        }
+        let in_set = node.parent.and_then(|p| self.doc.node(p)).is_some_and(|p| matches!(p.kind, NodeKind::ComponentSet { .. }));
+        let main = match node.kind {
+            NodeKind::ComponentSet { .. } => node.children.first().copied(),
+            NodeKind::Component { .. } if !in_set => Some(node.id),
+            _ => None,
+        };
+        let Some(main) = main else { return };
+        if !super::eureka::library_of(self.doc, main).is_null() {
+            return;
+        }
+        let message = format!(
+            "{}: componente local num arquivo de Telas e Fluxos; use o componente do DS ou leve-o para a biblioteca (ou Team Component) pelo fluxo oficial.",
+            node.name
+        );
+        self.push(node, "componente-local", message, SRC_LOCAL_COMPONENT, None, None);
+    }
+
+    /// `override-token`: inside an instance of an official component (one an import recorded as
+    /// coming from a design-system library), a layer bound to another variable than the main
+    /// component's layer, or that lost the main's binding. A binding the main does not have (a raw
+    /// value tokenised on the screen) is not an override of a token and is left alone. In the
+    /// written rule this is a block; the lint only warns.
+    fn token_overrides(&mut self, node: &figcraft_doc::Node) {
+        // Compared with the layer it mirrors in the enclosing main component (`source`) first: what
+        // a DS component does to the instances inside it (a nested instance's background, say) is
+        // the DS's own, not the screen's. A top-level instance has no source: its component then.
+        let main = match (node.source, &node.kind) {
+            (Some(src), _) => Some(src),
+            (None, NodeKind::Instance { component, .. }) => Some(*component),
+            _ => None,
+        };
+        let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return };
+        let Some(component) = self.official_component(node.id) else { return };
+        for (field, theirs) in &m.bound {
+            let var_name = |id: &str| self.doc.variables.get_by_id(id).map_or_else(|| id.to_string(), |v| v.name.clone());
+            let (message, value) = match node.bound.get(field) {
+                Some(ours) if ours == theirs => continue,
+                Some(ours) => (
+                    format!(
+                        "{}: {} usa {} no lugar de {} do componente oficial {component}; não troque token de instância de componente oficial.",
+                        node.name,
+                        field_label(field),
+                        var_name(ours),
+                        var_name(theirs)
+                    ),
+                    json!(var_name(ours)),
+                ),
+                None => (
+                    format!(
+                        "{}: {} perdeu o token {} do componente oficial {component} (valor fixo no lugar); não sobrescreva token de instância de componente oficial.",
+                        node.name,
+                        field_label(field),
+                        var_name(theirs)
+                    ),
+                    Value::Null,
+                ),
+            };
+            self.push(node, "override-token", message, SRC_OVERRIDE, Some(field), Some(value));
+        }
+    }
+
+    /// The name of the official component the layer is part of: the nearest instance (the layer or
+    /// above it) whose main component an import recorded as coming from a design-system library.
+    fn official_component(&self, id: NodeId) -> Option<String> {
+        std::iter::once(id).chain(self.doc.ancestors(id).into_iter().take(MAX_DEPTH)).find_map(|i| {
+            let NodeKind::Instance { component, .. } = self.doc.node(i)?.kind else { return None };
+            if super::eureka::library_of(self.doc, component).is_null() {
+                return None;
+            }
+            let main = self.doc.node(component)?;
+            let set = main.parent.and_then(|p| self.doc.node(p)).filter(|p| matches!(p.kind, NodeKind::ComponentSet { .. }));
+            Some(set.map_or_else(|| main.name.clone(), |s| s.name.clone()))
+        })
     }
 
     /// `valor-solto`: [`ds_warnings`] on the whole layer, kept where the document has a variable
     /// that could take that property.
     fn raw_values(&mut self, node: &figcraft_doc::Node) {
         let Ok(a) = serde_json::to_value(node) else { return };
+        let inherited = self.main_raw_values(node);
         for w in ds_warnings(node.id, &a, None) {
             let Some(prop) = w.get("prop").and_then(Value::as_str) else { continue };
             let value = w.get("value").cloned().unwrap_or(Value::Null);
+            if inherited.iter().any(|(p, v)| p == prop && *v == value) {
+                self.inherited += 1;
+                continue;
+            }
             let (field, kind, what, family) = match prop {
                 "fill" => ("fills/0/color", VariableType::Color, "preenchimento", "de cor"),
                 "stroke" => ("strokes/0/color", VariableType::Color, "contorno", "de cor"),
@@ -325,6 +500,22 @@ impl Lint<'_> {
             }
             _ => false,
         }
+    }
+
+    /// The raw values of the main component's layer an instance layer mirrors (the instance's
+    /// component for its root, `source` inside it); empty outside instances.
+    fn main_raw_values(&self, node: &figcraft_doc::Node) -> Vec<(String, Value)> {
+        let main = match (&node.kind, node.source) {
+            (NodeKind::Instance { component, .. }, _) => Some(*component),
+            (_, Some(src)) => Some(src),
+            _ => None,
+        };
+        let Some(m) = main.filter(|m| *m != node.id).and_then(|m| self.doc.node(m)) else { return Vec::new() };
+        let Ok(a) = serde_json::to_value(m) else { return Vec::new() };
+        ds_warnings(m.id, &a, None)
+            .into_iter()
+            .filter_map(|w| Some((w.get("prop")?.as_str()?.to_string(), w.get("value").cloned().unwrap_or(Value::Null))))
+            .collect()
     }
 
     /// Whether the layer is a main component or component set, or inside one.

@@ -316,6 +316,10 @@ mod duplicate_spacing_tests;
 #[cfg(test)]
 mod effects_tests;
 #[cfg(test)]
+mod eureka_critique_tests;
+#[cfg(test)]
+mod eureka_screen_tests;
+#[cfg(test)]
 mod eureka_tests;
 #[cfg(test)]
 mod events_tests;

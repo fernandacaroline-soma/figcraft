@@ -14,8 +14,9 @@ the official flow.
 
   export-choice WORKDIR SCREEN_ID
                    the same request for the proposal the designer CHOSE on an exploration board
-                   (`explore.choose`): the proposal's description, the DS lint of its screen and the
-                   context. Writes WORKDIR/gk-request.json.
+                   (`explore.choose`): the proposal's description, the DS lint of its screen, the
+                   context and the design critique the designer reviewed (Frente O; the Gatekeeper
+                   is asked only after that review). Writes WORKDIR/gk-request.json.
   post-choice WORKDIR SCREEN_ID VERDICT_JSON
                    keeps the verdict on the chosen proposal (`explore.review`, reviewer "DS Gatekeeper").
 
@@ -78,6 +79,11 @@ elif cmd == "post":
     print(json.dumps(r, ensure_ascii=False)[:600])
 elif cmd == "export-choice":
     sid = int(sys.argv[3])
+    # Read what the proposal keeps before re-choosing (which keeps the chosen one's critique).
+    kept = call("engine.execute", {"command": "node.get", "params": {"id": sid, "fields": ["pluginData"]}})["pluginData"]
+    critique = json.loads(kept["eureka.critique"]) if "eureka.critique" in kept else None
+    if not (critique or {}).get("reviewed"):
+        raise SystemExit("the design critique comes first: keep it (explore.critique) and let the designer review it")
     c = call("engine.execute", {"command": "explore.choose", "params": {"id": sid}})
     info = c["chosen"]["proposal"] or {}
     modes = [sc.get("modes", {}) for sc in c["context"].get("screens", [])]
@@ -90,6 +96,7 @@ elif cmd == "export-choice":
         "not_chosen": [o["name"] for o in c["others"]],
         "ds_lint": c["lint"],
         "context": c["context"],
+        "design_critique": critique,
         "rules_file": "docs/eureka/G2-F-regras.md",
         "answer_schema": {"verdict": "aprovado | com-ressalvas | bloqueado", "summary": "1-2 frases em pt-BR",
                           "items": [{"message": "o que corrigir, em pt-BR", "source": "regra oficial citada (página do Notion e seção)"}]},
