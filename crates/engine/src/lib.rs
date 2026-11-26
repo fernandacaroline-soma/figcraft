@@ -73,6 +73,7 @@ pub use dev::devinspect;
 pub use dev::export_handoff;
 pub use dev::export_tsx;
 pub use dev::tailwind;
+pub use dev::tsx_return;
 pub use extensions::plugin_directory;
 pub use extensions::plugins;
 pub use extensions::widgets;
@@ -633,6 +634,8 @@ mod theme_pages_tests;
 mod tiff_tests;
 #[cfg(test)]
 mod transform_behaviour_tests;
+#[cfg(test)]
+mod tsx_return_tests;
 #[cfg(test)]
 mod unknown_params_tests;
 #[cfg(test)]

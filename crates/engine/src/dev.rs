@@ -10,3 +10,4 @@ pub mod devinspect;
 pub mod export_handoff;
 pub mod export_tsx;
 pub mod tailwind;
+pub mod tsx_return;
