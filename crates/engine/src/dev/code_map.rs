@@ -34,12 +34,14 @@ const MAX_FILE: u64 = 4 * 1024 * 1024;
 const MAX_ENTRIES: usize = 5_000;
 /// Most rows each list reports.
 const MAX_ROWS: usize = 2_000;
+/// Most (entry, component) checks one report makes: entries × components of one name.
+const MAX_CHECKS: usize = 20_000;
 
 pub fn specs() -> Vec<CommandSpec> {
     vec![spec!(
         "export.codeMap",
         "Check the design-system code map",
-        "{json (the map: a code connect file, {version: 1, links: [{component, language, importPath, name, template}]}, as an object or JSON text) | path (its file, e.g. in eureka-cache/), language? (react|leptos|vue|swiftui|compose|arkui|flutter, default react), all? (every component of the document, not only those an import marked as from a design-system library)}  checks the map against the document, read only (codeConnect.import links it) → {language, mapped: [{component, library, name, importPath, unknown (placeholders that aren't properties), unmapped (properties no placeholder reads)}], missing: [{component, library}] (design-system components with no entry), notInDocument: [component] (entries naming no component here), invalid: [{entry, component, error}], counts: {designSystem, mapped, missing, notInDocument, invalid}}",
+        "{json (the map: a code connect file, {version: 1, links: [{component, language, importPath, name, template}]}, as an object or JSON text) | path (its file, e.g. in eureka-cache/), language? (react|leptos|vue|swiftui|compose|arkui|flutter, default react), all? (every component of the document, not only those an import marked as from a design-system library)}  checks the map against the document, read only (codeConnect.import links it) → {language, mapped: [{component, library, name, importPath, unknown (placeholders that aren't properties), unmapped (properties no placeholder reads)}], missing: [{component, library}] (design-system components with no entry), notInDocument: [component] (entries naming no component here), invalid: [{entry, component, error}] (also a second entry for one component and language), counts: {designSystem, mapped, missing, notInDocument, invalid}, truncated (stopped after 20000 checks)}",
         false,
         code_map
     )]
@@ -98,6 +100,10 @@ fn report(doc: &Document, entries: &[Value], lang: CodeLang, all: bool) -> Value
     let mut described: BTreeMap<NodeId, Option<Component>> = BTreeMap::new();
     let (mut mapped, mut invalid, mut not_in_doc) = (Vec::new(), Vec::new(), Vec::<String>::new());
     let mut covered: Vec<&str> = Vec::new();
+    let mut checks = 0usize;
+    let mut cut = false;
+    // (component, language) of the entries read: a second one for the same pair is a duplicate.
+    let mut seen: Vec<(String, String)> = Vec::new();
     for (i, e) in entries.iter().enumerate() {
         let field = |k: &str| e.get(k).and_then(Value::as_str).map(str::trim);
         let Some(component) = field("component") else {
@@ -115,6 +121,12 @@ fn report(doc: &Document, entries: &[Value], lang: CodeLang, all: bool) -> Value
             invalid.push(json!({"entry": i + 1, "component": component, "error": "needs name and template strings"}));
             continue;
         };
+        let pair = (component.to_string(), lang.id().to_string());
+        if seen.contains(&pair) {
+            invalid.push(json!({"entry": i + 1, "component": component, "error": "a second entry for this component and language (codeConnect.import keeps the last)"}));
+            continue;
+        }
+        seen.push(pair);
         let link = CodeLink {
             language: lang.id().into(),
             import_path: field("importPath").unwrap_or_default().to_string(),
@@ -129,6 +141,11 @@ fn report(doc: &Document, entries: &[Value], lang: CodeLang, all: bool) -> Value
         };
         covered.push(key.as_str());
         for (id, library) in owners {
+            checks += 1;
+            if checks > MAX_CHECKS {
+                cut = true;
+                break;
+            }
             let Some(c) = described.entry(*id).or_insert_with(|| main_of(doc, *id).and_then(|m| describe(doc, m))).as_ref() else { continue };
             match check(c, &link, lang) {
                 Ok(unknown) => {
@@ -156,5 +173,5 @@ fn report(doc: &Document, entries: &[Value], lang: CodeLang, all: bool) -> Value
         v
     };
     not_in_doc.truncate(MAX_ROWS);
-    json!({"language": lang.id(), "mapped": cap(mapped), "missing": cap(missing), "notInDocument": not_in_doc, "invalid": cap(invalid), "counts": counts})
+    json!({"language": lang.id(), "mapped": cap(mapped), "missing": cap(missing), "notInDocument": not_in_doc, "invalid": cap(invalid), "counts": counts, "truncated": cut})
 }

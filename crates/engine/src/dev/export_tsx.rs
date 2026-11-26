@@ -26,7 +26,7 @@ use figcraft_doc::{Collection, Document, LetterSpacing, LineHeight, NodeId, Styl
 use serde_json::{Value, json};
 
 use crate::cmd::CommandSpec;
-use crate::cmd::variables_io::{CssStyle, css};
+use crate::cmd::variables_io::{CssStyle, css_with};
 use crate::codegen::ds_var_name;
 use crate::codegen::{Loose, slug};
 use crate::params::{get, targets};
@@ -40,7 +40,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "export.tokensCss",
             "Export the design-system token stylesheet",
-            "{collections? [ids or names; default every collection of this file, not library copies], textStyles? (default true)}  the stylesheet export.tsx's names read: each variable as `--token-name` (the same rule); the modes of the brand collection (this file's collection with the most modes) on `[data-brand=\"<mode name without notes in brackets>\"]`, of another collection with modes on its own attribute (`Layout` → `[data-layout=\"mobile\"]`), the default mode also on `:root`; a collection with one mode on `:root` only; aliases as `var(--name)`, colour calculations as the colour they show in that mode, numbers in px unless used as opacity or font weight. Then (unless `textStyles` is false) each text style of this file (not library copies) as `--text-<style name, same rule>-<font-family|font-weight|font-size|line-height|letter-spacing>`, on `:root` and every `[data-brand]`: a field bound to a variable is `var(--token-name)` and follows the brand; a weight from a bound style name (a string variable such as \"Semi bold\") is `var(--<variable>-weight)`, a number per brand from the name it holds there; a field with no variable is the style's own value and a warning. Read only: the variables and styles are not changed. No dialog → {css, brands: [{collection, mode, brand}], attributes: [{collection, attribute (null: one mode, on :root), modes: [{mode, value}]}], textStyles: [{style, prefix, fields: {fontFamily|fontWeight|fontSize|lineHeight|letterSpacing: {value, variable?, from? (fontStyle)}}}], weights: [{variable, token, brands: {brand: weight}}], warnings: [text] (two variables, two modes, two collections' attributes or two text styles with the same CSS name; a text style field with no variable)}",
+            "{collections? [ids or names; default every collection of this file, not library copies], collection? (the brand collection, as export.tsx's), textStyles? (default true)}  the stylesheet export.tsx's names read: each variable as `--token-name` (the same rule); the modes of the brand collection (`collection`, else the one named Tokens APP or Tokens WEB, else the one with the most modes) on `[data-brand=\"<mode name without notes in brackets>\"]`, of another collection with modes on its own attribute (`Layout` → `[data-layout=\"mobile\"]`), the default mode also on `:root`; a collection with one mode on `:root` only; aliases as `var(--name)`, colour calculations as the colour they show in that mode, numbers in px unless used as opacity or font weight. Then (unless `textStyles` is false) each text style of this file (not library copies) as `--text-<style name, same rule>-<font-family|font-weight|font-size|line-height|letter-spacing>`, on `:root` and every `[data-brand]`: a field bound to a variable is `var(--token-name)` and follows the brand; a weight from a bound style name (a string variable such as \"Semi bold\") is `var(--<variable>-weight)`, a number per brand from the name it holds there; a field with no variable is the style's own value and a warning. Read only: the variables and styles are not changed. No dialog → {css, brands: [{collection, mode, brand}], attributes: [{collection, attribute (null: one mode, on :root), modes: [{mode, value}]}], textStyles: [{style, prefix, fields: {fontFamily|fontWeight|fontSize|lineHeight|letterSpacing: {value, variable?, from? (fontStyle)}}}], weights: [{variable, token, brands: {brand: weight}}], warnings: [text] (two variables, two modes, two collections' attributes or two text styles with the same CSS name; a text style field with no variable)}",
             false,
             |s, p| {
                 let doc = s.doc()?;
@@ -81,7 +81,7 @@ pub fn specs() -> Vec<CommandSpec> {
         spec!(
             "export.tsx",
             "Export TSX with design-system tokens",
-            "{ids? (default: the selection), collection? (the brand collection, id or name; default: this file's collection with the most modes, the one export.tokensCss keys on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. An instance connected to code in React (codeConnect, e.g. from the design system's code map: codeConnect.import) is a call to its code component, imported from its package at the top; another design-system instance (`eureka.library`) is drawn as layers and noted. No dialog → {code, warnings: [{id, layer, field, value}], brand, components: [{id, layer, component, name, importPath}] (the calls), notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates; a design-system instance with no code component)}",
+            "{ids? (default: the selection), collection? (the brand collection, id or name; default: the one named Tokens APP or Tokens WEB, this file's or a library's, else the one with the most modes; export.tokensCss keys the same one on data-brand)}  each layer as a React function component (TSX) with its stylesheet, for the developers: bound variables as `var(--token-name)` (name lower case, ASCII, `/` and spaces as `-`) with no fallback values, the brand collection's mode set on the layer or above it as `data-brand` on the root element and another collection's (with modes) as its attribute (`data-layout=\"mobile\"`), instances inlined, the other variants' values included; colours, spacing, radii, font families, font weights and font sizes with no variable bound are written as they are and listed as warnings (also in a comment at the top). A layer passed twice is exported once; two layers with the same name get numbered names (`Card`, `Card2`) and a note. An instance connected to code in React (codeConnect, e.g. from the design system's code map: codeConnect.import) is a call to its code component, imported from its package at the top; another design-system instance (`eureka.library`) is drawn as layers and noted. No dialog → {code, warnings: [{id, layer, field, value}], brand, components: [{id, layer, component, name, importPath}] (the calls), notes: [text] (a brand or mode from a library collection this file's export.tokensCss has no block for; a chosen collection with no mode set; renamed duplicates; a design-system instance with no code component)}",
             false,
             |s, p| {
                 let cmd = "export.tsx";
@@ -104,7 +104,7 @@ pub fn specs() -> Vec<CommandSpec> {
     ]
 }
 
-/// `export.tokensCss` with its parameters `collections` and `textStyles` read from `p`.
+/// `export.tokensCss` with its parameters `collections`, `collection` and `textStyles` read from `p`.
 fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
     let colls: Vec<&Collection> = match get(p, "collections") {
         None | Some(Value::Null) => crate::library::local_collections(doc).collect(),
@@ -126,7 +126,13 @@ fn stylesheet(doc: &Document, p: &Value, cmd: &str) -> crate::Result<Value> {
         Some(Value::Bool(b)) => *b,
         Some(_) => return Err(bad(cmd, "textStyles: true|false")),
     };
-    let mut out = tokens_css(doc, &colls);
+    // The brand collection the TSX keys `data-brand` on, the same in both files.
+    let brand = match get(p, "collection") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(k)) => Some(doc.variables.collection(k).ok_or_else(|| bad(cmd, format!("no collection {k}")))?.id.clone()),
+        Some(_) => return Err(bad(cmd, "collection: a collection id or name")),
+    };
+    let mut out = tokens_css(doc, &colls, brand.as_deref());
     if with_styles {
         add_text_styles(doc, &mut out);
     }
@@ -178,13 +184,13 @@ fn code_files(tsx: &Value, sheet: &Value, name: &str, dir: Option<&str>) -> crat
 }
 
 /// The token stylesheet of `colls`: `{css, brands, warnings}` (see `export.tokensCss`).
-pub fn tokens_css(doc: &Document, colls: &[&Collection]) -> Value {
+pub fn tokens_css(doc: &Document, colls: &[&Collection], brand: Option<&str>) -> Value {
     let mut warnings = Vec::new();
     let mut brands = Vec::new();
     let mut attributes = Vec::new();
     let mut seen: BTreeMap<String, String> = BTreeMap::new();
     let mut attrs_taken: BTreeMap<String, String> = BTreeMap::new();
-    let brand_id = brand_collection(doc).map(|c| c.id.clone());
+    let brand_id = brand.map(str::to_string).or_else(|| brand_collection(doc).map(|c| c.id.clone()));
     for c in colls {
         let is_brand = brand_id.as_deref() == Some(c.id.as_str());
         // A collection with one mode has no attribute: its values are the same everywhere.
@@ -227,7 +233,7 @@ pub fn tokens_css(doc: &Document, colls: &[&Collection]) -> Value {
  * Values as the document holds them (imported from the design system); export again, do not edit.
  */
 ";
-    json!({"css": format!("{head}{}", css(doc, colls, CssStyle::Ds)), "brands": brands, "attributes": attributes, "warnings": warnings})
+    json!({"css": format!("{head}{}", css_with(doc, colls, CssStyle::Ds, brand_id.as_deref())), "brands": brands, "attributes": attributes, "warnings": warnings})
 }
 
 /// Text style fields, in the order they are written: (field key in a style's `bound`, CSS suffix).
@@ -373,7 +379,7 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
     let (mut parts, mut warnings, mut brands, mut notes) = (Vec::new(), Vec::new(), Vec::new(), Vec::<String>::new());
     let mut calls: Vec<Value> = Vec::new();
     let mut done: Vec<NodeId> = Vec::new();
-    let mut names: BTreeMap<String, usize> = BTreeMap::new();
+    let mut taken: Vec<String> = Vec::new();
     for id in ids.iter().copied() {
         if done.contains(&id) {
             continue;
@@ -383,10 +389,15 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
         }
         done.push(id);
         let Some(name) = crate::component_codegen::ds_type_name(doc, id) else { continue };
-        // Two layers of one name would be two functions and two stylesheets of one name.
-        let count = names.entry(name.clone()).or_insert(0);
-        *count += 1;
-        let suffix = if *count == 1 { String::new() } else { count.to_string() };
+        // Two layers of one name would be two functions and two stylesheets of one name: the
+        // first free `<name><n>` from 2, against every name given so far ("Card", "Card", "Card2"
+        // → Card, Card2, Card22).
+        let suffix = if taken.contains(&name) {
+            (2..=MAX_ROOTS + 1).map(|k| k.to_string()).find(|k| !taken.contains(&format!("{name}{k}"))).unwrap_or_default()
+        } else {
+            String::new()
+        };
+        taken.push(format!("{name}{suffix}"));
         let mut own = Vec::new();
         if !suffix.is_empty() {
             own.push(format!("two layers are named {name}: this one ({}) is {name}{suffix}", id.0));
@@ -474,15 +485,26 @@ pub fn brand_attr(doc: &Document, id: NodeId) -> (String, Option<(String, String
     (attr, brand)
 }
 
-/// The file's brand collection, the one `data-brand` keys: of this file's own collections (the ones
-/// `export.tokensCss` writes by default) the one with the most modes (a brand collection has one
-/// per brand; the first of a tie); with none of its own, the library copy with the most modes.
+/// The file's brand collection, the one `data-brand` keys: one named as [`BRAND_COLLECTIONS`] (this
+/// file's before a library copy), else the collection with the most modes.
 pub fn brand_collection(doc: &Document) -> Option<&Collection> {
-    let local: Vec<&Collection> = crate::library::local_collections(doc).collect();
-    let pool: Vec<&Collection> = if local.is_empty() { doc.variables.collections.iter().collect() } else { local };
-    let max = pool.iter().map(|c| c.modes.len()).max()?;
-    pool.into_iter().find(|c| c.modes.len() == max)
+    let all = &doc.variables.collections;
+    let local = |c: &&Collection| !crate::library::is_remote_collection(doc, &c.id);
+    // The design systems' own brand collections, by name, this file's or a library's.
+    let named = |c: &&Collection| BRAND_COLLECTIONS.iter().any(|n| c.name.trim().eq_ignore_ascii_case(n));
+    if let Some(c) = all.iter().filter(named).find(local).or_else(|| all.iter().find(named)) {
+        return Some(c);
+    }
+    // Else the one with the most modes (a brand collection has one per brand); this file's own on
+    // a tie, then the first.
+    let max = all.iter().map(|c| c.modes.len()).max()?;
+    let most = |c: &&Collection| c.modes.len() == max;
+    all.iter().filter(most).find(local).or_else(|| all.iter().find(most))
 }
+
+/// The design systems' brand collections, by name: the one `data-brand` keys whenever a file has
+/// it, here or from a library, whatever other collections it has.
+pub const BRAND_COLLECTIONS: [&str; 2] = ["Tokens APP", "Tokens WEB"];
 
 /// The attribute a collection that is not the brand collection keys its modes on:
 /// `data-<collection name, as [`slug`]>` (`Layout` → `data-layout`), never `data-brand`.
@@ -492,11 +514,14 @@ pub fn collection_attr(c: &Collection) -> String {
 }
 
 /// The selector of mode `i` (`m`) of collection `c` in the token stylesheet: the brand collection
-/// ([`brand_collection`]) on `[data-brand="<brand>"]`, another collection with modes on
+/// (`brand`, an id, when given, else [`brand_collection`]) on `[data-brand="<brand>"]`, another collection with modes on
 /// `[<collection_attr>="<mode>"]`, the default mode (the first) also on `:root`; a collection with
 /// one mode on `:root` only.
-pub(crate) fn ds_selector(doc: &Document, c: &Collection, i: usize, m: &figcraft_doc::Mode) -> String {
-    let brand = brand_collection(doc).is_some_and(|b| b.id == c.id);
+pub(crate) fn ds_selector(doc: &Document, c: &Collection, i: usize, m: &figcraft_doc::Mode, brand: Option<&str>) -> String {
+    let brand = match brand {
+        Some(id) => c.id == id,
+        None => brand_collection(doc).is_some_and(|b| b.id == c.id),
+    };
     if !brand && c.modes.len() < 2 {
         return ":root".into();
     }

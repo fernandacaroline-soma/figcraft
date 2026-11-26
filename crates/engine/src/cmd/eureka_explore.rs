@@ -204,6 +204,7 @@ fn choose(s: &mut Session, p: &Value) -> Result<Value> {
                 // A verdict belongs to the proposal that was chosen when it was given.
                 n.plugin_data.remove(REVIEW_KEY);
                 n.plugin_data.remove(super::eureka_critique::CRITIQUE_KEY);
+                n.plugin_data.remove(super::eureka_memory::APPROVAL_KEY);
             }
             n.name.clone()
         };

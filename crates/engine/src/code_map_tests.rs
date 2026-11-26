@@ -109,3 +109,16 @@ fn the_map_comes_from_a_file_or_text_and_junk_is_refused() {
         assert!(s.execute("export.codeMap", &junk).is_err(), "{junk}");
     }
 }
+
+#[test]
+fn a_second_entry_for_one_component_is_pointed_out() {
+    let (mut s, _) = file();
+    let twice = json!({"version": 1, "links": [
+        {"component": "Button", "language": "react", "name": "Button", "template": "<Button variant={Hierarquia} size={Tamanho} />"},
+        {"component": "Button", "language": "react", "name": "DSButton", "template": "<DSButton />"}
+    ]});
+    let r = run(&mut s, "export.codeMap", json!({"json": twice}));
+    assert_eq!(r["counts"]["mapped"], 1, "{r}");
+    assert!(r["invalid"][0]["error"].as_str().unwrap().starts_with("a second entry"), "{r}");
+    assert_eq!(r["truncated"], false);
+}
