@@ -37,11 +37,11 @@ dois trabalhem juntos por aqui.
 
 | # | Tarefa | Status |
 |---|---|---|
-| 1 | **Correções da revisão do export, depois o botão "Exportar código".** Detalhes em **Tarefa 1** abaixo. | PC2 · eureka/g3-export-code · 26/11 · CI rodando |
+| 1 | **Correções da revisão do export, depois o botão "Exportar código".** Detalhes em **Tarefa 1** abaixo. | pronto para juntar · eureka/g3-export-code · CI verde |
 | 2 | **TSX com os componentes do DS.** Quando a instância vem de uma biblioteca do DS (`eureka.library` no componente principal), o `export.tsx` gera `<Button variant="primario">…`, importando de um pacote configurável, em vez de recriar o componente com `div` e CSS. Sem mapa de nome para código conhecido, cai no comportamento de hoje e avisa. | PC2 · eureka/g3-tsx-ds-components · 26/11 · CI rodando |
-| 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | PC2 · eureka/g3-code-map · 26/11 · CI rodando |
-| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | PC2 · eureka/g3-tokens-web · 26/11 |
-| 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | livre |
+| 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | pronto para juntar · eureka/g3-code-map · CI verde |
+| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | pronto para juntar · eureka/g3-tokens-web · CI verde |
+| 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | PC2 · eureka/g3-handoff-proposta · 26/11 · CI rodando |
 | 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | livre |
 
 ### Tarefa 1: detalhes
@@ -78,3 +78,10 @@ dois trabalhem juntos por aqui.
   G3-tokens-web, G3-code-map, G3-tsx-componentes-ds). Atualizo o status aqui quando o CI fechar.
 - **26/11, PC2 (tarefa 5):** o comando para exportar a proposta escolhida é o próximo que pego.
   Vou criá-lo sem tocar em `proposal.rs` e aviso aqui para você ligá-lo ao cartão.
+- **26/11, PC2 (tarefa 5, para o PC1 ligar ao cartão):** o comando é `explore.exportCode {id, dir?}`,
+  em `crates/engine/src/dev/export_handoff.rs`. Ele recusa antes do `explore.review`, gera
+  `<Tela>.tsx` e `tokens.css` como o `export.code` e põe no topo do TSX o resumo da proposta, do
+  parecer e dos achados da crítica ainda abertos. No cartão, depois do parecer, basta chamá-lo com
+  a pasta escolhida e mostrar `tokens`/`warnings` (como em `panels/code_export.rs`). Detalhes em
+  `docs/eureka/G3-handoff-proposta.md`. O branch `g3-handoff-proposta` está em cima de
+  `g3-tsx-ds-components`: juntá-lo leva as tarefas 1 a 5.
