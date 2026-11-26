@@ -84,7 +84,7 @@ def pdp(mods):
         {"text": "R$ 1.290,00", "size": "Font/Size/fs-xs", "color": "Colors/Content/Pure"},
     ]
     if not mods.get("no_sizes"):
-        content.append(sizes())
+        content.append(sizes(mods.get("picked")))  # `picked`: the size shown selected
     content += mods.get("after_sizes", [])
     if not mods.get("no_button"):  # a proposal with its own action area (Action Button) leaves it out
         content.append({"component": "Button", "name": "Button", "variant": {"Tipo": "Primário", "Tamanho": "Grande", "Desabilitado": "Off"},
