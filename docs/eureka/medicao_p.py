@@ -9,6 +9,7 @@ import sys
 
 S, ids = sys.argv[1], [int(x) for x in sys.argv[2:]]
 f = socket.create_connection(("127.0.0.1", int(open(f"{S}/port").read())), timeout=120).makefile("rw")
+__import__("eureka_control").auth(f, int(open(f"{S}/port").read()))
 
 
 def ex(cmd, params):

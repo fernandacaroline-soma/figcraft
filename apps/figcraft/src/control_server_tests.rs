@@ -290,6 +290,7 @@ fn connection_limit_rejects_excess_clients_and_reuses_finished_slots() {
             pending.clone(),
             ctx.clone(),
             Arc::new(figcraft_engine::events::EventLog::default()),
+            None,
             &mut workers,
             Duration::from_secs(5),
         );
@@ -302,6 +303,7 @@ fn connection_limit_rejects_excess_clients_and_reuses_finished_slots() {
         pending.clone(),
         ctx.clone(),
         Arc::new(figcraft_engine::events::EventLog::default()),
+        None,
         &mut workers,
         Duration::from_secs(5),
     );
@@ -316,7 +318,7 @@ fn connection_limit_rejects_excess_clients_and_reuses_finished_slots() {
         std::thread::sleep(Duration::from_millis(1));
     }
     let (mut client, server) = pair();
-    spawn_connection(server, pending, ctx, Arc::new(figcraft_engine::events::EventLog::default()), &mut workers, Duration::from_secs(5));
+    spawn_connection(server, pending, ctx, Arc::new(figcraft_engine::events::EventLog::default()), None, &mut workers, Duration::from_secs(5));
     assert_eq!(workers.len(), 1);
     client.write_all(b"invalid\n").unwrap();
     assert_eq!(reply(&mut BufReader::new(client.try_clone().unwrap()))["ok"], false);
@@ -358,7 +360,7 @@ fn events_poll_is_answered_without_the_ui_queue() {
     let log = Arc::new(figcraft_engine::events::EventLog::default());
     log.push("comment.added", "Doc", None, json!({"commentId": 7}));
     let l = log.clone();
-    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, Duration::from_secs(5)));
+    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, None, Duration::from_secs(5)));
     client.write_all(b"{\"id\":1,\"method\":\"events.poll\",\"params\":{\"after\":0,\"timeoutMs\":0}}\n").unwrap();
     let mut reader = BufReader::new(client);
     let r = reply(&mut reader);
@@ -484,7 +486,7 @@ fn events_poll_rejects_an_unknown_topic_without_the_ui_queue() {
     let q = pending.clone();
     let log = Arc::new(figcraft_engine::events::EventLog::default());
     let l = log.clone();
-    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, Duration::from_secs(5)));
+    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, None, Duration::from_secs(5)));
     let mut reader = BufReader::new(client);
     reader.get_mut().write_all(b"{\"id\":1,\"method\":\"events.poll\",\"params\":{\"topics\":[\"nope\"],\"timeoutMs\":0}}\n").unwrap();
     let r = reply(&mut reader);
@@ -503,7 +505,7 @@ fn events_poll_reports_reset_for_a_cursor_ahead_of_the_log() {
     log.push("comment.added", "Doc", None, json!({"commentId": 1}));
     let q = queue();
     let l = log.clone();
-    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, Duration::from_secs(5)));
+    let worker = std::thread::spawn(move || serve_with_events(server, q, context(), l, None, Duration::from_secs(5)));
     let mut reader = BufReader::new(client);
     reader.get_mut().write_all(b"{\"id\":1,\"method\":\"events.poll\",\"params\":{\"after\":2,\"timeoutMs\":0}}\n").unwrap();
     let r = reply(&mut reader);
@@ -512,4 +514,84 @@ fn events_poll_reports_reset_for_a_cursor_ahead_of_the_log() {
     assert_eq!(r["result"]["cursor"], 1);
     reader.get_ref().shutdown(Shutdown::Write).unwrap();
     worker.join().unwrap().unwrap();
+}
+
+/// A served connection that wants `token` first.
+fn served_with_token(token: &str) -> (BufReader<TcpStream>, TcpStream, Queue, std::thread::JoinHandle<std::io::Result<()>>) {
+    let (client, server) = pair();
+    let q = queue();
+    let qq = q.clone();
+    let t = Some(Arc::new(token.to_string()));
+    let worker = std::thread::spawn(move || serve_with_events(server, qq, context(), Arc::new(EventLog::default()), t, Duration::from_secs(5)));
+    (BufReader::new(client.try_clone().unwrap()), client, q, worker)
+}
+
+#[test]
+fn nothing_runs_before_the_token_and_the_connection_ends() {
+    // Another program on this machine connects and sends a command straight away.
+    let (mut reader, mut client, q, worker) = served_with_token("s3cret");
+    writeln!(client, r#"{{"id":1,"method":"engine.execute","params":{{"command":"file.export","params":{{"path":"/tmp/x.png"}}}}}}"#).unwrap();
+    let r = reply(&mut reader);
+    assert_eq!(r["ok"], json!(false));
+    assert!(r["error"].as_str().unwrap().starts_with("unauthorized"), "{r}");
+    assert!(q.lock().unwrap().is_empty(), "nothing was queued for the UI");
+    // The connection is closed: a second line gets nothing.
+    let _ = writeln!(client, r#"{{"id":2,"method":"ui.inspect"}}"#);
+    let mut rest = String::new();
+    assert_eq!(reader.read_line(&mut rest).unwrap_or(0), 0, "closed after the refusal: {rest}");
+    worker.join().unwrap().unwrap();
+}
+
+#[test]
+fn a_wrong_token_is_refused_and_the_connection_ends() {
+    let (mut reader, mut client, q, worker) = served_with_token("s3cret");
+    writeln!(client, r#"{{"id":1,"method":"auth","params":{{"token":"guess"}}}}"#).unwrap();
+    assert_eq!(reply(&mut reader), json!({"id": 1, "ok": false, "error": "wrong token"}));
+    let _ = writeln!(client, r#"{{"id":2,"method":"auth","params":{{"token":"s3cret"}}}}"#);
+    let mut rest = String::new();
+    assert_eq!(reader.read_line(&mut rest).unwrap_or(0), 0, "no second guess on the same connection");
+    assert!(q.lock().unwrap().is_empty());
+    worker.join().unwrap().unwrap();
+}
+
+#[test]
+fn the_right_token_opens_the_connection_for_commands() {
+    let (mut reader, mut client, q, worker) = served_with_token("s3cret");
+    writeln!(client, r#"{{"id":1,"method":"auth","params":{{"token":"s3cret"}}}}"#).unwrap();
+    let r = reply(&mut reader);
+    assert_eq!((r["ok"].clone(), r["result"]["authenticated"].clone(), r["result"]["protocol"].clone()), (json!(true), json!(true), json!(PROTOCOL)));
+    assert!(r["result"]["app"].as_str().unwrap().starts_with("FigCraft "), "{r}");
+    // A command now reaches the UI's queue.
+    writeln!(client, r#"{{"id":2,"method":"ui.inspect","timeoutMs":200}}"#).unwrap();
+    let since = Instant::now();
+    while q.lock().unwrap().is_empty() && since.elapsed() < Duration::from_secs(2) {
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    assert_eq!(q.lock().unwrap().first().map(|r| r.method.clone()), Some("ui.inspect".to_string()));
+    // Nobody answers in the test; closing ends the wait.
+    drop((reader, client));
+    let _ = worker.join();
+}
+
+#[test]
+fn the_token_file_is_private_and_replaces_one_left_behind() {
+    let dir = std::env::temp_dir().join(format!("figcraft-token-test-{}", std::process::id()));
+    let _ = std::fs::create_dir_all(&dir);
+    let path = dir.join("t.token");
+    std::fs::write(&path, b"old").unwrap();
+    write_private(&path, b"new").unwrap();
+    assert_eq!(std::fs::read(&path).unwrap(), b"new");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        assert_eq!(std::fs::metadata(&path).unwrap().permissions().mode() & 0o777, 0o600, "only this user reads it");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn tokens_compare_whole_and_never_empty() {
+    use figcraft_engine::control_token::matches;
+    assert!(matches("abc", "abc"));
+    assert!(!matches("abd", "abc") && !matches("ab", "abc") && !matches("", ""));
 }

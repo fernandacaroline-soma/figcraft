@@ -20,6 +20,7 @@ import time
 S, SID, CRIT = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
+__import__("eureka_control").auth(f, PORT)
 n = [0]
 
 
