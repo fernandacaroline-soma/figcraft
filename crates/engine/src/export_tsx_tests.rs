@@ -611,3 +611,89 @@ fn app_and_web_name_a_token_the_same() {
     assert!(web["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
     assert!(app["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
 }
+
+/// A file whose brand collection, "Tokens APP", comes from a library, with a local "Layout"
+/// (Desktop, Mobile) and a local one-mode theme: the screen on NV and Mobile.
+fn library_brand_and_local_layout(tag: &str) -> (Session, NodeId, std::path::PathBuf) {
+    let d = std::env::temp_dir().join(format!("figcraft-g3-libbrand-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    let lib_path = d.join("ds.figcraft").to_string_lossy().into_owned();
+    let mut lib = Session::new();
+    run(&mut lib, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(
+        &mut lib,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Brand", "type": "color", "values": {"Farm": "#111111", "NV": "#222222"}}),
+    );
+    let lid = run(&mut lib, "library.publish", json!({}))["id"].as_str().unwrap().to_string();
+    run(&mut lib, "file.saveAs", json!({"path": lib_path}));
+
+    let mut s = Session::new();
+    run(&mut s, "library.add", json!({"path": lib_path}));
+    run(&mut s, "variable.createCollection", json!({"name": "Layout", "modes": ["Desktop", "Mobile"]}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Gutter", "type": "number", "values": {"Desktop": 24, "Mobile": 8}}));
+    run(&mut s, "variable.createCollection", json!({"name": "Tema"}));
+    run(&mut s, "variable.create", json!({"collection": "Tema", "name": "ink", "type": "color", "value": "#000000"}));
+    let f = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 100, "height": 100, "name": "Screen"}))["id"]).unwrap();
+    run(&mut s, "library.bindVariable", json!({"library": lid, "variable": "Colors/Brand", "field": "fill", "ids": [f.0]}));
+    run(&mut s, "variable.setMode", json!({"ids": [f.0], "collection": "Tokens APP", "mode": "NV"}));
+    run(&mut s, "variable.setMode", json!({"ids": [f.0], "collection": "Layout", "mode": "Mobile"}));
+    (s, f, d)
+}
+
+#[test]
+fn the_named_brand_collection_wins_even_from_a_library() {
+    let (mut s, f, d) = library_brand_and_local_layout("named");
+    let r = run(&mut s, "export.tsx", json!({"ids": [f.0]}));
+    let code = r["code"].as_str().unwrap();
+    // The library's Tokens APP is the brand; the local Layout keeps its own attribute.
+    assert!(code.contains("data-brand=\"nv\" data-layout=\"mobile\""), "{code}");
+    assert!(!code.contains("data-brand=\"mobile\"") && !code.contains("data-tokens-app"), "{code}");
+    assert_eq!(r["brand"]["collection"], "Tokens APP", "{r}");
+    // The file's stylesheet keys Layout on data-layout, not on data-brand.
+    let css = run(&mut s, "export.tokensCss", json!({}));
+    let text = css["css"].as_str().unwrap();
+    assert!(text.contains("[data-layout=\"mobile\"]") && !text.contains("data-brand=\"mobile\""), "{css}");
+    assert_eq!(css["brands"], json!([]), "the brand collection is the library's: {css}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_chosen_brand_collection_is_the_same_in_the_tsx_and_the_stylesheet() {
+    let (mut s, f, d) = library_brand_and_local_layout("chosen");
+    // Asked for "Layout" as the brand (an odd choice, but both files must agree).
+    let r = run(&mut s, "export.code", json!({"ids": [f.0], "collection": "Layout"}));
+    let tsx = r["files"][0]["text"].as_str().unwrap();
+    let css = r["files"][1]["text"].as_str().unwrap();
+    assert!(tsx.contains("data-brand=\"mobile\""), "{tsx}");
+    assert!(css.contains("[data-brand=\"mobile\"]"), "{css}");
+    assert!(!css.contains("[data-layout="), "{css}");
+    let sheet = run(&mut s, "export.tokensCss", json!({"collection": "Layout"}));
+    assert_eq!(sheet["css"].as_str().unwrap(), css);
+    assert!(s.execute("export.tokensCss", &json!({"collection": 4})).is_err());
+    assert!(s.execute("export.tokensCss", &json!({"collection": "Nope"})).is_err());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_local_collection_with_more_modes_does_not_take_the_brand_from_tokens_app() {
+    let (mut s, page) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "Densidade", "modes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]}));
+    run(&mut s, "variable.create", json!({"collection": "Densidade", "name": "d", "type": "number", "value": 1}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [page.0]}));
+    assert_eq!(r["brand"]["collection"], "Tokens WEB", "named, though Densidade has more modes: {r}");
+}
+
+#[test]
+fn numbered_names_never_meet_a_layer_already_named_so() {
+    let (mut s, screen, ..) = screen();
+    let mk = |s: &mut Session, name: &str, x: f64| {
+        id_of(&run(s, "frame.create", json!({"x": x, "y": 0, "width": 10, "height": 10, "name": name}))["id"]).unwrap()
+    };
+    run(&mut s, "node.set", json!({"id": screen.0, "props": {"name": "Card"}}));
+    let (b, c) = (mk(&mut s, "Card", 600.0), mk(&mut s, "Card2", 700.0));
+    let code = run(&mut s, "export.tsx", json!({"ids": [screen.0, b.0, c.0]}))["code"].as_str().unwrap().to_string();
+    for f in ["export function Card()", "export function Card2()", "export function Card22()"] {
+        assert_eq!(code.matches(f).count(), 1, "{f}: {code}");
+    }
+}
