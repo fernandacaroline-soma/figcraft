@@ -190,7 +190,7 @@ fn call_imports(doc: &Document, id: NodeId, lang: CodeLang, depth: usize, out: &
 /// A piece of a template (`inner`: the text between the braces, written back for names that
 /// aren't properties).
 #[derive(Debug, PartialEq)]
-enum Piece<'a> {
+pub(crate) enum Piece<'a> {
     Text(&'a str),
     Value { name: &'a str, inner: &'a str },
     Pick { name: &'a str, yes: &'a str, no: &'a str, inner: &'a str },
@@ -305,7 +305,7 @@ pub fn template_names(t: &str) -> Vec<String> {
 
 /// Template `t` as pieces. One that doesn't parse, or that skipped `check` (a hand-edited file)
 /// and is far too long, stays as written: parsing rescans after each literal brace.
-fn pieces(t: &str) -> Vec<Piece<'_>> {
+pub(crate) fn pieces(t: &str) -> Vec<Piece<'_>> {
     let checkable = t.len() <= MAX_TEMPLATE * 4;
     checkable.then(|| parse(t).ok()).flatten().unwrap_or_else(|| vec![Piece::Text(t)])
 }

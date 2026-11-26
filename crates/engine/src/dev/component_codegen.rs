@@ -446,6 +446,12 @@ fn enum_ident(prop: &str, used: &mut Vec<String>) -> String {
     out
 }
 
+/// A name as code reads it, for matching names written either way: its ASCII words run together in
+/// lower case ("Mostrar ação" and `mostrarAcao` → `mostraracao`, "Texto#7:26" → `texto`).
+pub(crate) fn code_key(name: &str) -> String {
+    words(name).concat().to_ascii_lowercase()
+}
+
 /// A parameter name: "Show icon" → `showIcon`, unique in `used`.
 fn ident(name: &str, used: &mut Vec<String>) -> String {
     let mut base = String::new();
