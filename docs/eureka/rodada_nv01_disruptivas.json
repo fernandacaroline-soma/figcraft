@@ -24,7 +24,7 @@
     {
       "name": "Comprar agora no tamanho de sempre", "type": "disruptiva", "mechanism": "reduzir passos", "confidence": "baixa",
       "summary": "A área de ação fixa troca o botão único por dois: comprar agora no tamanho que a cliente já comprou e adicionar à sacola. A confirmação aparece na própria tela.",
-      "screen": {"$base": "pdp", "no_button": true, "after_sizes": [
+      "screen": {"$base": "pdp", "no_button": true, "picked": "M", "after_sizes": [
         {"component": "Snackbar", "variant": {"Status": "Sucesso", "Loading": "Off"}, "width": "fill",
          "props": {"Texto": "Adicionado à sacola · M", "Botão": true}}
       ], "overlay": [

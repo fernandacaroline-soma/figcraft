@@ -1,0 +1,30 @@
+{
+ "verdict": "com-ressalvas",
+ "summary": "As instâncias declaradas vêm da biblioteca DS Apps, o modo Tokens APP: NV está aplicado na tela e o lint de DS não achou valores soltos. A conformidade, porém, não pode ser confirmada: há dois padrões de uso ainda não validados (dois botões na área de ação fixa da PDP e Snackbar dentro do conteúdo), a galeria e o bloco de produto estão como camadas simples, e esta prévia não tem diff nem acesso ao Docusaurus. Os padrões novos dependem de decisão da liderança de DS Apps.",
+ "items": [
+  {
+   "message": "Área de ação fixa com dois botões: o Action Button (Vertical=Off, Fixed=On) recebeu um Button Secundário 'Adicionar à sacola' e um Primário 'Comprar agora · M'. As instâncias são oficiais, mas o par de botões na PDP muda o padrão de CTA único em todas as marcas que usam o DS Apps. Pergunta: a documentação do Action Button permite dois botões horizontais com ações de compra concorrentes na PDP? Se não houver regra escrita, isso é padrão novo e vai para decisão da liderança de DS Apps. Não houve criação de componente.",
+   "source": "Critérios de Escalonamento (Notion, 20/10/2026), seção de padrão novo e componente compartilhado; gatekeeper-scope-risk-reuse.md §1, linha DS Apps / Checkout compartilhado (altíssima criticidade)"
+  },
+  {
+   "message": "Snackbar (Status=Sucesso) está dentro do frame 'Conteúdo', no fluxo da página, e não sobreposto como feedback temporário. Não vi a regra de posicionamento nem o comportamento (duração, sobreposição à área fixa, fechar pelo Botão Ghost Inverso com 'close'). Pergunta: o DS Apps prevê o Snackbar inline? Se não prevê, usar a posição documentada ou levar o uso inline à liderança. O texto 'Adicionado à sacola · M' também precisa da variação de erro (Status=Erro), que já está entre os achados da crítica.",
+   "source": "Fluxo Oficial de Criação e Alteração no Design System (Notion) §4, uso de componentes oficiais sem reconstrução nem uso fora do previsto; guardrails G03 e G06"
+  },
+  {
+   "message": "A 'Galeria (imagem de exemplo)' é um RECTANGLE, e o nome e o preço do produto são TEXT soltos dentro de 'Conteúdo'. Pelo inventário, nenhum deles é instância de componente oficial do DS Apps (Image, galeria ou bloco de informação de produto). Verificar se existem equivalentes no DS Apps e usar as instâncias. Se a camada simples for só um placeholder de exploração, marcar isso. Não afirmo que esses componentes existem: a busca no Docusaurus e no Figma não foi feita nesta prévia.",
+   "source": "Fluxo Oficial (Notion) §4: 'não reconstrua componentes oficiais'; guardrails G02 (reutilizar Image, Button e demais oficiais do mesmo produto)"
+  },
+  {
+   "message": "Inconsistência de estado no Selector Size: o CTA diz 'Comprar agora · M' e o Snackbar diz 'Adicionado à sacola · M', mas as cinco instâncias (PP a GG) estão com Selecionado=Off. Se o tamanho de sempre é o M, configurar Selecionado=On na instância M. É configuração de instância, não variante nova. Se ficou sem seleção de propósito, registrar o motivo.",
+   "source": "guardrails G03 (estado local é configuração de instância); Playbook | Fluxo Oficial de Aprovação (Notion) §3, coerência de props e estados"
+  },
+  {
+   "message": "Os rótulos 'Adicionar à sacola', 'Comprar agora · M' e 'Adicionado à sacola · M' são texto literal. Pergunta: o CTA da PDP e a mensagem de sacola no DS Apps usam token de texto por marca (Business Rule)? Se usam, o texto não pode romper o vínculo. O lint não verifica isso porque falta a lista escrita, então o ponto fica em aberto e não conta como violação.",
+   "source": "Fluxo Oficial (Notion) §6, Tokens de texto por marca: 'Não trocar por texto literal, romper vínculo'; G2-F-regras.md, regra 8 e respostas 5 e 6 de 24/11"
+  },
+  {
+   "message": "Limite deste parecer: é uma prévia sobre o inventário enviado, sem diff branch × main, sem leitura do Docusaurus e sem conferir se houve override de token dentro das instâncias (a regra 6 ainda não entra no lint). Por isso ele não serve como pré-aprovação técnica. Antes de qualquer handoff, refazer a revisão formal com o diff, a busca de equivalentes e a decisão da liderança sobre os itens 1 e 2. Merge e publicação seguem exigindo liberação explícita da liderança.",
+   "source": "procedures/gatekeeper.md, preflight inegociável (sem diff verificável não há pré-aprovação); G2-F-regras.md, tabela, regra 6; guardrails G11"
+  }
+ ]
+}
