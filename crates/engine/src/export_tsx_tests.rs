@@ -654,12 +654,13 @@ fn a_design_system_component_in_the_map_is_a_call_to_its_code_component() {
     let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
     let code = r["code"].as_str().unwrap();
     assert!(
-        code.contains(
+        code.starts_with(
             "import { Button } from \"@acme/ds-apps\";
-import \"./pdp-mobile.css\";"
+/*"
         ),
-        "{code}"
+        "the import heads the file: {code}"
     );
+    assert!(code.contains("import \"./pdp-mobile.css\";"), "{code}");
     assert!(code.contains("<Button variant=\"Secundário\" />"), "the instance's own value: {code}");
     assert!(!code.contains("#7A4B2A"), "the component's insides are the code component's: {code}");
     assert!(r["warnings"].as_array().unwrap().iter().all(|w| w["value"] != "#7A4B2A"), "{r}");
@@ -680,6 +681,38 @@ fn without_a_map_the_design_systems_instances_are_drawn_and_noted() {
     assert!(!code.contains("import { Button }"), "{code}");
     assert_eq!(r["components"], json!([]), "{r}");
     assert!(r["notes"].to_string().contains("Button is a design-system component with no code component in the map"), "{r}");
+}
+
+/// The Button set of [`screen_with_ds_components`] and a second screen using it.
+fn two_screens_with_one_button() -> (Session, NodeId, NodeId) {
+    let (mut s, screen) = screen_with_ds_components();
+    let set = s.doc().unwrap().nodes().find(|n| n.name == "Button" && matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })).unwrap().id;
+    let other = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 1200, "width": 360, "height": 200, "name": "Checkout"}))["id"]).unwrap();
+    run(&mut s, "instance.create", json!({"component": set.0, "x": 0, "y": 0, "parent": other.0}));
+    (s, screen, other)
+}
+
+#[test]
+fn two_screens_with_one_code_component_import_it_once_at_the_top() {
+    let (mut s, screen, other) = two_screens_with_one_button();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0, other.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert_eq!(code.matches("import { Button } from \"@acme/ds-apps\";").count(), 1, "{code}");
+    assert!(code.starts_with("import { Button }"), "{code}");
+    assert_eq!(code.matches("<Button").count(), 2, "both screens call it: {code}");
+    assert_eq!(r["components"].as_array().unwrap().len(), 2, "{r}");
+}
+
+#[test]
+fn a_layer_named_as_an_imported_component_gets_a_number() {
+    let (mut s, screen, _) = two_screens_with_one_button();
+    let root = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 1600, "width": 100, "height": 40, "name": "Button"}))["id"]).unwrap();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0, root.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("function Button2("), "the layer is not the imported Button: {code}");
+    assert!(!code.contains("function Button("), "{code}");
+    assert!(r["notes"].to_string().contains("Button is also an imported code component"), "{r}");
+}
 
 /// A file whose brand collection, "Tokens APP", comes from a library, with a local "Layout"
 /// (Desktop, Mobile) and a local one-mode theme: the screen on NV and Mobile.

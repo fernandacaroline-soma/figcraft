@@ -378,42 +378,61 @@ pub fn export(doc: &Document, ids: &[NodeId]) -> Value {
 pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> Value {
     let (mut parts, mut warnings, mut brands, mut notes) = (Vec::new(), Vec::new(), Vec::new(), Vec::<String>::new());
     let mut calls: Vec<Value> = Vec::new();
-    let mut done: Vec<NodeId> = Vec::new();
-    let mut taken: Vec<String> = Vec::new();
+    let mut roots: Vec<NodeId> = Vec::new();
     for id in ids.iter().copied() {
-        if done.contains(&id) {
-            continue;
-        }
-        if done.len() >= MAX_ROOTS {
+        if roots.len() >= MAX_ROOTS {
             break;
         }
-        done.push(id);
+        if !roots.contains(&id) {
+            roots.push(id);
+        }
+    }
+    // Instances connected to code (codeConnect, from the design system's code map) are calls to
+    // the code component, imported from its package; the design system's other instances are
+    // drawn, and said. One file: each import once, at its top, whichever screens use it.
+    let found: Vec<DsCalls> = roots.iter().map(|&id| ds_calls(doc, id)).collect();
+    let mut imports: Vec<String> = Vec::new();
+    let mut imported: Vec<String> = Vec::new();
+    for ds in &found {
+        for line in &ds.imports {
+            if !imports.contains(line) {
+                imports.push(line.clone());
+            }
+        }
+        for name in ds.calls.iter().filter_map(|c| c["name"].as_str()) {
+            if !imported.iter().any(|n| n == name) {
+                imported.push(name.to_string());
+            }
+        }
+    }
+    let mut taken: Vec<String> = Vec::new();
+    for (id, ds) in roots.iter().copied().zip(found) {
         let Some(name) = crate::component_codegen::ds_type_name(doc, id) else { continue };
-        // Two layers of one name would be two functions and two stylesheets of one name: the
-        // first free `<name><n>` from 2, against every name given so far ("Card", "Card", "Card2"
-        // → Card, Card2, Card22).
-        let suffix = if taken.contains(&name) {
-            (2..=MAX_ROOTS + 1).map(|k| k.to_string()).find(|k| !taken.contains(&format!("{name}{k}"))).unwrap_or_default()
-        } else {
+        // Two layers of one name would be two functions and two stylesheets of one name, and a
+        // layer named as an imported code component would clash with its import: the first free
+        // `<name><n>` from 2, against every name given or imported ("Card", "Card", "Card2" →
+        // Card, Card2, Card22).
+        let free = |n: &str| !taken.iter().any(|t| t == n) && !imported.iter().any(|t| t == n);
+        let suffix = if free(&name) {
             String::new()
+        } else {
+            (2..=MAX_ROOTS + 1).map(|k| k.to_string()).find(|k| free(&format!("{name}{k}"))).unwrap_or_default()
         };
         taken.push(format!("{name}{suffix}"));
         let mut own = Vec::new();
         if !suffix.is_empty() {
-            own.push(format!("two layers are named {name}: this one ({}) is {name}{suffix}", id.0));
+            if imported.contains(&name) {
+                own.push(format!("{name} is also an imported code component: this layer ({}) is {name}{suffix}", id.0));
+            } else {
+                own.push(format!("two layers are named {name}: this one ({}) is {name}{suffix}", id.0));
+            }
         }
         let (attr, brand, brand_notes) = brand_attr_in(doc, id, brand_coll);
         own.extend(brand_notes);
         let Some((code, loose)) = crate::component_codegen::react_ds(doc, id, &attr, &suffix) else { continue };
-        // Instances connected to code (codeConnect, from the design system's code map) are calls
-        // to the code component, imported from its package; the design system's other instances
-        // are drawn, and said.
-        let ds = ds_calls(doc, id);
         for (layer, component) in &ds.drawn {
             own.push(format!("{layer}: {component} is a design-system component with no code component in the map (drawn as layers)"));
         }
-        let imports = ds.imports.join("\n");
-        let code = if imports.is_empty() { code } else { format!("{imports}\n{code}") };
         calls.extend(ds.calls);
         parts.push(format!("{}{code}", header(&loose, brand.as_ref(), &own)));
         warnings.extend(loose.iter().map(|l| json!({"id": l.id.0, "layer": l.layer, "field": l.field, "value": l.value})));
@@ -425,7 +444,23 @@ pub fn export_with(doc: &Document, ids: &[NodeId], brand_coll: Option<&str>) -> 
         }
     }
     let brand = if brands.len() == 1 { brands.pop().unwrap_or(Value::Null) } else { Value::Array(brands) };
-    json!({"code": parts.join("\n"), "warnings": warnings, "brand": brand, "notes": notes, "components": calls})
+    let body = parts.join(
+        "
+",
+    );
+    let code = if imports.is_empty() || body.is_empty() {
+        body
+    } else {
+        format!(
+            "{}
+{body}",
+            imports.join(
+                "
+"
+            )
+        )
+    };
+    json!({"code": code, "warnings": warnings, "brand": brand, "notes": notes, "components": calls})
 }
 
 /// Most layers [`ds_calls`] walks.
