@@ -428,6 +428,8 @@ pub struct BoardProposal {
     pub approval: Option<Value>,
     /// The design system's code map the file linked (`explore.codeMap`): `{name, linked, missing}`.
     pub code_map: Option<Value>,
+    /// The brand the screen was designed for (`brand.apply`): its mode, profile version and gaps.
+    pub brand: Option<Value>,
 }
 
 pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
@@ -446,6 +448,7 @@ pub fn board_proposal(app: &FigApp) -> Option<BoardProposal> {
         review: kept(REVIEW_KEY),
         approval: kept(APPROVAL_KEY),
         code_map: figcraft_engine::export_handoff::linked_code_map(&ds.doc),
+        brand: figcraft_engine::cmd::eureka_brand::brand_of(&ds.doc, *id),
     })
 }
 
@@ -566,6 +569,30 @@ fn export_chosen(app: &mut FigApp, id: NodeId) {
     });
 }
 
+/// The brand the proposal was designed for: the profile it used (owner, review) or, with none,
+/// that only usability and the design system guided it; and how many gaps the brand has.
+fn brand_block(ui: &mut Ui, b: &Value, t: &Tokens) {
+    let s = |v: &Value| v.as_str().unwrap_or_default().to_string();
+    let brand = s(&b["brand"]);
+    let said = if b["profile"].is_object() && b["basis"] == json!("perfil") {
+        let mut review = s(&b["profile"]["reviewed"]);
+        if let Some(n) = b["profile"]["note"].as_str() {
+            review = format!("{review} ({n})");
+        }
+        trf(
+            "Brand: {brand} · profile by {owner}, reviewed {review}",
+            &[("brand", &brand), ("owner", &s(&b["profile"]["owner"])), ("review", &review)],
+        )
+    } else {
+        trf("Brand: {brand} · no profile: usability and the DS only", &[("brand", &brand)])
+    };
+    line(ui, &said, t.text_secondary);
+    let gaps = b["gaps"].as_array().map_or(0, Vec::len);
+    if gaps > 0 {
+        line(ui, &trn("{n} gaps in what the brand has", gaps, &[]), t.warning_text);
+    }
+}
+
 /// A card button was clicked or pressed with Enter or Space. The card scrolls, so a button the
 /// keyboard moves to comes into view.
 fn pressed(resp: egui::Response) -> bool {
@@ -599,6 +626,9 @@ fn board_body(ui: &mut Ui, bp: &BoardProposal, t: &Tokens) -> CardAction {
     }
     if let Some(c) = text("confidence") {
         line(ui, &trf("Confidence: {confidence}", &[("confidence", &c)]), t.text_secondary);
+    }
+    if let Some(b) = &bp.brand {
+        brand_block(ui, b, t);
     }
     let used: Vec<&str> =
         info.pointer("/ds/components").and_then(Value::as_array).map(|l| l.iter().filter_map(Value::as_str).collect()).unwrap_or_default();
