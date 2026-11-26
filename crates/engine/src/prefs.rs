@@ -75,6 +75,12 @@ pub struct Prefs {
     /// plugin.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub plugin_settings: BTreeMap<String, BTreeMap<String, Value>>,
+    /// The folders the designer let agents use (Preferences ▸ Folders agents can use): with the
+    /// control channel on and no `--automation-*-root` flags, an agent's requests read and write
+    /// only there and in the temporary folder. Only the designer changes it (in Preferences, never
+    /// through a command an agent could run). The designer's own work is never confined by it.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub agent_folders: Vec<String>,
     /// The plugin directory browsed last (`ws://host:port/`, never with a key).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugin_directory: Option<String>,
@@ -132,6 +138,7 @@ impl Default for Prefs {
     fn default() -> Self {
         Self {
             nudge_small: 1.0,
+            agent_folders: Vec::new(),
             nudge_big: 10.0,
             keep_tool: false,
             rename_duplicates: false,

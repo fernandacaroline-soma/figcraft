@@ -1459,7 +1459,28 @@ fn front_only(session: &Session, front: Option<u64>, method: &str, p: &Value) ->
 }
 
 /// Handle one control method (also used by tests and the headless snapshot tool).
+/// The folders an agent's control requests may read and write when the app confines agents: the
+/// temporary folder (scripts' work folders) and those the designer let agents use, the ones that
+/// exist. Read and write alike.
+pub fn agent_roots(folders: &[String]) -> Arc<figcraft_engine::file_access::Roots> {
+    let mut dirs: Vec<String> = vec![std::env::temp_dir().to_string_lossy().into_owned()];
+    dirs.extend(folders.iter().filter(|f| std::path::Path::new(f).is_dir()).cloned());
+    let roots = figcraft_engine::file_access::Roots::new(&dirs, &dirs)
+        .or_else(|_| figcraft_engine::file_access::Roots::new(&dirs[..1], &dirs[..1]))
+        .unwrap_or_else(|_| figcraft_engine::file_access::Roots::none());
+    Arc::new(roots)
+}
+
+/// Run a control request: confined to [`agent_roots`] when the app confines agents.
 pub fn handle(app: &mut FigApp, ctx: &Context, method: &str, p: &Value) -> Result<Value, String> {
+    if app.agents_confined && app.automation_roots.is_none() {
+        let roots = agent_roots(&app.session.prefs.agent_folders);
+        return figcraft_engine::file_access::confined(Some(&roots), || handle_unconfined(app, ctx, method, p));
+    }
+    handle_unconfined(app, ctx, method, p)
+}
+
+fn handle_unconfined(app: &mut FigApp, ctx: &Context, method: &str, p: &Value) -> Result<Value, String> {
     if !DOCUMENT_METHODS.contains(&method) {
         front_only(&app.session, app.session.ds().ok().map(|d| d.uid), method, p)?;
     }
