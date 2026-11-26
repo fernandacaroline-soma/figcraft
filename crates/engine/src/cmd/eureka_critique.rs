@@ -277,6 +277,16 @@ fn is_state(word: &str) -> bool {
     STATE_WORDS.iter().any(|s| w.contains(s))
 }
 
+/// A variant value that is itself a state ("Erro", "Loading"), whatever its property is called. The
+/// whole value must be the state: "error-circle", an icon's name, is not a state of the screen.
+const STATE_VALUES: [&str; 12] =
+    ["erro", "error", "loading", "carregando", "vazio", "empty", "sucesso", "success", "desabilitado", "disabled", "falha", "offline"];
+
+fn is_state_value(v: &str) -> bool {
+    let w = v.trim().to_lowercase();
+    STATE_VALUES.contains(&w.as_str())
+}
+
 /// Variant property → the values the screen shows.
 type Shown = BTreeMap<String, BTreeSet<String>>;
 
@@ -306,11 +316,12 @@ fn states(doc: &Document, shown: &[NodeId]) -> Vec<Value> {
             }
         }
         for (prop, values) in options {
-            let named = is_state(&prop);
+            // A state toggle ("Desabilitado" = Off | On) asks for its "on" value; any other property
+            // (a Snackbar's "Status" = Brand | Erro | Sucesso…) only for the values that are states.
+            let toggle = is_state(&prop) && values.iter().all(|v| is_off(v) || is_on(v));
             let missing: Vec<String> = values
                 .iter()
-                .filter(|v| (named || is_state(v)) && !seen.get(&prop).is_some_and(|s| s.contains(*v)))
-                .filter(|v| !(named && is_off(v)))
+                .filter(|v| (if toggle { is_on(v) } else { is_state_value(v) }) && !seen.get(&prop).is_some_and(|s| s.contains(*v)))
                 .map(|v| format!("{prop}={v}"))
                 .collect();
             if missing.is_empty() {
@@ -329,6 +340,11 @@ fn states(doc: &Document, shown: &[NodeId]) -> Vec<Value> {
         }
     }
     out
+}
+
+/// "On" and its kin: the value a state toggle takes when the state is shown.
+fn is_on(v: &str) -> bool {
+    matches!(v.trim().to_lowercase().as_str(), "on" | "true" | "sim" | "yes")
 }
 
 /// "Off" and its kin: the resting value of a state toggle, not a state to show.
@@ -392,11 +408,13 @@ fn contrast(doc: &Document, screen: NodeId, shown: &[NodeId]) -> Vec<Value> {
     out
 }
 
+/// The sizes (rounded, in pt) a component has on the screen under 44 pt, and its layers there.
+type Small = (BTreeSet<(i64, i64)>, Vec<(u64, String)>);
+
 /// Instances placed on the screen itself (not inside another instance) smaller than 44 × 44 pt,
-/// one finding per component and size.
+/// one finding per component with the sizes it has on the screen.
 fn touch(doc: &Document, screen: NodeId, shown: &[NodeId]) -> Vec<Value> {
-    // (component, width, height) → the layers
-    let mut small: BTreeMap<(String, i64, i64), Vec<(u64, String)>> = BTreeMap::new();
+    let mut small: BTreeMap<String, Small> = BTreeMap::new();
     for id in shown {
         let Some(n) = doc.node(*id) else { continue };
         if !matches!(n.kind, NodeKind::Instance { .. }) {
@@ -412,16 +430,18 @@ fn touch(doc: &Document, screen: NodeId, shown: &[NodeId]) -> Vec<Value> {
             continue;
         }
         let what = main_and_set(doc, *id).and_then(|(_, set)| doc.node(set)).map(|s| s.name.clone()).unwrap_or_else(|| n.name.clone());
-        small.entry((what, n.width.round() as i64, n.height.round() as i64)).or_default().push((id.0, n.name.clone()));
+        let e = small.entry(what).or_default();
+        e.0.insert((n.width.round() as i64, n.height.round() as i64));
+        e.1.push((id.0, n.name.clone()));
     }
     small
         .into_iter()
-        .map(|((what, w, h), layers)| {
-            let names: Vec<&str> = layers.iter().map(|(_, n)| n.as_str()).take(8).collect();
+        .map(|(what, (sizes, layers))| {
+            let sizes: Vec<String> = sizes.iter().map(|(w, h)| format!("{w} × {h} pt")).collect();
             finding(
                 "acessibilidade",
                 "baixa",
-                format!("{what} mede {w} × {h} pt ({} na tela: {}).", layers.len(), names.join(", ")),
+                format!("{what} mede {} ({} na tela).", sizes.join(", "), layers.len()),
                 "Se for tocável, um alvo pequeno gera toques errados.",
                 format!("{MEASURED}; referência: Apple Human Interface Guidelines, 44 × 44 pt"),
                 "Se for tocável, garantir área de toque de 44 × 44 pt (a área pode ser maior que o desenho).".into(),

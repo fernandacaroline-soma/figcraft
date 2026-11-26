@@ -7,14 +7,27 @@
 // variable bindings. Nothing is written to the Figma file.
 //
 // The Plugin API cannot export REST JSON (`exportAsync({format: 'JSON_REST_V1'})` is refused in
-// this context) and a `use_figma` result is capped at 48 KB, so the script returns the JSON in
-// chunks: run it once per CHUNK (0, 1, ...) until `chunks`, then join the `data` strings in order
+// this context) and a `use_figma` result is capped at 48 KB, so the script packs the JSON (LZW over
+// its UTF-8 bytes, base64; about a third of the size, `pack` below) and returns it in chunks: run
+// it once per CHUNK (0, 1, ...) until `chunks`, then join the `data` strings in order
 // (`python3 ds_components_snapshot.py assemble OUT.json CHUNK0.json CHUNK1.json ...`). The result is a
 // cache OUTSIDE the repository (`eureka-cache/`), never committed: it is the DS team's content.
 //
 // ROOTS: component set id -> null (every variant) or a filter on the variants kept.
-const CHUNK = 0, SIZE = 38000;
-const ROOTS = { '145:1171': v => ['Tamanho=Grande','Ícone=Off','Desabilitado=Off','Loading=False','Destrutivo=Off','Inverso=Off'].every(t => v.name.includes(t)), '150:586': null, '4608:14646': null, '3173:29745': null };
+const CHUNK = 0, SIZE = 46000;
+const ROOTS = {
+  // Button: every type, with its disabled and loading states (size Grande, no icon, not destructive or inverse).
+  '145:1171': v => ['Tamanho=Grande','Ícone=Off','Destrutivo=Off','Inverso=Off'].every(t => v.name.includes(t)),
+  '150:586': null,        // Choice Tag (Chips)
+  '4608:14646': null,     // Selector Size (Selector Button)
+  '3173:29745': null,     // Bottom Sheet
+  // Frente P: a fixed action area, feedback and messages, headings. (Price Bar and Complete o look
+  // pull the Bottom Bar and the Product Card with them: about 570 KB, left out.)
+  '3169:29380': null,     // Action Button
+  '3169:23397': null,     // Snackbar
+  '11651:22206': null,    // Tipbar
+  '362:10674': null,      // Section Heading
+};
 const want = new Map(); for (const [id, f] of Object.entries(ROOTS)) want.set(id, f);
 const R = x => typeof x === 'number' ? Math.round(x * 1000) / 1000 : x;
 const varIds = new Set();
@@ -75,6 +88,21 @@ async function ser(n) {
   }
   return o;
 }
+// LZW over UTF-8 bytes; the i-th code takes bitlen(256 + i) bits (the dictionary size then); 6 bits per base64 char.
+function pack(s) {
+  const b = []; for (const ch of s) { let c = ch.codePointAt(0);
+    if (c < 0x80) b.push(c); else if (c < 0x800) b.push(0xc0 | c >> 6, 0x80 | c & 63);
+    else if (c < 0x10000) b.push(0xe0 | c >> 12, 0x80 | c >> 6 & 63, 0x80 | c & 63);
+    else b.push(0xf0 | c >> 18, 0x80 | c >> 12 & 63, 0x80 | c >> 6 & 63, 0x80 | c & 63); }
+  const A = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/', LIM = 1 << 20;
+  const dict = new Map(); let next = 256, w = -1, acc = 0, nb = 0, r = '';
+  const emit = x => { const width = Math.min(next, LIM).toString(2).length; for (let i = width - 1; i >= 0; i--) { acc = acc << 1 | (x >> i & 1); if (++nb === 6) { r += A[acc]; acc = 0; nb = 0; } } };
+  for (const c of b) { if (w < 0) { w = c; continue; } const k = w * 256 + c; const hit = dict.get(k);
+    if (hit !== undefined) w = hit; else { emit(w); if (next < LIM) dict.set(k, next); next++; w = c; } }
+  if (w >= 0) emit(w);
+  if (nb) r += A[acc << (6 - nb)];
+  return r;
+}
 const nodes = {}; const done = new Set();
 async function addRoot(node) { if (done.has(node.id)) return; done.add(node.id); nodes[node.id] = { document: await ser(node) }; }
 for (const id of Object.keys(ROOTS)) await addRoot(await figma.getNodeByIdAsync(id));
@@ -92,4 +120,5 @@ while (q.length && vg++ < 2000) { const id = q.shift(); if (variables[id]) conti
   collections[v.variableCollectionId]?.variableIds.push(v.id); }
 for (const e of Object.values(nodes)) { e.components = {}; e.componentSets = {}; e.styles = {}; }
 const s = JSON.stringify({ name: figma.root.name, source: 'U3pOCU4CEBgYKHGVR1F3sK', nodes, components, componentSets, meta: { variableCollections: collections, variables } });
-return { total: s.length, chunks: Math.ceil(s.length / SIZE), chunk: CHUNK, data: s.slice(CHUNK * SIZE, (CHUNK + 1) * SIZE) };
+const z = pack(s);
+return { packed: true, total: z.length, chunks: Math.ceil(z.length / SIZE), chunk: CHUNK, data: z.slice(CHUNK * SIZE, (CHUNK + 1) * SIZE) };

@@ -10,7 +10,8 @@ token against the DS snapshot before drawing anything.
 Read-only towards Figma and Notion: the DS comes from local snapshots (outside the repo), nothing is
 written back, and no DS component, token or rule is changed.
 
-Usage: python3 rodada_n.py WORKDIR TOKENS_JSON COMPONENTS_JSON PROPOSALS_JSON
+Usage: python3 rodada_n.py WORKDIR TOKENS_JSON COMPONENTS_JSON PROPOSALS_JSON [MORE_PROPOSALS_JSON...]
+(more files add their proposals to the same board, such as the disruptive ones of Frente P).
 """
 import copy
 import json
@@ -19,6 +20,7 @@ import sys
 import time
 
 S, TOK, COMP, PROPS = sys.argv[1:5]
+MORE = sys.argv[5:]
 PORT = int(open(f"{S}/port").read())
 f = socket.create_connection(("127.0.0.1", PORT), timeout=180).makefile("rw")
 n = [0]
@@ -84,8 +86,9 @@ def pdp(mods):
     if not mods.get("no_sizes"):
         content.append(sizes())
     content += mods.get("after_sizes", [])
-    content.append({"component": "Button", "name": "Button", "variant": {"Tipo": "Primário", "Tamanho": "Grande", "Desabilitado": "Off"},
-                    "props": {"Texto": mods.get("button", "Adicionar à sacola"), "Ícone": False}, "width": "fill"})
+    if not mods.get("no_button"):  # a proposal with its own action area (Action Button) leaves it out
+        content.append({"component": "Button", "name": "Button", "variant": {"Tipo": "Primário", "Tamanho": "Grande", "Desabilitado": "Off"},
+                        "props": {"Texto": mods.get("button", "Adicionar à sacola"), "Ícone": False}, "width": "fill"})
     return {"frame": "PDP", "width": 375, "height": 812, "fill": "Colors/Surface/Background", "children": [
         {"image": "Galeria", "width": 375, "height": 360, "fill": "Colors/Surface/Container"},
         {"frame": "Conteúdo", "padding": {"h": "Spacing/Mobile/sp-marginside", "v": "Spacing/sp-md"}, "gap": "Spacing/sp-sm", "children": content},
@@ -93,6 +96,11 @@ def pdp(mods):
 
 
 round_ = json.load(open(PROPS))
+for extra in MORE:
+    added = json.load(open(extra))["proposals"]
+    round_["proposals"] += added
+    # Say where they came from: proposals added for a test are not the generator's output.
+    round_["title"] += f" + {len(added)} de teste do Eureka"
 board = copy.deepcopy(round_)
 for p in board["proposals"]:
     sc = p["screen"]
