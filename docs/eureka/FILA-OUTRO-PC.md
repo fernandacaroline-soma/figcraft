@@ -43,7 +43,7 @@ dois trabalhem juntos por aqui.
 | 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | juntada no principal (26/11) |
 | 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | juntada no principal (26/11) |
 | 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | juntada no principal (26/11) |
-| 7 | **Volta lendo os componentes do DS.** O spike da tarefa 6 lê só `div` e CSS. Faça a volta ler as chamadas `<Button variant="…" />` que o `export.tsx` gera: pelo mapa de Code Connect (o mesmo `codeConnect` ligado no documento), cada chamada vira **instância do componente do DS** com as propriedades lidas do template do mapa, e não camadas desenhadas. Chamada sem entrada no mapa: vira nota, nada de componente inventado. Testes: ida e volta de uma tela com Button e Snackbar do DS dá as mesmas instâncias e variantes; prop desconhecida vira nota. Não mexa em `proposal.rs` nem nos arquivos do PC1. | PC2 · eureka/g3-volta-componentes-ds · 26/11 |
+| 7 | **Volta lendo os componentes do DS.** O spike da tarefa 6 lê só `div` e CSS. Faça a volta ler as chamadas `<Button variant="…" />` que o `export.tsx` gera: pelo mapa de Code Connect (o mesmo `codeConnect` ligado no documento), cada chamada vira **instância do componente do DS** com as propriedades lidas do template do mapa, e não camadas desenhadas. Chamada sem entrada no mapa: vira nota, nada de componente inventado. Testes: ida e volta de uma tela com Button e Snackbar do DS dá as mesmas instâncias e variantes; prop desconhecida vira nota. Não mexa em `proposal.rs` nem nos arquivos do PC1. | pronto para juntar · eureka/g3-volta-componentes-ds · CI verde |
 | 8 | **Text styles no `export.tokensCss` da Web.** Hoje o CSS da Web leva cores, espaçamentos e raios, mas não os estilos de texto (família, peso, tamanho, altura de linha, espaçamento entre letras) do Tokens WEB. Gere uma classe ou um conjunto de variáveis por estilo de texto, com o mesmo padrão de nome do App (veja `docs/eureka/G3-text-styles-tokens.md`), para o dev não receber dois padrões. Testes com dados sintéticos; nenhum valor do DS no repositório. | pronto para juntar · eureka/g3-text-styles-web · CI verde |
 
 ### Tarefa 1: detalhes
@@ -161,3 +161,13 @@ dois trabalhem juntos por aqui.
   saía como `data-brand="mobile"`. Agora a regra inclui o atributo de cada coleção que o estilo lê,
   e o peso vai no atributo da própria coleção. O `collection` escolhido também chega aos text styles.
   Limites e detalhes em `docs/eureka/G3-text-styles-web.md`. Não rodei contra o snapshot real da Web.
+- **26/11, PC2 (tarefa 7, `a8a55558`, CI verde):** dois comandos novos em `dev/tsx_return.rs`.
+  `codeConnect.readTsx {code|path, components?}` só lê: acha o componente ligado pelo nome de código
+  (e pelo pacote do import), lê as props invertendo o template do mapa e junta o `inside`.
+  `codeConnect.placeCall` cria a instância com variante, props e trocas internas, num passo de
+  desfazer. Chamada sem entrada no mapa e prop desconhecida viram nota; nada é inventado. O
+  `spike_tsx_volta.py` usa os dois (`--in`, `--components`). Lê "Ícone"/`icone` e "Texto#7:26"/`texto`.
+  Não rodei o spike de ponta a ponta no arquivo real (o mapa fica só no `eureka-cache`). Limites em
+  `docs/eureka/G3-volta-componentes-ds.md`. Perguntas abertas: (1) com `--in`, o spike supõe que as
+  variáveis já estão no documento; (2) com vários componentes ligados ao mesmo nome de código, ele
+  escolhe a leitura com menos notas e avisa. Devia ser erro?
