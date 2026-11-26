@@ -360,14 +360,17 @@ fn the_other_variants_loose_values_are_warnings_too() {
 #[test]
 fn the_brand_comes_from_the_brand_collection() {
     let (mut s, screen, ..) = screen();
-    // "A Theme" sorts before "Tokens APP" by name and by id order of creation does not matter.
+    // "A Theme" sorts before "Tokens APP" by name; the brand collection is the one with the most modes.
     run(&mut s, "variable.createCollection", json!({"name": "A Theme", "modes": ["Light"]}));
     run(&mut s, "variable.create", json!({"collection": "A Theme", "name": "ink", "type": "color", "value": "#000000"}));
     run(&mut s, "variable.setMode", json!({"ids": [screen.0], "collection": "A Theme", "mode": "Light"}));
     let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
     assert_eq!(r["brand"]["collection"], "Tokens APP", "{r}");
     assert_eq!(r["brand"]["brand"], "animale", "{r}");
-    assert!(r["notes"].to_string().contains("A Theme is also set (Light)"), "{r}");
+    // One mode: the same values everywhere, so no attribute and nothing to say.
+    let code = r["code"].as_str().unwrap();
+    assert!(!code.contains("data-a-theme"), "{code}");
+    assert_eq!(r["notes"], json!([]), "{r}");
     // Asked for by name, the other collection is the brand.
     let r = run(&mut s, "export.tsx", json!({"ids": [screen.0], "collection": "A Theme"}));
     assert_eq!(r["brand"]["brand"], "light", "{r}");
@@ -485,4 +488,314 @@ fn a_token_the_stylesheet_does_not_declare_is_flagged() {
     // Only the text styles (an empty collection list): the TSX's tokens are not in this tokens.css.
     let r = run(&mut s, "export.code", json!({"ids": [screen.0], "collections": []}));
     assert!(r["tokens"].as_array().unwrap().iter().all(|t| t["defined"] == false), "{r}");
+}
+
+// ------------------------------------------------------------ Web (Tokens WEB, Layout, Checkout)
+
+/// A Web-like file: "Tokens WEB" with the nine brands, "Layout" with Desktop and Mobile, and a
+/// one-mode collection (as the Checkout file's): synthetic names and values.
+fn web() -> (Session, NodeId) {
+    let mut s = nine_brands();
+    run(&mut s, "variable.renameCollection", json!({"collection": "Tokens APP", "name": "Tokens WEB"}));
+    run(&mut s, "variable.createCollection", json!({"name": "Layout", "modes": ["Desktop", "Mobile"]}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Gutter", "type": "number", "values": {"Desktop": 24, "Mobile": 8}}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Margin", "type": "number", "values": {"Desktop": 80, "Mobile": 16}}));
+    run(&mut s, "variable.createCollection", json!({"name": "Variable collection"}));
+    run(&mut s, "variable.create", json!({"collection": "Variable collection", "name": "2 meios de pagamento", "type": "boolean", "value": true}));
+    let page = id_of(&run(&mut s, "node.create", json!({"type": "frame", "name": "PDP Web", "width": 1440, "height": 900}))["id"]).unwrap();
+    let margin = s.doc().unwrap().variables.get("Grid/Margin").unwrap().id.clone();
+    run(&mut s, "node.set", json!({"id": page.0, "props": {"layout": {"mode": "vertical", "padding": [0, 80, 0, 80]}}}));
+    for f in ["paddingLeft", "paddingRight"] {
+        run(&mut s, "variable.bind", json!({"ids": [page.0], "field": f, "variable": margin}));
+    }
+    run(&mut s, "variable.setMode", json!({"ids": [page.0], "collection": "Tokens WEB", "mode": "NV"}));
+    run(&mut s, "variable.setMode", json!({"ids": [page.0], "collection": "Layout", "mode": "Mobile"}));
+    (s, page)
+}
+
+#[test]
+fn layout_modes_are_their_own_attribute_not_a_brand() {
+    let (mut s, _) = web();
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    let css = r["css"].as_str().unwrap();
+    // Brands on data-brand, the nine of them.
+    assert!(
+        css.contains(
+            ":root,
+[data-brand=\"farm\"] {"
+        ),
+        "{css}"
+    );
+    assert!(css.contains("[data-brand=\"nv\"] {"), "{css}");
+    assert_eq!(r["brands"].as_array().unwrap().len(), 9, "{r}");
+    assert!(r["brands"].as_array().unwrap().iter().all(|b| b["collection"] == "Tokens WEB"), "{r}");
+    // Layout on data-layout, Desktop the default.
+    assert!(
+        css.contains(
+            ":root,
+[data-layout=\"desktop\"] {
+  --grid-gutter: 24px;
+  --grid-margin: 80px;
+}"
+        ),
+        "{css}"
+    );
+    assert!(
+        css.contains(
+            "[data-layout=\"mobile\"] {
+  --grid-gutter: 8px;
+  --grid-margin: 16px;
+}"
+        ),
+        "{css}"
+    );
+    assert!(!css.contains("data-brand=\"mobile\"") && !css.contains("data-brand=\"desktop\""), "{css}");
+    // One mode: :root only.
+    assert!(
+        css.contains(
+            "/* Variable collection · Mode 1 */
+:root {
+  --2-meios-de-pagamento: true;
+}"
+        ),
+        "{css}"
+    );
+    let attrs = r["attributes"].as_array().unwrap();
+    let layout = attrs.iter().find(|a| a["collection"] == "Layout").unwrap();
+    assert_eq!(layout["attribute"], "data-layout");
+    assert_eq!(layout["modes"], json!([{"mode": "Desktop", "value": "desktop"}, {"mode": "Mobile", "value": "mobile"}]));
+    assert_eq!(attrs.iter().find(|a| a["collection"] == "Variable collection").unwrap()["attribute"], Value::Null);
+    assert_eq!(r["warnings"], json!([]), "{r}");
+}
+
+#[test]
+fn the_screen_says_its_brand_and_its_layout() {
+    let (mut s, page) = web();
+    let r = run(&mut s, "export.tsx", json!({"ids": [page.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("data-brand=\"nv\" data-layout=\"mobile\""), "{code}");
+    assert!(code.contains("var(--grid-margin)"), "{code}");
+    assert_eq!(r["brand"]["collection"], "Tokens WEB", "{r}");
+    assert_eq!(r["notes"], json!([]), "{r}");
+    // The stylesheet has a block for every attribute the TSX sets.
+    let css = run(&mut s, "export.tokensCss", json!({}))["css"].as_str().unwrap().to_string();
+    for sel in ["[data-brand=\"nv\"]", "[data-layout=\"mobile\"]"] {
+        assert!(css.contains(sel), "{sel}: {css}");
+    }
+}
+
+#[test]
+fn two_collections_on_one_attribute_are_a_warning() {
+    let (mut s, _) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "LAYOUT", "modes": ["A", "B"]}));
+    run(&mut s, "variable.create", json!({"collection": "LAYOUT", "name": "x", "type": "number", "value": 1}));
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    assert!(r["warnings"].to_string().contains("both key their modes on data-layout"), "{r}");
+}
+
+#[test]
+fn app_and_web_name_a_token_the_same() {
+    // The developers get one convention: a token with the same name in Tokens APP and Tokens WEB
+    // is the same CSS variable.
+    let (mut s, _) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(
+        &mut s,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Surface/Brand/Background", "type": "color", "value": "#111111"}),
+    );
+    let r = run(&mut s, "export.tokensCss", json!({}));
+    assert!(r["warnings"].to_string().contains("are both --colors-surface-brand-background"), "the clash is reported: {r}");
+    let web = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens WEB"]}));
+    let app = run(&mut s, "export.tokensCss", json!({"collections": ["Tokens APP"]}));
+    assert!(web["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
+    assert!(app["css"].as_str().unwrap().contains("--colors-surface-brand-background:"));
+}
+
+// ------------------------------------------------------------ design-system components (task 2)
+
+/// A screen with a design-system "Button" (a set, linked to code through the map) and a
+/// design-system "Chip" with no code component, both instances; the Button's own fill is a
+/// loose colour (the component's, not the screen's).
+fn screen_with_ds_components() -> (Session, NodeId) {
+    let (mut s, screen, card, _) = screen();
+    let mut variants = Vec::new();
+    for (k, h) in ["Primário", "Secundário"].iter().enumerate() {
+        let f = id_of(
+            &run(
+                &mut s,
+                "frame.create",
+                json!({"x": 800.0 + k as f64 * 150.0, "y": 0, "width": 120, "height": 40, "name": format!("Hierarquia={h}")}),
+            )["id"],
+        )
+        .unwrap();
+        run(&mut s, "node.set", json!({"id": f.0, "props": {"fill": "#7A4B2A"}}));
+        variants.push(id_of(&run(&mut s, "component.create", json!({"ids": [f.0]}))["id"]).unwrap().0);
+    }
+    let set = id_of(&run(&mut s, "component.combineVariants", json!({"ids": variants}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": set.0, "props": {"name": "Button", "pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let chip = id_of(&run(&mut s, "frame.create", json!({"x": 800, "y": 200, "width": 60, "height": 24, "name": "Chip"}))["id"]).unwrap();
+    let chip = id_of(&run(&mut s, "component.create", json!({"ids": [chip.0]}))["id"]).unwrap();
+    run(&mut s, "node.set", json!({"id": chip.0, "props": {"pluginData": {"eureka.library": "{\"name\":\"DS Apps\"}"}}}));
+    let b = id_of(&run(&mut s, "instance.create", json!({"component": set.0, "x": 0, "y": 0, "parent": card.0}))["id"]).unwrap();
+    run(&mut s, "instance.setProperties", json!({"ids": [b.0], "properties": {"Hierarquia": "Secundário"}}));
+    run(&mut s, "instance.create", json!({"component": chip.0, "x": 0, "y": 0, "parent": card.0}));
+    let map = json!({"version": 1, "links": [
+        {"component": "Button", "language": "react", "importPath": "@acme/ds-apps", "name": "Button", "template": "<Button variant={Hierarquia} />"}
+    ]});
+    let r = run(&mut s, "codeConnect.import", json!({"json": map}));
+    assert_eq!(r["linked"], 1, "{r}");
+    (s, screen)
+}
+
+#[test]
+fn a_design_system_component_in_the_map_is_a_call_to_its_code_component() {
+    let (mut s, screen) = screen_with_ds_components();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(
+        code.starts_with(
+            "import { Button } from \"@acme/ds-apps\";
+/*"
+        ),
+        "the import heads the file: {code}"
+    );
+    assert!(code.contains("import \"./pdp-mobile.css\";"), "{code}");
+    assert!(code.contains("<Button variant=\"Secundário\" />"), "the instance's own value: {code}");
+    assert!(!code.contains("#7A4B2A"), "the component's insides are the code component's: {code}");
+    assert!(r["warnings"].as_array().unwrap().iter().all(|w| w["value"] != "#7A4B2A"), "{r}");
+    assert_eq!(r["components"][0]["name"], "Button", "{r}");
+    assert_eq!(r["components"][0]["importPath"], "@acme/ds-apps", "{r}");
+    // The Chip has no code component: drawn, and said.
+    assert!(r["notes"].to_string().contains("Chip is a design-system component with no code component in the map"), "{r}");
+    assert!(code.contains(" * Note: Chip: Chip is a design-system component"), "{code}");
+}
+
+#[test]
+fn without_a_map_the_design_systems_instances_are_drawn_and_noted() {
+    let (mut s, screen) = screen_with_ds_components();
+    let set = s.doc().unwrap().nodes().find(|n| n.name == "Button" && matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })).unwrap().id;
+    run(&mut s, "codeConnect.remove", json!({"id": set.0}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(!code.contains("import { Button }"), "{code}");
+    assert_eq!(r["components"], json!([]), "{r}");
+    assert!(r["notes"].to_string().contains("Button is a design-system component with no code component in the map"), "{r}");
+}
+
+/// The Button set of [`screen_with_ds_components`] and a second screen using it.
+fn two_screens_with_one_button() -> (Session, NodeId, NodeId) {
+    let (mut s, screen) = screen_with_ds_components();
+    let set = s.doc().unwrap().nodes().find(|n| n.name == "Button" && matches!(n.kind, figcraft_doc::NodeKind::ComponentSet { .. })).unwrap().id;
+    let other = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 1200, "width": 360, "height": 200, "name": "Checkout"}))["id"]).unwrap();
+    run(&mut s, "instance.create", json!({"component": set.0, "x": 0, "y": 0, "parent": other.0}));
+    (s, screen, other)
+}
+
+#[test]
+fn two_screens_with_one_code_component_import_it_once_at_the_top() {
+    let (mut s, screen, other) = two_screens_with_one_button();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0, other.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert_eq!(code.matches("import { Button } from \"@acme/ds-apps\";").count(), 1, "{code}");
+    assert!(code.starts_with("import { Button }"), "{code}");
+    assert_eq!(code.matches("<Button").count(), 2, "both screens call it: {code}");
+    assert_eq!(r["components"].as_array().unwrap().len(), 2, "{r}");
+}
+
+#[test]
+fn a_layer_named_as_an_imported_component_gets_a_number() {
+    let (mut s, screen, _) = two_screens_with_one_button();
+    let root = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 1600, "width": 100, "height": 40, "name": "Button"}))["id"]).unwrap();
+    let r = run(&mut s, "export.tsx", json!({"ids": [screen.0, root.0]}));
+    let code = r["code"].as_str().unwrap();
+    assert!(code.contains("function Button2("), "the layer is not the imported Button: {code}");
+    assert!(!code.contains("function Button("), "{code}");
+    assert!(r["notes"].to_string().contains("Button is also an imported code component"), "{r}");
+}
+
+/// A file whose brand collection, "Tokens APP", comes from a library, with a local "Layout"
+/// (Desktop, Mobile) and a local one-mode theme: the screen on NV and Mobile.
+fn library_brand_and_local_layout(tag: &str) -> (Session, NodeId, std::path::PathBuf) {
+    let d = std::env::temp_dir().join(format!("figcraft-g3-libbrand-{tag}-{}", std::process::id()));
+    std::fs::create_dir_all(&d).unwrap();
+    let lib_path = d.join("ds.figcraft").to_string_lossy().into_owned();
+    let mut lib = Session::new();
+    run(&mut lib, "variable.createCollection", json!({"name": "Tokens APP", "modes": ["Farm", "NV"]}));
+    run(
+        &mut lib,
+        "variable.create",
+        json!({"collection": "Tokens APP", "name": "Colors/Brand", "type": "color", "values": {"Farm": "#111111", "NV": "#222222"}}),
+    );
+    let lid = run(&mut lib, "library.publish", json!({}))["id"].as_str().unwrap().to_string();
+    run(&mut lib, "file.saveAs", json!({"path": lib_path}));
+
+    let mut s = Session::new();
+    run(&mut s, "library.add", json!({"path": lib_path}));
+    run(&mut s, "variable.createCollection", json!({"name": "Layout", "modes": ["Desktop", "Mobile"]}));
+    run(&mut s, "variable.create", json!({"collection": "Layout", "name": "Grid/Gutter", "type": "number", "values": {"Desktop": 24, "Mobile": 8}}));
+    run(&mut s, "variable.createCollection", json!({"name": "Tema"}));
+    run(&mut s, "variable.create", json!({"collection": "Tema", "name": "ink", "type": "color", "value": "#000000"}));
+    let f = id_of(&run(&mut s, "frame.create", json!({"x": 0, "y": 0, "width": 100, "height": 100, "name": "Screen"}))["id"]).unwrap();
+    run(&mut s, "library.bindVariable", json!({"library": lid, "variable": "Colors/Brand", "field": "fill", "ids": [f.0]}));
+    run(&mut s, "variable.setMode", json!({"ids": [f.0], "collection": "Tokens APP", "mode": "NV"}));
+    run(&mut s, "variable.setMode", json!({"ids": [f.0], "collection": "Layout", "mode": "Mobile"}));
+    (s, f, d)
+}
+
+#[test]
+fn the_named_brand_collection_wins_even_from_a_library() {
+    let (mut s, f, d) = library_brand_and_local_layout("named");
+    let r = run(&mut s, "export.tsx", json!({"ids": [f.0]}));
+    let code = r["code"].as_str().unwrap();
+    // The library's Tokens APP is the brand; the local Layout keeps its own attribute.
+    assert!(code.contains("data-brand=\"nv\" data-layout=\"mobile\""), "{code}");
+    assert!(!code.contains("data-brand=\"mobile\"") && !code.contains("data-tokens-app"), "{code}");
+    assert_eq!(r["brand"]["collection"], "Tokens APP", "{r}");
+    // The file's stylesheet keys Layout on data-layout, not on data-brand.
+    let css = run(&mut s, "export.tokensCss", json!({}));
+    let text = css["css"].as_str().unwrap();
+    assert!(text.contains("[data-layout=\"mobile\"]") && !text.contains("data-brand=\"mobile\""), "{css}");
+    assert_eq!(css["brands"], json!([]), "the brand collection is the library's: {css}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_chosen_brand_collection_is_the_same_in_the_tsx_and_the_stylesheet() {
+    let (mut s, f, d) = library_brand_and_local_layout("chosen");
+    // Asked for "Layout" as the brand (an odd choice, but both files must agree).
+    let r = run(&mut s, "export.code", json!({"ids": [f.0], "collection": "Layout"}));
+    let tsx = r["files"][0]["text"].as_str().unwrap();
+    let css = r["files"][1]["text"].as_str().unwrap();
+    assert!(tsx.contains("data-brand=\"mobile\""), "{tsx}");
+    assert!(css.contains("[data-brand=\"mobile\"]"), "{css}");
+    assert!(!css.contains("[data-layout="), "{css}");
+    let sheet = run(&mut s, "export.tokensCss", json!({"collection": "Layout"}));
+    assert_eq!(sheet["css"].as_str().unwrap(), css);
+    assert!(s.execute("export.tokensCss", &json!({"collection": 4})).is_err());
+    assert!(s.execute("export.tokensCss", &json!({"collection": "Nope"})).is_err());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn a_local_collection_with_more_modes_does_not_take_the_brand_from_tokens_app() {
+    let (mut s, page) = web();
+    run(&mut s, "variable.createCollection", json!({"name": "Densidade", "modes": ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L"]}));
+    run(&mut s, "variable.create", json!({"collection": "Densidade", "name": "d", "type": "number", "value": 1}));
+    let r = run(&mut s, "export.tsx", json!({"ids": [page.0]}));
+    assert_eq!(r["brand"]["collection"], "Tokens WEB", "named, though Densidade has more modes: {r}");
+}
+
+#[test]
+fn numbered_names_never_meet_a_layer_already_named_so() {
+    let (mut s, screen, ..) = screen();
+    let mk = |s: &mut Session, name: &str, x: f64| {
+        id_of(&run(s, "frame.create", json!({"x": x, "y": 0, "width": 10, "height": 10, "name": name}))["id"]).unwrap()
+    };
+    run(&mut s, "node.set", json!({"id": screen.0, "props": {"name": "Card"}}));
+    let (b, c) = (mk(&mut s, "Card", 600.0), mk(&mut s, "Card2", 700.0));
+    let code = run(&mut s, "export.tsx", json!({"ids": [screen.0, b.0, c.0]}))["code"].as_str().unwrap().to_string();
+    for f in ["export function Card()", "export function Card2()", "export function Card22()"] {
+        assert_eq!(code.matches(f).count(), 1, "{f}: {code}");
+    }
 }

@@ -1,0 +1,40 @@
+/*
+ * Eureka: the proposal the designer chose, reviewed, for the developers.
+ * Proposal G · Comprar agora no tamanho de sempre (Disruptiva), board "NV App · PDP · Rodada 01 (13/11) · gerada pela skill + 3 de teste do Eureka · base: template oficial da PDP"
+ *   A área de ação fixa troca o botão único por dois: comprar agora no tamanho que a cliente já comprou e adicionar à sacola. A confirmação aparece na própria tela.
+ * Verdict (DS Gatekeeper): com-ressalvas · Como prévia de teste, a tela está conforme nos pontos que puderam ser verificados: todas as instâncias vêm do DS Apps, o modo Tokens APP: NV está explícito na tela, o ds_lint voltou vazio e o Action Button usa propriedades oficiais (Fixed=On, Vertical=Off, Secundário + Primário). Não dá para levar a handoff sem antes resolver como as peças .Nested foram usadas, o segundo CTA primário herdado da ga
+ *   - Peças .Nested como base: para teste, servem. Para handoff, não estão conformes. Elas são nested exclusivos do template da PDP e devem ser usadas pela instância do template, não soltas na tela. Componentes com ponto no início não são publicados, então falta saber como essas instâncias chegaram ao arquivo: se vieram de um template desanexado (detach), isso é bloqueio. Também falta confirmar se o tem [Fluxo Oficial §4 (não fazer detach nem reconstruir componente oficial); G2-F-regras.md regra 10; guardrails G04; gatekeeper-scope-risk-reuse §1 (DS Apps: altíssima criticidade)]
+ *   - Dentro de 'Galeria (template)' (Complete o look=False), o 'Card Content' traz um Button Primário Grande 'Eu quero' (camada 'image-slot-2', id 2265) e textos de exemplo ('Tag opcional', 'Nome do produto', 'R$ 999,99') que repetem o nome e o preço de 'Informações (template)'. Se essa camada estiver visível, a tela tem dois CTAs primários. Confirmar a visibilidade. Se precisar esconder, usar a propri [Guardrails G03 (estado e conteúdo se configuram na instância); Fluxo Oficial §4]
+ *   - O 'tamanho de sempre' aparece como 'M' no CTA ('Comprar agora · M') e no Snackbar, mas a grade de 'Tamanhos (template)' é numérica (34–44) e nenhum Selector Size está com Selecionado=On. Configurar o tamanho de sempre na própria instância (Selecionado=On num tamanho que exista na grade) e usar o mesmo rótulo no CTA e no Snackbar. [Guardrails G03 (estado local é configuração de instância)]
+ *   - Novo padrão para decidir: dois CTAs na área fixa da PDP ('Comprar agora · tamanho' e 'Adicionar à sacola') com compra direta. É uma composição de componentes oficiais, sem componente nem token novo, mas mudaria o template da PDP compartilhado do DS Apps. Antes de qualquer handoff, a liderança de DS Apps precisa decidir sobre o padrão. Não precisa perguntar sobre alinhamento, porque não se cria com [Critérios de Escalonamento (Notion, 20/10); gatekeeper-scope-risk-reuse §1 (DS Apps / Checkout compartilhado: escalar mudança estrutural)]
+ *   - A instância 'Image' (Tipo=Produto, id 2218) tem uma camada chamada 'farm'. Confirmar que é só o nome interno do componente oficial e que a imagem e o conteúdo são da NV. O lint não verifica referência de outra marca (regra 9 fora do lint), então esse ponto não foi conferido. [Playbook §3 ('Não existem referências antigas ou de outra marca'); G2-F-regras.md regra 9]
+ *   - Pontos sem base para afirmar conformidade. (a) Posição e comportamento do Snackbar: ele está no frame 'Módulos da proposta', e não se sabe se fica acima do Action Button fixo nem quanto tempo aparece; isso é pergunta. (b) O ds_lint vazio não cobre detach, reconstrução manual nem texto literal no lugar de token de texto, porque as regras 8 e 10 estão fora do lint. Esses dois pontos continuam sem ve [G2-F-regras.md regras 8 e 10; guardrails G11 (teste não executado não recebe Concluído)]
+ * Design critique: 12 finding(s), 11 open:
+ *   - [alta] fluxo: Cliente sem compra anterior ou sem login.
+ *   - [média] estados: Selector Color aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+ *   - [média] estados: Button aparece só com Desabilitado=Off; a tela não mostra Desabilitado=On.
+ *   - [média] estados: Button aparece só com Loading=False; a tela não mostra Loading=True.
+ *   - [média] estados: Snackbar aparece só com Loading=Off; a tela não mostra Loading=On.
+ *   - [média] estados: Snackbar aparece só com Status=Sucesso; a tela não mostra Status=Erro.
+ *   - [média] acessibilidade: Texto "10x R$ 159,90 sem juros" com contraste 3.6:1 sobre o fundo (pede 4.5:1). Vem do componente .Nested / pdp-main-info do DS.
+ *   - [média] acessibilidade: Texto "Ref 25.34.2741_11063" com contraste 3.6:1 sobre o fundo (pede 4.5:1). Vem do componente .Nested / pdp-main-info do DS.
+ *   - [média] conteúdo e interação: Dois botões lado a lado com ações parecidas (comprar agora e adicionar à sacola).
+ *   - [média] viabilidade: Compra direta a partir da PDP no app NV.
+ *   - [baixa] medição: Saber se a compra direta aumenta a conversão sem aumentar trocas.
+ */
+/*
+ * Generated by Eureka Design from the design document: do not edit by hand, export again.
+ * Design-system tokens are CSS variables (var(--token)); their values come from the design system's stylesheet.
+ * Brand: data-brand="nv" (Tokens APP: NV)
+ * Note: Galeria (template): .Nested / PDP-product-gallery is a design-system component with no code component in the map (drawn as layers)
+ * Note: Button Icon: Button Icon is a design-system component with no code component in the map (drawn as layers)
+ * Note: Icon: Icon is a design-system component with no code component in the map (drawn as layers)
+ * Note: Avatar: Avatar is a design-system component with no code component in the map (drawn as layers)
+ * Note: Badge: Badge is a design-system component with no code component in the map (drawn as layers)
+ * Note: Image: Image is a design-system component with no code component in the map (drawn as layers)
+ * Note: .nested/Gradient: .nested/Gradient is a design-system component with no code component in the map (drawn as layers)
+ * Note: Carousel Control (Page-Control): Carousel Controller is a design-system component with no code component in the map (drawn as layers)
+ * Note: .Nested / tags-list: .Nested / tags-list is a design-system component with no code component in the map (drawn as layers)
+ * Note: Tag 1: Tag is a design-system component with no code component in the map (drawn as layers)
+ * Note: Tag 2: Tag is a design-system component with no code component in the map (drawn as layers)
+ * Note: Tag 3: Tag is a design-system component with no code component in the map (drawn as layers)
