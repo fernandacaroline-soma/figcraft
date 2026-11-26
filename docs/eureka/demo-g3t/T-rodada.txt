@@ -1,0 +1,11 @@
+Rodada gerada: 8 propostas — A · Incremental · Tamanho na hora de escolher; B · Incremental · Como veste; C · Incremental · Concierge NV para tamanho e styling; D · Incremental · Galeria editorial com look comprável; E · Incremental · Botão fixo que resolve o tamanho; F · Disruptiva · Tamanho resolvido antes da galeria; G · Disruptiva · Comprar agora no tamanho de sempre; H · Disruptiva · Provar na loja antes de comprar
+  A · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, .Nested / fixed-component · 6 token(s)
+  B · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, Choice Tag (Chips), .Nested / fixed-component · 9 token(s)
+  C · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, .Nested / fixed-component · 8 token(s)
+  D · componentes do DS: .Nested / PDP-product-gallery, Button, .Nested / pdp-main-info, .Nested / size-selection-PDP, .Nested / fixed-component · 5 token(s)
+  E · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / fixed-component, Selector Size (Selector Button), Bottom Sheet · 2 token(s)
+  F · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, .Nested / fixed-component, Choice Tag (Chips), Snackbar, Bottom Sheet · 2 token(s)
+  G · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, Snackbar, Action Button · 4 token(s)
+  H · componentes do DS: .Nested / PDP-product-gallery, .Nested / pdp-main-info, .Nested / size-selection-PDP, Section Heading, Action Button · 6 token(s)
+Lint: 0 achado(s) da proposta; 219 valor(es) herdado(s) dos componentes do DS
+Nada gravado no Notion nem no Figma; nenhum componente, token ou regra do DS foi alterado.
