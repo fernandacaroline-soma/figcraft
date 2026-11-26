@@ -113,6 +113,17 @@ an error, and so is a `document` naming a file behind the tab in front on any ot
 
 ## Confining file access
 
+**By default (no `--automation-*-root` flag), agents are confined and the designer is not.** With
+`--control`, every control request reads and writes only in the user's temporary folder and in the
+folders the designer allowed in **Preferences ▸ Folders agents can use** (`agent_folders` in the
+preferences file). What the designer does in the window (open, save, export) is not limited. No
+command changes that list, so an agent can't widen its own access; the designer adds or removes a
+folder there. Anything else is an ordinary error reply (`automation path rejected: …`). Scripts
+that read a cache elsewhere either get that folder allowed or the app is started with the flags
+below.
+
+With the flags, the confinement is the one below, and it also holds the window:
+
 ```sh
 figcraft --control 7979 --automation-read-root /work/project --automation-write-root /work/project/out
 ```

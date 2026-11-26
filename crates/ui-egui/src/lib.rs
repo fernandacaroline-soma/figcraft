@@ -37,6 +37,8 @@ pub mod widgets;
 pub mod windows;
 
 #[cfg(test)]
+mod agent_folders_tests;
+#[cfg(test)]
 mod board_connect_tests;
 #[cfg(test)]
 mod board_line_tests;
@@ -832,6 +834,10 @@ pub struct FigApp {
     /// The automation roots the app was started with: every frame and control request runs
     /// confined to them ([`windows::guard`]).
     pub automation_roots: Option<Arc<figcraft_engine::file_access::Roots>>,
+    /// The control channel is on with no automation roots: each control request (an agent's) runs
+    /// confined to the temporary folder and the folders the designer let agents use
+    /// (`Prefs::agent_folders`, [`control::agent_roots`]); the window's own work is not.
+    pub agents_confined: bool,
     /// The active-document id when synthetic input was queued: a batch is dropped when the file
     /// changed before a UI pass applied it.
     pub(crate) control_input_doc: Option<u64>,

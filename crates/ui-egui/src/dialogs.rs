@@ -282,6 +282,9 @@ pub fn show(app: &mut FigApp, ctx: &Context) {
                 ui.label(tr("Your name"));
                 crate::live::name_field(app, ui, egui::Id::unique("pref_user_name"), 160.0);
             });
+            if !cfg!(target_arch = "wasm32") {
+                agent_folders(app, ui, &t);
+            }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 ui.label(tr("Server for online sharing"));
@@ -481,5 +484,41 @@ fn interface_size(app: &mut FigApp, ui: &mut egui::Ui, chosen: f64) {
             &[("size", &crate::ui_scale::percent(chosen as f32)), ("drawn", &crate::ui_scale::percent(app.ui.ui_scale.zoom))],
         );
         crate::widgets::label(ui, &note, t.text_secondary);
+    }
+}
+
+/// Preferences ▸ Folders agents can use: with the control channel on, an agent reads and writes
+/// only in the temporary folder and here. Only the designer adds or removes one, here (no command
+/// an agent could run changes the list); her own work in the window is never confined by it.
+fn agent_folders(app: &mut FigApp, ui: &mut egui::Ui, t: &crate::theme::Tokens) {
+    ui.add_space(8.0);
+    ui.label(tr("Folders agents can use"));
+    crate::widgets::label(
+        ui,
+        tr("Agents connected to this app read and write only in the temporary folder and in these folders. Your own work is not limited."),
+        t.text_secondary,
+    );
+    let mut remove = None;
+    for (i, f) in app.session.prefs.agent_folders.iter().enumerate() {
+        ui.horizontal(|ui| {
+            ui.label(f);
+            if crate::widgets::button(ui, tr("Remove"), false, true).clicked() {
+                remove = Some(i);
+            }
+        });
+    }
+    if let Some(i) = remove {
+        app.session.prefs.agent_folders.remove(i);
+        app.session.prefs_unsaved = true;
+    }
+    if crate::widgets::button(ui, tr("Allow a folder…"), false, true).clicked() {
+        app.pick_folder(tr("Allow a folder for agents"), |app, dir| {
+            let dir = std::fs::canonicalize(&dir).unwrap_or(dir).to_string_lossy().into_owned();
+            if !app.session.prefs.agent_folders.contains(&dir) {
+                app.session.prefs.agent_folders.push(dir.clone());
+                app.session.prefs_unsaved = true;
+            }
+            app.toast(trf("Agents can now use {folder}", &[("folder", &dir)]));
+        });
     }
 }

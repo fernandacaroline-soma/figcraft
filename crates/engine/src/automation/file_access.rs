@@ -43,6 +43,11 @@ pub struct Roots {
 }
 
 impl Roots {
+    /// No folder at all: nothing may be read or written (the fallback when no folder resolves).
+    pub fn none() -> Self {
+        Self { read: Vec::new(), write: Vec::new() }
+    }
+
     /// Roots from the folders given (relative ones against the working directory). Each must be an
     /// existing folder.
     pub fn new(read: &[String], write: &[String]) -> std::result::Result<Self, String> {

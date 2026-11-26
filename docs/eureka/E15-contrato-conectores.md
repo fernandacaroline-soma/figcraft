@@ -30,7 +30,11 @@ Agentes de hoje:
   - Sem a chave, ou com a chave errada, nenhum comando roda e a conexão termina, sem segunda tentativa.
   - A comparação da chave não vaza onde ela difere.
   - Se o app não tiver como gerar a chave, a conexão nem abre.
-- **Pastas:** `--automation-read-root` e `--automation-write-root` limitam onde o app lê e grava. Isso já existia e continua opcional.
+- **Pastas (novo, 26/11, decisão da Fernanda):**
+  - Por padrão, com `--control`, os agentes só leem e gravam na pasta temporária do usuário e nas pastas que a designer autorizou em **Preferências ▸ Pastas que os agentes podem usar**.
+  - Só a designer muda essa lista, pela janela de Preferências. Nenhum comando muda a lista, então um agente não consegue se dar mais acesso.
+  - O trabalho da própria designer (abrir, salvar e exportar pela janela) não tem limite.
+  - As opções `--automation-read-root` e `--automation-write-root` continuam valendo: quando são usadas, limitam também a janela.
 - **Plugins:** rodam em sandbox (wasmi), sem acesso a arquivos. Também já existia.
 
 ### 2. Versão
@@ -132,5 +136,6 @@ Também conferi:
 ## Para decidir
 
 - **Checkpoint humano (card E15):** revisar o contrato.
-- **Pastas restritas por padrão:** hoje elas continuam opcionais. Restringir por padrão com `--control` pede uma lista de pastas permitidas, que é decisão sua.
+- **Pastas restritas por padrão:** feito em 26/11, com a autorização pela designer em Preferências.
+- **Validação no outro computador:** o script `docs/eureka/checar_chave.py` confere a chave. Falta o outro PC rodar e colar o resultado na fila.
 - **Pedido de cancelamento explícito:** hoje o cancelamento é por tempo. Um método `cancel {id}` fica para quando um agente precisar dele.
