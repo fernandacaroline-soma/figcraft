@@ -111,6 +111,7 @@ fn registry() -> &'static Registry {
         list.extend(crate::codegen::specs());
         list.extend(crate::devinspect::specs());
         list.extend(crate::component_codegen::specs());
+        list.extend(crate::export_tsx::specs());
         list.extend(crate::playground::specs());
         list.extend(crate::code_connect::specs());
         list.extend(crate::annotations::specs());

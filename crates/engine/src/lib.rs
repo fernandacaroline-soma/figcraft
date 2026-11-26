@@ -69,6 +69,7 @@ pub use dev::dev_measurements;
 pub use dev::dev_resources;
 pub use dev::devcompare;
 pub use dev::devinspect;
+pub use dev::export_tsx;
 pub use dev::tailwind;
 pub use extensions::plugin_directory;
 pub use extensions::plugins;
@@ -330,6 +331,8 @@ mod export_bench_tests;
 mod export_depth_tests;
 #[cfg(test)]
 mod export_profile_tests;
+#[cfg(test)]
+mod export_tsx_tests;
 #[cfg(test)]
 mod extended_chain_tests;
 #[cfg(test)]

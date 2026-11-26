@@ -27,10 +27,10 @@ mod swift;
 
 pub(crate) use arkui::arkui;
 pub(crate) use compose::{compose, kotlin_color};
-pub(crate) use css::Tokens;
 #[cfg(test)]
 pub(crate) use css::css_decls;
-pub use css::{CssNames, css_var_name, css_var_of};
+pub use css::{CssNames, css_var_name, css_var_of, ds_var_name, slug};
+pub(crate) use css::{Loose, Tokens};
 use css::{css, tok};
 pub(crate) use flutter::{FLUTTER_IMPORT, Place, flutter, flutter_indent};
 use html::html;

@@ -12,7 +12,7 @@ use serde_json::{Value, json};
 
 use crate::cmd::CommandSpec;
 use crate::codegen::{
-    CodeLang, Ctx, FLUTTER_IMPORT, Markup, Names, Place, arkui, class_name, compose, flutter, flutter_indent, indent, literal, swift,
+    CodeLang, Ctx, FLUTTER_IMPORT, Loose, Markup, Names, Place, arkui, class_name, compose, flutter, flutter_indent, indent, literal, swift,
 };
 use crate::components::{prop_default_value, slot_edited, slots_of, variant_options, variant_props, variant_set};
 use crate::params::{id_of, string, targets};
@@ -832,6 +832,14 @@ fn data_attrs(variants: &[&Param]) -> Vec<String> {
 /// `c`'s markup in React or Leptos (two levels in) and its stylesheet (variables as custom
 /// properties, other variants as rules on their `data-*` attributes): (root class, markup, CSS).
 fn web(doc: &Document, c: &Component, lang: CodeLang) -> (String, String, String) {
+    let (root_class, markup, css, _) = web_with(doc, c, lang, None);
+    (root_class, markup, css)
+}
+
+/// [`web`], and with `ds` (extra attributes for the root element) in design-system token mode
+/// (see [`crate::codegen::Tokens`]): instances inlined, variables by token name with no
+/// fallback, and the values left unbound listed.
+fn web_with(doc: &Document, c: &Component, lang: CodeLang, ds: Option<&str>) -> (String, String, String, Vec<Loose>) {
     let ctx = Ctx { doc, root: c.comp, comp: Some(c), base: 2 };
     let root_name = c.set.and_then(|s| doc.node(s)).or_else(|| doc.node(c.comp)).map(|n| n.name.clone()).unwrap_or_default();
     let root_class = class_name(&root_name, "component", &mut Names::default());
@@ -841,11 +849,15 @@ fn web(doc: &Document, c: &Component, lang: CodeLang) -> (String, String, String
         let vctx = Ctx { doc, root, comp: Some(c), base: 2 };
         let mut m = Markup::new(&vctx, lang);
         m.root_class = Some(root_class.clone());
+        m.tokens.ds = ds.is_some();
+        m.inline = ds.is_some();
         m.node(root, None, 2, "");
         m.rules
     };
     let mut m = Markup::new(&ctx, lang);
     m.root_class = Some(root_class.clone());
+    m.tokens.ds = ds.is_some();
+    m.inline = ds.is_some();
     m.root_attrs = variants
         .iter()
         .zip(&attr_names)
@@ -855,6 +867,7 @@ fn web(doc: &Document, c: &Component, lang: CodeLang) -> (String, String, String
             _ => format!(" {attr}={{{}}}", p.ident),
         })
         .collect();
+    m.root_attrs.push_str(ds.unwrap_or(""));
     m.node(c.comp, None, 2, "");
     // Other variants: what differs from this one, layer by layer.
     let mut variant_rules = String::new();
@@ -879,12 +892,29 @@ fn web(doc: &Document, c: &Component, lang: CodeLang) -> (String, String, String
         }
     }
     let css = format!("{}{}{variant_rules}", m.tokens.root_rule(), m.styles);
-    (root_class, m.markup, css)
+    let loose = std::mem::take(&mut m.tokens.loose);
+    (root_class, m.markup, css, loose)
 }
 
 /// A TSX function component with its props interface, and its stylesheet.
 fn react(doc: &Document, c: &Component) -> String {
-    let (root_class, markup, css) = web(doc, c, CodeLang::React);
+    react_with(doc, c, None).0
+}
+
+/// Layer `id` as a TSX function component in design-system token mode (`export.tsx`), with
+/// `attrs` on its root element (`data-brand`), and the values left unbound. A component takes its
+/// properties as parameters; any other layer is a component of its own.
+pub(crate) fn react_ds(doc: &Document, id: NodeId, attrs: &str) -> Option<(String, Vec<Loose>)> {
+    let n = doc.node(id)?;
+    let c = match n.kind {
+        NodeKind::Component { .. } | NodeKind::ComponentSet { .. } => describe(doc, id)?,
+        _ => Component { comp: id, set: None, type_name: component_type_name(&n.name), params: Vec::new() },
+    };
+    Some(react_with(doc, &c, Some(attrs)))
+}
+
+fn react_with(doc: &Document, c: &Component, ds: Option<&str>) -> (String, Vec<Loose>) {
+    let (root_class, markup, css, loose) = web_with(doc, c, CodeLang::React, ds);
     let t = &c.type_name;
     let mut out = format!("import \"./{root_class}.css\";\n\n");
     if c.params.is_empty() {
@@ -912,7 +942,7 @@ fn react(doc: &Document, c: &Component) -> String {
         out.push_str(&format!("export function {t}({{\n{}}}: {t}Props) {{\n", args.iter().map(|a| format!("  {a},\n")).collect::<String>()));
     }
     out.push_str(&format!("  return (\n{markup}  );\n}}\n\n/* {root_class}.css */\n{css}"));
-    out
+    (out, loose)
 }
 
 /// A Vue single-file component: `<script setup>` with typed props and their defaults, the

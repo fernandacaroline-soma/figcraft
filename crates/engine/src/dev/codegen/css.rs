@@ -19,11 +19,51 @@ pub(crate) struct Tokens {
     theme: Option<crate::tailwind::Theme>,
     /// The file's CSS names (computed on first use).
     names: Option<CssNames>,
+    /// Design-system tokens (`export.tsx`): variables by [`ds_var_name`] with no fallback (the
+    /// values come from the design system's own stylesheet), and the values left unbound listed
+    /// in [`Self::loose`].
+    pub ds: bool,
+    /// With `ds`: the token-kind values written as they are, with no variable bound.
+    pub loose: Vec<Loose>,
 }
+
+/// A value written as it is where the design system has tokens (colour, spacing, radius, font
+/// size), with no variable bound: debt the developers can see.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Loose {
+    pub id: NodeId,
+    pub layer: String,
+    pub field: String,
+    pub value: String,
+}
+
+/// The fields whose values a design system names by token, for [`Loose`]: colours, spacing,
+/// corner radius and the font (family, weight, size). Sizes, opacity and line height are the
+/// layout's own.
+const DS_FIELDS: &[&str] = &[
+    "fill",
+    "stroke",
+    "gap",
+    "paddingTop",
+    "paddingRight",
+    "paddingBottom",
+    "paddingLeft",
+    "cornerRadius",
+    "topLeftRadius",
+    "topRightRadius",
+    "bottomRightRadius",
+    "bottomLeftRadius",
+    "fontSize",
+    "fontFamily",
+    "fontWeight",
+];
 
 impl Tokens {
     /// `var(--name, value)`, remembering the variable.
     fn var(&mut self, doc: &Document, variable: &Variable, value: String) -> String {
+        if self.ds {
+            return format!("var({})", ds_var_name(&variable.name));
+        }
         let name = if self.tailwind {
             self.theme.get_or_insert_with(|| crate::tailwind::Theme::new(doc)).name(variable)
         } else {
@@ -38,7 +78,7 @@ impl Tokens {
 
     /// A `:root` rule declaring the variables (empty without any).
     pub fn root_rule(&self) -> String {
-        if self.vars.is_empty() {
+        if self.vars.is_empty() || self.ds {
             return String::new();
         }
         let decls: String = self.vars.iter().map(|(n, v)| format!("  {n}: {v};\n")).collect();
@@ -58,6 +98,33 @@ pub fn css_var_name(variable: &str) -> String {
     }
     let trimmed = out.trim_end_matches('-');
     if trimmed.len() <= 2 { "--variable".into() } else { trimmed.to_string() }
+}
+
+/// A design-system token's CSS custom property, from its name alone: transliterated to ASCII
+/// (accents dropped), lower case, every run of other characters (`/`, spaces, punctuation) one
+/// hyphen, none at either end. `Colors/Surface/Brand/Background` →
+/// `--colors-surface-brand-background`, `Spacing/sp-md` → `--spacing-sp-md`, `Ação / Botão 2` →
+/// `--acao-botao-2`. Names are cut at 80 characters; a name left with nothing is `--token`.
+pub fn ds_var_name(variable: &str) -> String {
+    format!("--{}", slug(variable, "token"))
+}
+
+/// `name` transliterated to ASCII, lower case, with runs of other characters as one hyphen and
+/// none at either end, up to 80 characters (`fallback` when nothing is left).
+pub fn slug(name: &str, fallback: &str) -> String {
+    let mut out = String::new();
+    for c in deunicode::deunicode(name).chars().flat_map(char::to_lowercase) {
+        if out.len() >= 80 {
+            break;
+        }
+        if c.is_ascii_alphanumeric() {
+            out.push(c);
+        } else if !out.is_empty() && !out.ends_with('-') {
+            out.push('-');
+        }
+    }
+    let out = out.trim_end_matches('-');
+    if out.is_empty() { fallback.to_string() } else { out.to_string() }
 }
 
 /// A variable's CSS custom property: its Web code syntax (`var(--x)` or `--x`) when it has one,
@@ -112,7 +179,13 @@ impl CssNames {
 pub(super) fn tok(doc: &Document, n: &Node, fields: &[&str], value: String, t: &mut Tokens) -> String {
     match fields.iter().find_map(|f| crate::devinspect::bound_variable(doc, n, f)) {
         Some(v) => t.var(doc, v, value),
-        None => value,
+        None => {
+            let zero = value.trim_end_matches("px") == "0";
+            if let (true, false, Some(f)) = (t.ds, zero, fields.first().filter(|f| DS_FIELDS.contains(f))) {
+                t.loose.push(Loose { id: n.id, layer: n.name.clone(), field: (*f).to_string(), value: value.clone() });
+            }
+            value
+        }
     }
 }
 
@@ -138,11 +211,15 @@ pub(crate) fn css_decls(doc: &Document, n: &Node, t: &mut Tokens, hug: (bool, bo
     if let Some(l) = &n.layout {
         layout_decls(doc, n, l, t, &mut put);
     }
+    // With design-system tokens a bound radius is written even where it is 0 in this mode: another
+    // brand's value of the same token may not be (`br-card` is 0 on one brand, 8 on another).
+    let corner_fields = ["cornerRadius", "topLeftRadius", "topRightRadius", "bottomRightRadius", "bottomLeftRadius"];
+    let bound_radius = t.ds && corner_fields.iter().any(|f| crate::devinspect::bound_variable(doc, n, f).is_some());
     if matches!(n.kind, NodeKind::Ellipse { .. }) {
         put("border-radius", "50%".into());
-    } else if let Some(r) = n.corners.uniform().filter(|r| *r > 0.0) {
+    } else if let Some(r) = n.corners.uniform().filter(|r| *r > 0.0 || bound_radius) {
         put("border-radius", tok(doc, n, &["cornerRadius"], px(r), t));
-    } else if n.corners.radii.iter().any(|r| *r > 0.0) {
+    } else if bound_radius || n.corners.radii.iter().any(|r| *r > 0.0) {
         let fields = ["topLeftRadius", "topRightRadius", "bottomRightRadius", "bottomLeftRadius"];
         let corners: Vec<String> = n.corners.radii.iter().zip(fields).map(|(r, f)| tok(doc, n, &[f, "cornerRadius"], px(*r), t)).collect();
         put("border-radius", corners.join(" "));
@@ -282,7 +359,10 @@ fn text_decls(doc: &Document, n: &Node, tx: &figcraft_doc::TextData, t: &mut Tok
         ),
     );
     put("font-size", tok(doc, n, &["fontSize"], px(s.font_size), t));
-    put("font-weight", s.weight().to_string());
+    // With design-system tokens the weight is a token too (or a warning); elsewhere it stays the
+    // number, as before.
+    let weight = s.weight().to_string();
+    put("font-weight", if t.ds { tok(doc, n, &["fontWeight"], weight, t) } else { weight });
     if s.italic() {
         put("font-style", "italic".into());
     }

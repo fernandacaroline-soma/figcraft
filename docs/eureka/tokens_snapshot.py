@@ -5,7 +5,10 @@ repository (`eureka-cache/`); the repository only keeps a manifest: names, types
 alias targets and a hash of the values, never the values themselves.
 
 The cache is a Figma local-variables export (`{meta: {variableCollections, variables}}`, the
-shape `variable.import` reads) plus an `eureka_snapshot` block. Aliases (D3) are kept as
+shape `variable.import` reads) plus an `eureka_snapshot` block. It may also hold the file's text
+styles as the Figma Plugin API reads them (`meta.textStyles`: `{id: {name, fontName, fontSize,
+lineHeight, letterSpacing, boundVariables: {field: VARIABLE_ALIAS}}}`); the manifest keeps their
+names and the names of the variables bound to them, and the hash covers their values. Aliases (D3) are kept as
 `VARIABLE_ALIAS` values; when the export also carries `resolvedValuesByMode`, both are kept.
 
 Usage:
@@ -59,6 +62,10 @@ def values_hash(d):
             else:
                 vals[mode] = norm(val)
         rows.append([v.get("name"), vals])
+    for s in (meta.get("textStyles") or {}).values():
+        bound = {k: names.get((b or {}).get("id"), (b or {}).get("id")) for k, b in sorted((s.get("boundVariables") or {}).items())}
+        vals = {k: norm(s.get(k)) for k in ("fontName", "fontSize", "lineHeight", "letterSpacing")}
+        rows.append(["textStyle:" + str(s.get("name")), {"bound": bound, "values": vals}])
     rows.sort(key=lambda r: str(r[0]))
     return hashlib.sha256(json.dumps(rows, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:12]
 
@@ -80,7 +87,13 @@ def manifest(d):
             row["aliasOf"] = aliases
         variables.append(row)
     variables.sort(key=lambda r: (str(r["collection"]), str(r["name"])))
+    styles = []
+    for s in (meta.get("textStyles") or {}).values():
+        bound = {k: names.get((b or {}).get("id"), (b or {}).get("id")) for k, b in (s.get("boundVariables") or {}).items()}
+        styles.append({"name": s.get("name"), "bound": dict(sorted(bound.items()))})
+    styles.sort(key=lambda r: str(r["name"]))
     snap = d.get("eureka_snapshot") or {}
+    extra = {"textStyles": styles} if styles else {}
     return {
         "note": "Manifesto do snapshot de tokens. Sem valores: a fonte é o Figma (Variables) e o cache fica fora do repo.",
         "source": {k: snap.get(k) for k in ("source", "fileKey", "collection", "collectionKey", "exportedAt") if k in snap},
@@ -89,6 +102,7 @@ def manifest(d):
         "count": len(variables),
         "valuesHash": values_hash(d),
         "variables": variables,
+        **extra,
     }
 
 
@@ -143,6 +157,13 @@ def main(argv):
         for n in sorted(set(wn) & set(gn)):
             if wn[n] != gn[n]:
                 problems.append(f"structure differs: {n}")
+        ws = {r["name"]: r for r in want.get("textStyles", [])}
+        gs = {r["name"]: r for r in got.get("textStyles", [])}
+        for n in sorted(set(ws) ^ set(gs)):
+            problems.append(f"text style {'missing in cache' if n in ws else 'not in manifest'}: {n}")
+        for n in sorted(set(ws) & set(gs)):
+            if ws[n] != gs[n]:
+                problems.append(f"text style structure differs: {n}")
         print("ok" if not problems else "\n".join(problems))
         raise SystemExit(1 if problems else 0)
     elif cmd == "resolve" and len(argv) > 3:
