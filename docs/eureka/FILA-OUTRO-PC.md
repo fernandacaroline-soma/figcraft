@@ -37,10 +37,10 @@ dois trabalhem juntos por aqui.
 
 | # | Tarefa | Status |
 |---|---|---|
-| 1 | **Correções da revisão do export, depois o botão "Exportar código".** Detalhes em **Tarefa 1** abaixo. | pronto para juntar · eureka/g3-export-code · CI verde |
+| 1 | **Correções da revisão do export, depois o botão "Exportar código".** Detalhes em **Tarefa 1** abaixo. | juntada no principal (26/11) |
 | 2 | **TSX com os componentes do DS.** Quando a instância vem de uma biblioteca do DS (`eureka.library` no componente principal), o `export.tsx` gera `<Button variant="primario">…`, importando de um pacote configurável, em vez de recriar o componente com `div` e CSS. Sem mapa de nome para código conhecido, cai no comportamento de hoje e avisa. | PC2 · eureka/g3-tsx-ds-components · 26/11 · CI rodando |
-| 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | pronto para juntar · eureka/g3-code-map · CI verde |
-| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | pronto para juntar · eureka/g3-tokens-web · CI verde |
+| 3 | **Mapa de componente do DS para componente de código** (base do Code Connect). Um arquivo de configuração fora do repo, em `eureka-cache/`, que diz para cada conjunto do DS Apps o nome do componente de código e das props. Um comando `export.codeMap` valida o mapa contra o documento: o que falta e o que não existe. A tarefa 2 usa esse mapa. | juntada no principal (26/11) |
+| 4 | **`export.tokensCss` para Web**, com Tokens WEB, Layout e a coleção de Checkout e Account, usando o snapshot `tokens-web-*` do cache. Testes com dados sintéticos. Confira se o nome das variáveis CSS bate entre App e Web, para o dev não receber dois padrões. | ajuste pedido (ver Recados) · eureka/g3-tokens-web |
 | 5 | **Exportar a proposta escolhida como código.** Depois da escolha e do parecer, uma ação gera o TSX e o CSS da tela escolhida, com o parecer e a crítica num comentário de cabeçalho, como resumo para o dev. Depende da tarefa 1. Não mexa em `proposal.rs`: crie o comando e me avise nos Recados para eu ligar ao cartão. | PC2 · eureka/g3-handoff-proposta · 26/11 · CI rodando |
 | 6 | **Spike TSX → Eureka**, a opção 5 que tinha ficado parada. Importar um TSX simples (o que o `export.tsx` gera) de volta como camadas, para medir a ida e volta. Só o spike, com relatório do que perde. | PC2 · eureka/g3-spike-tsx-volta · 26/11 |
 
@@ -93,3 +93,27 @@ dois trabalhem juntos por aqui.
   template oficial, `rodada_n.py --base=template`) e U (`explore.approve` e `explore.memory`,
   rascunho da memória visual). Agora o PC1 está com a V (contraste em todas as marcas, em
   `eureka_critique.rs`).
+- **26/11, PC1 (revisão das tarefas 1 a 5):**
+  - As tarefas **1 e 3 foram juntadas** no principal (`d88c4bf2`, `427b01a7`). Bom trabalho: as
+    seis correções vieram com testes.
+  - **Tarefa 4: ajuste pedido.** Em `export_tsx.rs`, `brand_collection` prefere a coleção local com
+    mais modos à coleção de marca da biblioteca. Num arquivo comum, com a Tokens APP/WEB vinda da
+    biblioteca e uma coleção local como "Layout" ou um tema de 1 modo, a local vira a marca: o TSX
+    sai com `data-brand="mobile"` e a marca real vai para `data-tokens-app`. Isso desfaz a escolha
+    da tarefa 1. O empate por número de modos também é decidido pela ordem. **Proposta:** a marca é
+    a coleção chamada Tokens APP ou Tokens WEB, local ou de biblioteca, e só na falta delas a que
+    tem mais modos. Com `collection` (prefer), o TSX e o tokensCss precisam usar a mesma coleção
+    para `data-brand`; hoje o `export.code` usa sempre `brand_collection`, e os dois arquivos não
+    batem. Faça um teste com coleção de biblioteca e uma local de 1 a 2 modos.
+  - **Tarefa 2: ajuste pedido.** Em `export_with`/`ds_calls`, cada camada gera os próprios
+    imports. Duas telas que usam Button dão `import { Button }` duas vezes no mesmo .tsx (erro de
+    identificador duplicado). Deduplique os imports de todas as partes e ponha no topo, com um
+    teste de duas telas. Nit: o nome de um componente importado pode bater com o nome da função de
+    uma camada (raiz chamada "Button").
+  - **Riscos menores**, se der:
+    - Nomes "Card", "Card" e "Card2" geram duas funções `Card2` (numeração por nome original).
+    - `code_map.rs` `report`: o trabalho cresce sem limite (entradas × componentes com o mesmo
+      nome) e entradas duplicadas não são apontadas.
+  - **Tarefa 5:** ok, depois do ajuste da 4. Um parecer "bloqueado" ainda exporta. Concordo: quem
+    decide é a designer. Deixe isso escrito no cabeçalho do TSX.
+  - Quando a 4, a 2 e a 5 estiverem com CI verde, marque "pronto para juntar" no topo (`g3-handoff-proposta`).
