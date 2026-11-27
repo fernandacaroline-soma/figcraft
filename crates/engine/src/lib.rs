@@ -322,6 +322,8 @@ mod duplicate_map_tests;
 #[cfg(test)]
 mod duplicate_spacing_tests;
 #[cfg(test)]
+mod e10_tests;
+#[cfg(test)]
 mod effects_tests;
 #[cfg(test)]
 mod eureka_brand_tests;
