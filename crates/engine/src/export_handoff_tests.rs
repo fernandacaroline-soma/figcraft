@@ -63,8 +63,12 @@ fn the_chosen_proposal_goes_out_as_code_with_its_verdict_and_open_findings() {
     assert!(!tsx.contains("Sem estoque do tamanho."), "resolved: {tsx}");
     assert!(tsx.contains(" *   - [baixa] falhas: Sem foto do avesso.\n"), "{tsx}");
     // Then the TSX export.code gives, with the brand and the tokens.
-    assert!(tsx.contains("data-brand=\"nv\"") && tsx.contains("var(--colors-bg)"), "{tsx}");
+    assert!(tsx.contains("data-brand=\"nv\""), "{tsx}");
     assert_eq!(r["files"][1]["name"], "tokens.css");
+    // The screen's stylesheet is its own file (the one the TSX imports), with the tokens.
+    let sheet = r["files"][2]["text"].as_str().unwrap();
+    assert!(sheet.contains("var(--colors-bg)") && !tsx.contains("var(--colors-bg)"), "{r}");
+    assert!(tsx.contains(&format!("import \"./{}\";", r["files"][2]["name"].as_str().unwrap())), "{tsx}");
     assert_eq!(r["review"]["verdict"], "com-ressalvas");
     assert!(r["critique"]["open"].as_array().unwrap().iter().all(|f| f["status"] != "resolvido"), "{r}");
     // Read only.

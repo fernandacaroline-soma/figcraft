@@ -36,3 +36,17 @@ Importações do TSX: `import { Button } from "@acme/ds-apps";` e `import "./pdp
 
 - Arquivo real (proposta G, base do template, mapa ligado): **não rodado**. Em `~/eureka-cache` há só os snapshots de tokens e o mapa `ds-apps.connect.json`, sem o documento `.figcraft` da tela, então só o caminho sintético foi exercitado. O parâmetro `--input/--ids/--map` está pronto para quando o arquivo existir.
 - Tipos do DS falsos (por pedido): o resultado diz que a sintaxe e as importações fecham, não que as props batem com o pacote real.
+
+## Correção (PC2, 26/11): o CSS sai em arquivo próprio
+
+Branch `eureka/e10-css-separado`. O `export.code` (e o `explore.exportCode`, que usa o mesmo `code_files`) agora separa o código do `export.tsx` em arquivos:
+
+- `<Nome>.tsx`, só com o TSX;
+- `tokens.css`, a folha de tokens, como antes, na segunda posição;
+- um `<classe>.css` por componente, o arquivo que o TSX já importava (`import "./pdp-mobile.css"`), com as regras do bloco `/* pdp-mobile.css */`.
+
+O `code` do `export.tsx` continua igual. Os testes de ida e volta e o spike dependem dele.
+
+Rodei o script de novo com a CLI corrigida, no documento sintético: **(a) como exportado: compila, 0 erros** (antes eram 29); (b) também 0.
+
+Testes novos: `two_screens_export_one_tsx_with_no_css_and_a_stylesheet_each` e mais asserções em `export_code_writes_both_files_and_says_what_is_a_token` e no teste do `explore.exportCode`. Os 3 falham sem a correção. A proposta G real continua sem rodar, porque não há `.figcraft` dela neste PC.
