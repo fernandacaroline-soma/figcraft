@@ -48,8 +48,8 @@ dois trabalhem juntos por aqui.
 | 9 | **Validar a chave (E15), primeiro de tudo.** `git pull`, compile e abra o app com `--control PORTA`. Rode `python3 docs/eureka/checar_chave.py PORTA` (já no principal) e cole o resultado nos Recados. Ajuste os seus scripts para mandar a chave (`eureka_control.auth(f, PORT)` logo depois do `create_connection`). Atenção: a partir do E15, os agentes só leem e gravam na pasta temporária e nas pastas que a designer autorizou em Preferências. Para ler o `eureka-cache`, abra o app com `--automation-read-root <eureka-cache> --automation-write-root <sua pasta de trabalho>`. | feita (26/11): chave validada no PC2, resultado nos Recados |
 | 10 | **E10, teste automático: editar à mão uma instância do DS sem desanexar.** Uma instância de componente com marca de biblioteca (`eureka.library`): trocar o texto e a variante pela edição normal (os mesmos comandos dos painéis) e conferir que ela continua instância do mesmo componente, sem token novo e com origem "human". Teste no motor que falhe se a edição desanexar. | juntada no principal (PC2, CI verde) |
 | 11 | **E10, teste automático: salvar, reabrir e manter.** Um quadro com proposta escolhida, crítica, parecer, `brand.apply` e uma edição manual: salvar em `.figcraft`, reabrir e conferir que `eureka.proposal`, `eureka.critique`, `eureka.review`, `eureka.brand`, a origem por camada e o modo da marca continuam iguais. | juntada no principal (PC2, CI verde) |
-| 12 | **E10: o TSX exportado compila?** Um script em `docs/eureka/` que exporta a proposta G (base do template, mapa ligado) e roda `npx tsc --noEmit` num projeto React mínimo e temporário, com tipos falsos para `@azzas/ds-apps`. Relatório: compila ou não, e por quê. Fica fora do CI; não instale nada global. | PC2 · eureka/e10-tsx-compila · 26/11 |
-| 13 | **Dívida técnica: os 3 testes do mapa mental (`board_mindmap_tests`) que falham no Mac e passam no CI.** Achar a causa (fonte do sistema? medida de texto?) e registrar em `docs/eureka/DIVIDA-TECNICA.md`. Corrigir só se a causa for clara e a correção pequena, com teste. Não mude o CI. | PC2 · eureka/divida-mapa-mental · 26/11 |
+| 12 | **E10: o TSX exportado compila?** Um script em `docs/eureka/` que exporta a proposta G (base do template, mapa ligado) e roda `npx tsc --noEmit` num projeto React mínimo e temporário, com tipos falsos para `@azzas/ds-apps`. Relatório: compila ou não, e por quê. Fica fora do CI; não instale nada global. | juntada no principal (PC2, CI verde) |
+| 13 | **Dívida técnica: os 3 testes do mapa mental (`board_mindmap_tests`) que falham no Mac e passam no CI.** Achar a causa (fonte do sistema? medida de texto?) e registrar em `docs/eureka/DIVIDA-TECNICA.md`. Corrigir só se a causa for clara e a correção pequena, com teste. Não mude o CI. | juntada no principal (PC2, CI verde) |
 
 ### Tarefa 1: detalhes
 
@@ -204,3 +204,14 @@ dois trabalhem juntos por aqui.
   `review`, `brand`, `origin` e o modo da marca). A prova de que o teste pega a regressão: com
   `#[serde(skip)]` no `plugin_data`, ele falha. Nenhum bug encontrado. Detalhes em
   `docs/eureka/E10-testes-motor.md`. Tarefas 12 e 13 em andamento.
+- **26/11, PC2 (tarefas 12 e 13, CI verde, juntadas por mim):**
+  - **13** (`46085286`): os 3 testes do mapa mental medem o texto com o banco de fontes, que fica
+    vazio sem o craft-fonts embutido (o Mac e este PC não têm; o CI tem) se ninguém chamou
+    `scan_system_fonts()`. Reproduzi no Windows: os mesmos 3 falhavam. Agora o módulo de testes
+    varre as fontes do sistema antes; os 11 passam. Registro em `docs/eureka/DIVIDA-TECNICA.md`.
+  - **12** (`ab1d1d41`): `docs/eureka/e10_tsx_compila.py`. **O TSX não compila como sai do
+    `export.code`**: 29 erros de sintaxe, porque o bloco de CSS (depois de `/* nome.css */`) vai
+    dentro do `<Nome>.tsx` e o `./nome.css` importado nunca é escrito. Com o CSS separado, 0 erros.
+    Não rodei a "proposta G" real (não há `.figcraft` dela neste PC), e os tipos falsos do DS aceitam
+    qualquer prop. **Vou corrigir agora o `export.code`** (o defeito é meu, da tarefa 1): CSS em
+    arquivo próprio. Relatório em `docs/eureka/E10-tsx-compila.md`.
