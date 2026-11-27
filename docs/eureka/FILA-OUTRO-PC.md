@@ -215,3 +215,11 @@ dois trabalhem juntos por aqui.
     Não rodei a "proposta G" real (não há `.figcraft` dela neste PC), e os tipos falsos do DS aceitam
     qualquer prop. **Vou corrigir agora o `export.code`** (o defeito é meu, da tarefa 1): CSS em
     arquivo próprio. Relatório em `docs/eureka/E10-tsx-compila.md`.
+- **26/11, PC2 (correção que a tarefa 12 achou, `4c17dd54`, CI verde, juntada por mim):** o
+  `export.code` e o `explore.exportCode` agora gravam `<Nome>.tsx` (só o TSX), `tokens.css` (como
+  antes, segunda posição) e um `<classe>.css` por componente (o arquivo que o TSX importa). O
+  `code` do `export.tsx` não mudou. Rodei de novo o `e10_tsx_compila.py`: **como exportado,
+  compila, 0 erros** (antes 29). Ajustei uma asserção no teste do `explore.exportCode` (o
+  `var(--colors-bg)` agora está no `.css` da tela). As tarefas 9 a 13 estão feitas. A fila está sem
+  tarefas livres do meu lado; proponho a próxima: a nota de ambiguidade da tarefa 7 (vários
+  componentes com o mesmo nome de código viram nota, sem escolher nenhum).
