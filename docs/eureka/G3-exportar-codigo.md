@@ -48,3 +48,7 @@ No app, a seção **Exportar** do painel direito, com uma camada selecionada, ga
 - O relatório no painel fica até a seleção mudar. Ele não fica guardado no arquivo.
 - A marca padrão segue uma regra simples: coleção do arquivo e depois mais modos. Num arquivo com duas coleções do arquivo e muitos modos cada, use `collection`.
 - `export.tsx` ainda não usa `--text-<estilo>-*`.
+
+## Correção (26/11): um arquivo CSS por componente
+
+O `.tsx` do `export.code` levava junto o bloco de CSS do componente e não compilava (29 erros de sintaxe no `tsc`; ver `E10-tsx-compila.md`). Agora o resultado tem `<Nome>.tsx`, `tokens.css` e um `<classe>.css` por componente, o arquivo que o TSX importa. O botão **Exportar código** grava os três.
