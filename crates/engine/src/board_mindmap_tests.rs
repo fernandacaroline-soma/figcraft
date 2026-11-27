@@ -8,8 +8,17 @@ use serde_json::{Value, json};
 
 use crate::Session;
 use crate::board::text_of;
-use crate::board_tests::{board, connector, drawn, id, near, node};
+use crate::board_tests::{connector, drawn, id, near, node};
 use crate::collab_live_tests::Room;
+
+/// A board with the system fonts scanned. A node's size is its text measured, and without
+/// craft-fonts (not embedded in a local build that lacks `../craft-fonts`) the font database is
+/// empty until a scan: lines then measure nothing and these tests failed on such machines, passing
+/// only when another test of the process had scanned first (#333).
+fn board() -> Session {
+    figcraft_text::scan_system_fonts();
+    crate::board_tests::board()
+}
 
 fn bx(s: &Session, id: NodeId) -> Rect {
     s.doc().unwrap().world_bounds(id).unwrap()
